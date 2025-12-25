@@ -1,0 +1,96 @@
+[build-system]
+build-backend = "hatchling.build"
+dependencies = [ ]
+requires = [ "hatchling>=1.24.2", "hatch-vcs>=0.4.0" ]
+
+[dependency-groups]
+all = [ ]
+dev = [
+  "mypy>=1.18.2",
+  "mypy-boto3-s3>=1.40.61",
+  "pytest>=8.4.2",
+  "pytest-cov>=7.0.0",
+  "pytest-sugar>=0.9.7",
+  "pytest-xdist>=3.3.0",
+  "ruff>=0.14.3"
+]
+mkdocs = [ ]
+
+[project]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Operating System :: OS Independent"
+]
+description = "Logging control plane and unifier"
+name = "logspark"
+readme = "README.md"
+requires-python = ">=3.11"
+version = "0.0.0"
+
+  [[project.authors]]
+  name = "Willem van der Schans"
+
+  [project.license]
+  text = "MIT"
+
+  [project.urls]
+  "Author GitHub" = "https://github.com/Kydoimos97"
+  "Author PyPI" = "https://pypi.org/user/Kydoimos97/"
+  Homepage = "https://github.com/Kydoimos97/logspark"
+  PyPI = "https://pypi.org/project/logspark/"
+
+[tool.coverage.report]
+omit = [ "tests/*", "*/__init__.py" ]
+show_missing = true
+skip_empty = true
+
+[tool.coverage.run]
+omit = [ "tests/*", "*/__init__.py" ]
+source = [ "logspark" ]
+
+[tool.hatch.build.targets.sdist]
+include = [ "logspark", "pyproject.toml", "README.md", "LICENSE" ]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "logspark" ]
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+
+[tool.pytest.ini_options]
+addopts = [
+  "-v",
+  "--strict-markers",
+  "--tb=short",
+  "--disable-warnings",
+  "-ra",
+  "-s"
+]
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning"
+]
+import_mode = "importlib"
+markers = [
+  "slow: marks tests as slow",
+  "integration: marks tests as integration tests"
+]
+python_classes = [ "Test*" ]
+python_files = [ "test_*.py" ]
+python_functions = [ "test_*" ]
+testpaths = [ "tests" ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+  [tool.ruff.format]
+  indent-style = "space"
+  quote-style = "double"
+
+  [tool.ruff.lint]
+  select = [ "E", "F", "I" ]
