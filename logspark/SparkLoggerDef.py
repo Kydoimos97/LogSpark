@@ -3,15 +3,16 @@ import threading
 import warnings
 from typing import Optional, Union, Any
 
-from .Internal.Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
+from .Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
 from .Types import FrozenConfigurationError, InvalidConfigurationError
 from .Types.Exceptions import UnconfiguredUsageWarning
 from .Internal.State import SingletonClass
 from .Internal.State import LoggerConfig
-from .Internal.Func import create_pre_config_handler
+from .Handlers.PreConfig import pre_config_handler
 from .Internal.Func import configure_handler_traceback_policy
 from .Internal.Func import resolve_stacklevel
 from .Internal.Func import validate_configuration_parameters
+from .Internal.State import is_fast_mode
 from .Types import TracebackOptions, PresetOptions
 
 
@@ -161,7 +162,6 @@ class SparkLogger:
         self,
         level: int = logging.INFO,
         *,
-        fast_log: bool = False,
         traceback: Union[TracebackOptions, str, None] = TracebackOptions.COMPACT,
         handler: Optional[logging.Handler] = None,
         preset: Optional[Union[PresetOptions, str]] = None,
@@ -176,10 +176,6 @@ class SparkLogger:
         Args:
             level: Standard library logging level (e.g., logging.INFO, logging.DEBUG).
                 Controls which messages are processed based on severity.
-
-            fast_log: Performance optimization that trades call-site accuracy for speed.
-                When True, uses constant-time stacklevel resolution instead of frame walking.
-                Recommended for high-throughput scenarios where logging performance is critical.
 
             handler: Custom stdlib Handlers instance that defines transport and formatting.
                 When provided, this handler will be used regardless of preset settings.
@@ -200,6 +196,7 @@ class SparkLogger:
                   when available, suitable for development and interactive use.
                 - PresetOptions.JSON | "json": Structured JSON output for log aggregation and
                   production environments.
+
             no_freeze: If True, calling this method does not freeze the logger's configuration.
 
         Raises:
@@ -231,91 +228,39 @@ class SparkLogger:
             if self._frozen:
                 raise FrozenConfigurationError("Cannot configure logger after freeze")
 
-            traceback_map = {
-                "none": TracebackOptions.NONE,
-                "compact": TracebackOptions.COMPACT,
-                "full": TracebackOptions.FULL,
-            }
-
-            # Convert string traceback to enum if needed
-            if traceback is None:
-                traceback = TracebackOptions.NONE
-            if isinstance(traceback, str):
-                traceback_map = {
-                    "none": TracebackOptions.NONE,
-                    "compact": TracebackOptions.COMPACT,
-                    "full": TracebackOptions.FULL,
-                }
-                traceback_lower = traceback.lower()
-                if traceback_lower not in traceback_map:
-                    raise InvalidConfigurationError(
-                        f"Invalid traceback option '{traceback}'. "
-                        f"Valid options: {list(traceback_map.keys())}"
-                    )
-                traceback = traceback_map[traceback_lower]
-
-            if not isinstance(traceback, TracebackOptions):
-                raise InvalidConfigurationError(
-                    f"Invalid traceback traceback option '{traceback}'. "
-                    f"Valid options: {list(traceback_map.keys())}"
-                )
-
-            preset_map = {
-                "terminal": PresetOptions.TERMINAL,
-                "json": PresetOptions.JSON,
-            }
-
-            if isinstance(preset, str):
-                preset_map = {
-                    "terminal": PresetOptions.TERMINAL,
-                    "json": PresetOptions.JSON,
-                }
-                preset = preset.lower()
-                if preset not in preset_map:
-                    raise InvalidConfigurationError(
-                        f"Invalid preset option '{preset}'. "
-                        f"Valid options: {list(preset_map.keys())}"
-                    )
-                preset = preset_map[preset]
-
-            if preset is not None and not isinstance(preset, PresetOptions):
-                raise InvalidConfigurationError(
-                    f"Invalid preset option '{preset}'. Valid options: {list(preset_map.keys())}"
-                )
-
             # Validate parameters before creating configuration
-            validate_configuration_parameters(level, fast_log, handler, traceback)
+            tracebackoption, presetoption = validate_configuration_parameters(level, traceback, handler, preset, no_freeze)
 
             # Default to TerminalHandler if none provided
-            if fast_log and handler is None:
+            if is_fast_mode() and handler is None:
                 # Fast logging with no explicit handler - use NullHandler for maximum speed
                 fmt: logging.Handler = logging.NullHandler()
-            elif handler is None and preset is not None:
+            elif handler is None and presetoption is not None:
                 # if handler is none but preset isn't we apply the preset
-                if preset == PresetOptions.TERMINAL:
+                if presetoption == PresetOptions.TERMINAL:
                     from .Handlers import TerminalHandler
 
                     fmt = TerminalHandler()
-                elif preset == PresetOptions.JSON:
+                elif presetoption == PresetOptions.JSON:
                     from .Handlers import JSONHandler
 
                     fmt = JSONHandler()
                 else:
                     # invalid preset
                     raise ValueError(f"Invalid preset '{preset}'")
-            elif handler is None and preset is None:
+            elif handler is None and presetoption is None:
                 # both are none so we fall back to default
                 from .Handlers import TerminalHandler
 
                 fmt = TerminalHandler()
             else:
-                # handler has been passed so we use it (even with fast_log=True)
+                # handler has been passed
                 assert handler is not None
                 fmt = handler
 
             # Create configuration
             config = LoggerConfig(
-                level=level, fast_log=fast_log, handler=fmt, traceback_policy=traceback
+                level=level, handler=fmt, traceback_policy=tracebackoption
             )
 
             self._config = config
@@ -394,10 +339,7 @@ class SparkLogger:
     # INTERNAL
     def _log_with_callsite(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
         """
-        Log with accurate call-site resolution that never points to LogSpark internals
-
-        Handles fast_log parameter: when fast_log is True, stacklevel adjustments
-        are disabled for constant-time performance that doesn't scale with call depth.
+        Log with accurate call-site resolution
 
         Args:
             level: Logging level
@@ -405,14 +347,12 @@ class SparkLogger:
             *args: Message formatting arguments
             **kwargs: Additional logging arguments
         """
-        # Determine if fast_log is enabled
-        fast_log = self._config is not None and self._config.fast_log
 
         # Get user-provided stacklevel or default
         user_stacklevel = kwargs.get("stacklevel", 1)
 
         # Resolve appropriate stacklevel to point to actual calling code
-        resolved_stacklevel = resolve_stacklevel(fast_log, user_stacklevel)
+        resolved_stacklevel = resolve_stacklevel(user_stacklevel)
         kwargs["stacklevel"] = resolved_stacklevel
 
         self.instance.log(level, msg, *args, **kwargs)
@@ -437,7 +377,7 @@ class SparkLogger:
             self._stdlib_logger.addFilter(ddtrace_filter)
 
             # Detect stdlib handler as fallback
-            handler = create_pre_config_handler()
+            handler = pre_config_handler()
             self._stdlib_logger.addHandler(handler)
 
             self._pre_config_setup_done = True
