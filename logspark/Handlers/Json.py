@@ -20,6 +20,17 @@ class _SingleLineJSONFormatter(logging.Formatter):
 
     This formatter wraps python-json-logger to ensure all output is single-line,
     including traceback information, regardless of traceback policy.
+
+    Record mutation:
+        This handler may mutate ``LogRecord.exc_info`` and ``LogRecord.exc_text``
+        during formatting in order to enforce traceback policy and the
+        single-line JSON invariant. These mutations are confined to the
+        formatting phase and do not affect upstream logging behavior.
+
+    Invariant:
+        Each emitted log record results in exactly one line of JSON output.
+
+
     """
 
     def __init__(self, json_formatter: "JsonFormatter") -> None:
