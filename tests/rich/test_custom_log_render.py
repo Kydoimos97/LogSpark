@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from logspark.Internal.Hooks.CustomLogRender import CustomLogRender
+from logspark.Hooks.CustomLogRender import CustomLogRender
 
 
 class TestCustomLogRenderInitialization:

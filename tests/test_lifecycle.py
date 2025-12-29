@@ -14,7 +14,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from logspark import logger
-from logspark.Internal.Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
+from logspark.Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
 from logspark.Types import TracebackOptions
 from logspark.Types.Exceptions import (
     FrozenConfigurationError,
@@ -28,12 +28,11 @@ class TestLoggerLifecycle:
 
     def test_configure_sets_config_and_freezes(self, fresh_logger, test_handler):
         """Test that configure() sets configuration and automatically freezes"""
-        fresh_logger.configure(level=logging.DEBUG, fast_log=True, traceback=TracebackOptions.COMPACT, handler=test_handler)
+        fresh_logger.configure(level=logging.DEBUG, traceback=TracebackOptions.COMPACT, handler=test_handler)
 
         assert fresh_logger.is_frozen
         assert fresh_logger._config is not None
         assert fresh_logger.config.level == logging.DEBUG
-        assert fresh_logger.config.fast_log is True
         assert fresh_logger.config.traceback_policy == TracebackOptions.COMPACT
 
     def test_configure_after_configure_fails(self, fresh_logger, test_handler):
@@ -94,18 +93,16 @@ class TestLoggerConfiguration:
 
         assert fresh_logger._config is not None
         assert fresh_logger.config.level == logging.INFO
-        assert fresh_logger.config.fast_log is False
         assert fresh_logger.config.traceback_policy == TracebackOptions.COMPACT
         from logspark.Handlers import TerminalHandler
         assert isinstance(fresh_logger.config.handler, TerminalHandler)
 
     def test_custom_configuration(self, fresh_logger, test_handler):
         """Test configure() with custom parameters"""
-        fresh_logger.configure(level=logging.WARNING, fast_log=True, traceback=TracebackOptions.FULL, handler=test_handler)
+        fresh_logger.configure(level=logging.WARNING, traceback=TracebackOptions.FULL, handler=test_handler)
 
         config = fresh_logger.config
         assert config.level == logging.WARNING
-        assert config.fast_log is True
         assert config.handler is test_handler
         assert config.traceback_policy == TracebackOptions.FULL
 
@@ -128,7 +125,7 @@ class TestLoggerLoggingMethods:
         stream = io.StringIO()
         handler = StreamHandler(stream)
         handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
-        logger.configure(handler = handler)
+        logger.configure(handler=handler)
 
 
         logger.info("test info message")
@@ -214,7 +211,7 @@ class TestLifecycleProperties:
         test_logger = SparkLogger()
         try:
             test_handler = logging.StreamHandler()
-            test_logger.configure(level=log_level, fast_log=False, traceback=TracebackOptions.NONE, handler=test_handler)
+            test_logger.configure(level=log_level, traceback=TracebackOptions.NONE, handler=test_handler)
 
             assert test_logger._config is not None
             assert test_logger.config.level == log_level
@@ -262,10 +259,9 @@ class TestConfigurationProperties:
 
     @given(
         level=st.sampled_from([logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]),
-        fast_log=st.booleans(),
         traceback_policy=st.sampled_from([TracebackOptions.NONE, TracebackOptions.COMPACT, TracebackOptions.FULL]),
     )
-    def test_handler_based_configuration_validation(self, level, fast_log, traceback_policy):
+    def test_handler_based_configuration_validation(self, level, traceback_policy):
         """Test that configuration accepts valid parameters and rejects invalid ones"""
         from logspark import SparkLogger
         from logspark.Handlers import JSONHandler, TerminalHandler
@@ -276,18 +272,17 @@ class TestConfigurationProperties:
 
             for handler in valid_handlers:
                 test_logger.kill()  # Reset for each test
-                test_logger.configure(level=level, fast_log=fast_log, traceback=traceback_policy, handler=handler)
+                test_logger.configure(level=level, traceback=traceback_policy, handler=handler)
 
                 assert test_logger._config is not None
                 assert test_logger.config.level == level
-                assert test_logger.config.fast_log == fast_log
                 assert test_logger.config.handler is handler
                 assert test_logger.config.traceback_policy == traceback_policy
 
             # Test invalid parameter types
             test_logger.kill()
             with pytest.raises(InvalidConfigurationError):
-                test_logger.configure(level="invalid", fast_log=fast_log, traceback=traceback_policy, handler=logging.StreamHandler())
+                test_logger.configure(level="invalid", traceback=traceback_policy, handler=logging.StreamHandler())
 
         finally:
             test_logger.kill()
@@ -302,7 +297,7 @@ class TestConfigurationProperties:
 
         test_logger = SparkLogger()
         try:
-            test_logger.configure(level=logging.INFO, fast_log=False, traceback=valid_policy, handler=logging.StreamHandler())
+            test_logger.configure(level=logging.INFO, traceback=valid_policy, handler=logging.StreamHandler())
 
             assert test_logger._config is not None
             assert test_logger.config.traceback_policy == valid_policy
@@ -311,7 +306,7 @@ class TestConfigurationProperties:
             test_logger.kill()
 
             with pytest.raises(InvalidConfigurationError):
-                test_logger.configure(level=logging.INFO, fast_log=False, traceback=invalid_policy, handler=logging.StreamHandler())
+                test_logger.configure(level=logging.INFO, traceback=invalid_policy, handler=logging.StreamHandler())
 
             assert TracebackOptions.NONE.value is None
             assert TracebackOptions.COMPACT.value == "compact"
@@ -341,7 +336,7 @@ class TestLogOverrideProperties:
         
         try:
             test_handler = logging.StreamHandler()
-            test_logger.configure(level=original_level, fast_log=False, traceback=TracebackOptions.NONE, handler=test_handler)
+            test_logger.configure(level=original_level, traceback=TracebackOptions.NONE, handler=test_handler)
 
             original_config = test_logger.config
             original_frozen_state = test_logger._frozen
@@ -392,7 +387,7 @@ class TestDDTraceIntegration:
         )
 
         # Test the filter with mocked ddtrace - patch the correct import path
-        with patch("logspark.Internal.Hooks.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
+        with patch("logspark.Hooks.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
             filter_instance = DDTraceCorrelationFilter()
             result = filter_instance.filter(record)
 

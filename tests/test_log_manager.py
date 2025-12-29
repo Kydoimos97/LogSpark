@@ -437,11 +437,10 @@ class TestLogManagerProperties:
             TracebackOptions.COMPACT,
             TracebackOptions.FULL,
         ]),
-        fast_log_values=st.booleans(),
         freeze_before_unify=st.booleans(),
     )
     def test_global_operation_preconditions(
-        self, config_levels, traceback_policies, fast_log_values, freeze_before_unify):
+        self, config_levels, traceback_policies, freeze_before_unify):
         """
         For any global operation like unify_format(), the operation should require a frozen
         logger configuration and raise a hard error if called before freeze
@@ -462,7 +461,7 @@ class TestLogManagerProperties:
 
             if freeze_before_unify:
                 # Freeze the logger before attempting unify_format
-                fresh_logger.configure(level=config_levels, fast_log=fast_log_values, traceback=traceback_policies, handler=TerminalHandler())
+                fresh_logger.configure(level=config_levels, traceback=traceback_policies, handler=TerminalHandler())
 
                 # unify_format should succeed with frozen logger
                 try:
@@ -478,7 +477,7 @@ class TestLogManagerProperties:
                             f"Unexpected UnfrozenGlobalOperationError with frozen logger: {e}"
                         )
             else:
-                fresh_logger.configure(level=config_levels, fast_log=fast_log_values, traceback=traceback_policies, handler=TerminalHandler(), no_freeze=True)
+                fresh_logger.configure(level=config_levels, traceback=traceback_policies, handler=TerminalHandler(), no_freeze=True)
                 # Do not freeze the logger before attempting unify_format
                 # unify_format should raise UnfrozenGlobalOperationError
                 with pytest.raises(

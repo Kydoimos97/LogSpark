@@ -95,7 +95,7 @@ def test_handler(test_stream):
 @pytest.fixture
 def configured_logger(fresh_logger, test_handler):
     """Provide a configured but not frozen logger"""
-    fresh_logger.configure(level=logging.INFO, fast_log=False, traceback=TracebackOptions.NONE, handler=test_handler)
+    fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=test_handler)
     return fresh_logger
 
 

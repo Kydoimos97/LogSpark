@@ -7,6 +7,7 @@ and never introduces custom logging semantics beyond configuration and control.
 
 import inspect
 import logging
+import os
 from io import StringIO
 
 from hypothesis import given, settings
@@ -41,19 +42,18 @@ class TestCallSiteResolution:
             logging.ERROR,
             logging.CRITICAL,
         ]),
-        fast_log=st.booleans(),
         message=st.text(min_size=1, max_size=100),
         stacklevel=st.integers(min_value=1, max_value=5),
     )
     @settings(max_examples=100)
-    def test_call_site_resolution_accuracy(self, level, fast_log, message, stacklevel):
+    def test_call_site_resolution_accuracy(self, level, message, stacklevel):
         """
         For any logged message, the call-site information should point to the actual
         calling code, never to LogSpark internal implementation.
         """
         # Configure logger with test parameters
         handler = TerminalHandler()
-        logger.configure(level=logging.DEBUG, fast_log=fast_log, handler=handler, no_freeze=True)
+        logger.configure(level=logging.DEBUG, handler=handler, no_freeze=True)
 
         # Capture log output to examine call-site information
         log_stream = StringIO()
@@ -111,18 +111,16 @@ class TestCallSiteResolution:
 
                 # The key requirement: call-site should NEVER point to LogSpark internal modules
                 # EXCEPT when fast_log=True (fast_log trades accuracy for performance)
-                if not fast_log:
-                    assert not (
-                        "LogSpark/Logging/" in logged_filename
-                        or logged_filename.endswith("LogSpark/Logging/core.py")
-                        or logged_filename.endswith("LogSpark/Logging/Terminal.py")
-                    ), f"Call-site points to LogSpark internal module: {logged_filename}"
+                assert not (
+                    "LogSpark/Logging/" in logged_filename
+                    or logged_filename.endswith("LogSpark/Logging/core.py")
+                    or logged_filename.endswith("LogSpark/Logging/Terminal.py")
+                ), f"Call-site points to LogSpark internal module: {logged_filename}"
 
-                # For stacklevel=1 (default) and non-fast_log, it should point to our test code
-                # For fast_log or higher stacklevels, it may point anywhere (including internals)
-                if stacklevel == 1 and not fast_log:
+                # For stacklevel=1 (default), it should point to our test code
+                if stacklevel == 1:
                     assert "test_stdlib_compliance.py" in logged_filename, (
-                        f"With stacklevel=1 and fast_log=False, call-site should point to test code, got: {logged_filename}"
+                        f"With stacklevel=1, call-site should point to test code, got: {logged_filename}"
                     )
 
     @given(
@@ -144,12 +142,13 @@ class TestCallSiteResolution:
         regardless of call depth.
         """
         # Skip whitespace-only messages that are hard to match in output
+        starting_val = os.environ.pop('LOGSPARK_MODE', '')
+        os.environ['LOGSPARK_MODE'] = 'fast'
         if not message.strip():
             return
 
-        # Configure logger with fast_log enabled
         handler = TerminalHandler()
-        logger.configure(level=logging.DEBUG, fast_log=True, handler=handler, no_freeze=True)
+        logger.configure(level=logging.DEBUG, handler=handler, no_freeze=True)
 
         # Capture log output with a formatter that includes the message clearly
         log_stream = StringIO()
@@ -188,6 +187,7 @@ class TestCallSiteResolution:
                 assert message in log_output, (
                     f"Message '{message}' not found in output '{log_output}' at depth {depth}"
                 )
+        os.environ['LOGSPARK_MODE'] = starting_val
 
 
 class TestLoggingSemantics:

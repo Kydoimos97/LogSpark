@@ -70,13 +70,11 @@ class TestLoggerConfig:
         handler = logging.StreamHandler()
         config = LoggerConfig(
             level=logging.INFO,
-            fast_log=False,
             handler=handler,
             traceback_policy=TracebackOptions.NONE,
         )
 
         assert config.level == logging.INFO
-        assert config.fast_log is False
         assert config.handler is handler
         assert config.traceback_policy == TracebackOptions.NONE
 
@@ -88,16 +86,6 @@ class TestLoggerConfig:
         with pytest.raises(ValueError):
             LoggerConfig(
                 level="invalid",
-                fast_log=False,
-                handler=handler,
-                traceback_policy=TracebackOptions.NONE,
-            )
-
-        # Test invalid fast_log
-        with pytest.raises(ValueError):
-            LoggerConfig(
-                level=logging.INFO,
-                fast_log="invalid",
                 handler=handler,
                 traceback_policy=TracebackOptions.NONE,
             )
@@ -106,7 +94,6 @@ class TestLoggerConfig:
         with pytest.raises(ValueError):
             LoggerConfig(
                 level=logging.INFO,
-                fast_log=False,
                 handler="invalid",
                 traceback_policy=TracebackOptions.NONE,
             )
@@ -114,7 +101,7 @@ class TestLoggerConfig:
         # Test invalid traceback_policy
         with pytest.raises(ValueError):
             LoggerConfig(
-                level=logging.INFO, fast_log=False, handler=handler, traceback_policy="invalid"
+                level=logging.INFO, handler=handler, traceback_policy="invalid"
             )
 
 

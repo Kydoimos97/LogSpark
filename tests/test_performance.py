@@ -6,6 +6,7 @@ These tests validate performance characteristics and detect regressions.
 
 import gc
 import logging
+import os
 import time
 from io import StringIO
 import pytest
@@ -40,9 +41,7 @@ class TestDeepCallStackPerformance:
                 logging.Formatter("%(name)s:%(filename)s:%(lineno)d - %(message)s")
             )
 
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=False, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             # Test with various call stack depths
@@ -70,13 +69,16 @@ class TestDeepCallStackPerformance:
 
     def test_fast_log_performance_benefit(self, fresh_logger, request, capsys):
         """Test that fast_log=True provides performance benefit"""
+
+        starting_val = os.environ.pop("LOGSPARK_MODE", '')
+        os.environ['LOGSPARK_MODE'] = 'FAST'
+
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
+
             # Test with fast_log=False (accurate call-site resolution)
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=False, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             start_time = time.perf_counter()
@@ -85,22 +87,21 @@ class TestDeepCallStackPerformance:
             slow_time = time.perf_counter() - start_time
 
             # Reset logger for fast_log=True test
+            os.environ['LOGSPARK_MODE'] = 'FAST'
             fresh_logger._config = None
             fresh_logger._frozen = False
             if fresh_logger._stdlib_logger:
                 fresh_logger._stdlib_logger.handlers.clear()
 
             # Test with fast_log=True (performance optimized)
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             start_time = time.perf_counter()
             for i in range(1000):
                 self.create_deep_call_stack(10, fresh_logger)
             fast_time = time.perf_counter() - start_time
-
+            os.environ['LOGSPARK_MODE'] = starting_val
             # fast_log should be faster (or at least not significantly slower)
             # Allow some variance but expect meaningful improvement
             _debug_print(request, capsys, f"Slow time (fast_log=False): {slow_time:.4f}s")
@@ -113,6 +114,7 @@ class TestDeepCallStackPerformance:
             )
 
 
+
 class TestHighVolumeLoggingPerformance:
     """Test performance with high-volume logging"""
 
@@ -122,9 +124,7 @@ class TestHighVolumeLoggingPerformance:
             handler = logging.StreamHandler(devnull)
             handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
 
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             # Test with 10,000 log calls
@@ -154,9 +154,7 @@ class TestHighVolumeLoggingPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.ERROR, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.ERROR, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             num_calls = 10000
@@ -216,9 +214,7 @@ class TestLargePayloadPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             # Test with various message sizes
@@ -249,9 +245,7 @@ class TestLargePayloadPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             # Create large structured data
@@ -287,12 +281,7 @@ class TestJSONFormattingPerformance:
         with StringIO() as devnull:
             json_handler = JSONHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO,
-                fast_log=True,
-                traceback=TracebackOptions.NONE,
-                handler=json_handler,
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=json_handler)
             fresh_logger.freeze()
 
             num_calls = 1000
@@ -327,9 +316,7 @@ class TestJSONFormattingPerformance:
                 if fresh_logger._stdlib_logger:
                     fresh_logger._stdlib_logger.handlers.clear()
 
-                fresh_logger.configure(
-                    level=logging.ERROR, fast_log=True, traceback=policy, handler=json_handler
-                )
+                fresh_logger.configure(level=logging.ERROR, traceback=policy, handler=json_handler)
                 fresh_logger.freeze()
 
                 # Create exceptions to log
@@ -408,12 +395,7 @@ class TestManagerUnificationPerformance:
         fresh_log_manager.adopt_all()
 
         # Configure and freeze the main logger
-        fresh_logger.configure(
-            level=logging.INFO,
-            fast_log=True,
-            traceback=TracebackOptions.COMPACT,
-            handler=TerminalHandler(),
-        )
+        fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.COMPACT, handler=TerminalHandler())
         fresh_logger.freeze()
 
         # Measure unify_format() performance
@@ -516,9 +498,7 @@ class TestMemoryPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             # Force garbage collection and measure initial memory
@@ -544,7 +524,6 @@ class TestMemoryPerformance:
 
             # LogRecord objects should be garbage collected after processing.
             # This test asserts that no objects are retained (no memory leaks).
-            assert fresh_logger.config.fast_log is True
             assert fresh_logger.config.traceback_policy is TracebackOptions.NONE
             assert len(fresh_logger._stdlib_logger.handlers) == 1
             assert after - baseline == expected_growth
@@ -554,9 +533,7 @@ class TestMemoryPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, fast_log=True, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler)
             fresh_logger.freeze()
 
             # Create a large message

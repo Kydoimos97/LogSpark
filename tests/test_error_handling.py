@@ -88,7 +88,7 @@ class TestFrozenConfigurationError:
             with pytest.raises(
                 FrozenConfigurationError, match="Cannot configure logger after freeze"
             ):
-                fresh_logger.configure(level=logging.WARNING, fast_log=True, traceback=TracebackOptions.FULL, handler=TerminalHandler())
+                fresh_logger.configure(level=logging.WARNING, traceback=TracebackOptions.FULL, handler=TerminalHandler())
 
 
 class TestInvalidConfigurationError:
@@ -101,14 +101,6 @@ class TestInvalidConfigurationError:
         for invalid_level in invalid_levels:
             with pytest.raises(InvalidConfigurationError):
                 fresh_logger.configure(level=invalid_level)
-
-    def test_invalid_fast_log_raises_invalid_config_error(self, fresh_logger):
-        """Test that invalid fast_log parameter raises InvalidConfigurationError"""
-        invalid_fast_log_values = ["true", 1, "false", object(), []]
-
-        for invalid_fast_log in invalid_fast_log_values:
-            with pytest.raises(InvalidConfigurationError):
-                fresh_logger.configure(fast_log=invalid_fast_log)
 
     def test_invalid_handler_raises_invalid_config_error(self, fresh_logger):
         """Test that invalid handler parameter raises InvalidConfigurationError"""
@@ -136,7 +128,6 @@ class TestInvalidConfigurationError:
         """Test that InvalidConfigurationError messages are descriptive"""
         test_cases = [
             ("level", "invalid_level", "level must be an integer"),
-            ("fast_log", "not_boolean", "fast_log must be a boolean"),
             ("handler", "not_handler", "handler must be a logging.Handlers instance"),
             ("traceback", "not_enum", "Valid options:"),
             ("traceback", 0, "Valid options:"),
