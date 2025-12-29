@@ -5,12 +5,8 @@ from logging import Filter
 from types import TracebackType
 from typing import Optional, Union, Callable, cast, IO, TYPE_CHECKING
 
-from ..Internal.Func.env import (
-    emit_console_warning,
-    is_supported_terminal,
-    get_devnull,
-    is_silenced_mode,
-)
+from ..Internal.Func import emit_console_warning, get_devnull
+from ..Internal.State.Env import is_supported_terminal, is_silenced_mode
 from ..Types import InvalidConfigurationError, TracebackOptions
 from ..Types.Protocol import SupportsWrite, _SupportsFilter
 
@@ -137,7 +133,7 @@ class TerminalHandler(logging.Handler):
         """
         # Detect Rich availability and create appropriate handler
         if self._use_rich and not no_rich:
-            from ..Internal.Hooks.SparkRichHandler import SparkRichHandler
+            from ..Hooks.SparkRichHandler import SparkRichHandler
             from rich.highlighter import NullHighlighter
 
             if console is None:

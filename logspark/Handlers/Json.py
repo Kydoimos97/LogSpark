@@ -4,7 +4,8 @@ import traceback
 from types import TracebackType
 from typing import Optional, TYPE_CHECKING
 
-from ..Internal.Func.env import get_devnull, is_silenced_mode
+from ..Internal.State import is_silenced_mode
+from ..Internal.Func import get_devnull
 from ..Types import MissingDependencyException
 from ..Types.Protocol import SupportsWrite
 from ..Types import TracebackOptions
