@@ -1,9 +1,5 @@
 import os
 import shutil
-import warnings
-from io import TextIOWrapper
-
-from ...Types import IncompatibleConsoleWarning
 
 
 def is_silenced_mode() -> bool:
@@ -14,6 +10,13 @@ def is_silenced_mode() -> bool:
     """
     return os.getenv("LOGSPARK_MODE", '').lower() == "silenced"
 
+def is_fast_mode() -> bool:
+    """
+    Performance optimization that trades call-site accuracy for speed.
+    When set, uses constant-time stacklevel resolution instead of frame walking.
+    Recommended for high-throughput scenarios where logging performance is critical.
+    """
+    return os.getenv('LOGSPARK_MODE', '').lower() == "fast"
 
 def is_supported_terminal() -> bool:
     """If height and size aren't available or set the console is generally not supported by rich"""
@@ -24,23 +27,3 @@ def is_supported_terminal() -> bool:
     return True
 
 
-def emit_console_warning() -> None:
-    warnings.warn_explicit(
-        message="\nRich incompatible console detected. \n"
-        "    To force rich usage please set the FORCE_RICH environment variable to `true`,\n"
-        "    or pass a predefined Rich Console to the TerminalHandler.",
-        category=IncompatibleConsoleWarning,
-        filename="Terminal.py",
-        lineno=34,
-        module="LogSpark",
-    )
-
-
-def get_devnull() -> TextIOWrapper:
-    devnull = open(
-        os.devnull,
-        mode="w",
-        encoding="utf-8",
-        errors="replace",
-    )
-    return devnull

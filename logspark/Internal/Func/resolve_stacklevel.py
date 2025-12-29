@@ -3,7 +3,7 @@ import logging
 import threading
 from types import FrameType
 from typing import Optional
-
+from ..State import is_fast_mode
 _CACHED_SL: Optional[int] = None
 _CALIBRATION_LOCK = threading.Lock()
 _INTERNAL_PREFIX = "logspark"
@@ -57,12 +57,12 @@ def _calibrate_fast_stacklevel() -> int:
     return found_level
 
 
-def resolve_stacklevel(fast_log: bool, user_stacklevel: int = 1) -> int:
+def resolve_stacklevel(user_stacklevel: int = 1) -> int:
     """
     Returns the stacklevel for logging.
     Falls back to a deep-calibrated value if dynamic walking gets lost.
     """
-    if not fast_log:
+    if not is_fast_mode():
         try:
             frame: Optional[FrameType] = sys._getframe(2)
             for level in range(1, _RUNTIME_MAX_DEPTH):
