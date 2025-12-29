@@ -1,5 +1,5 @@
 """
-Error handling unit tests for LogSpark Logging v2
+Error handling unit tests for LogSpark Logging
 
 These tests verify all exception types and error conditions.
 """

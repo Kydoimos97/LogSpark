@@ -1,5 +1,5 @@
 """
-Pytest configuration and fixtures for LogSpark Logging v2 tests
+Pytest configuration and fixtures for LogSpark Logging tests
 """
 import io
 import os
