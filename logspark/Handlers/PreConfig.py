@@ -1,10 +1,11 @@
 import logging
 import sys
 
-from .env import is_silenced_mode, get_devnull
+from ..Internal.State import is_silenced_mode
+from ..Internal.Func import get_devnull
 
 
-def create_pre_config_handler() -> logging.Handler:
+def pre_config_handler() -> logging.Handler:
     """
     Create pre-configuration handler
     """
