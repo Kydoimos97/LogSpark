@@ -18,7 +18,6 @@ class LoggerConfig:
     """
 
     level: int  # stdlib logging level (logging.INFO, etc.)
-    fast_log: bool  # Performance optimization that trades correctness for speed
     handler: logging.Handler  # stdlib Handlers instance
     traceback_policy: TracebackOptions
 
@@ -26,9 +25,6 @@ class LoggerConfig:
         """Validate configuration parameters"""
         if not isinstance(self.level, int):
             raise ValueError("level must be a stdlib logging level integer")
-
-        if not isinstance(self.fast_log, bool):
-            raise ValueError("fast_log must be a boolean")
 
         if not isinstance(self.handler, logging.Handler):
             raise ValueError("handler must be a stdlib logging.Handlers instance")
