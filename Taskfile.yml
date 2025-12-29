@@ -1,0 +1,34 @@
+version: '3'
+
+tasks:
+  test:
+    desc: Run all tests
+    cmds:
+      - uv run pytest
+
+  test-verbose:
+    desc: Run all tests with verbose output
+    cmds:
+      - uv run pytest -v -s
+
+  test-compact:
+    desc: Run all tests with compact output
+    cmds:
+      - uv run pytest --tb=short
+
+  test-coverage:
+    desc: Run all tests with coverage report
+    cmds:
+      - uv run pytest --cov=logspark --cov-report=term-missing --cov-report=html
+
+  docs:
+    desc: Start mkdocs development server
+    cmds:
+      - uv run mkdocs serve
+
+  test-no-rich:
+    desc: Run Tests without rich installed
+    cmds:
+      - uv pip uninstall rich
+      - uv run pytest
+      - uv pip install rich
