@@ -2,3 +2,6 @@
 /logspark.egg-info/
 /dist/
 /.idea/
+/tests/.hypothesis/
+.hypothesis/
+scripts/
