@@ -5,7 +5,7 @@ from logging import Filter
 from types import TracebackType
 from typing import Optional, Union, Callable, cast, IO, TYPE_CHECKING
 
-from ..Internal.Func import emit_console_warning, get_devnull
+from ..Internal.Func import emit_console_warning, get_devnull, validate_level
 from ..Internal.State.Env import is_supported_terminal, is_silenced_mode
 from ..Types import InvalidConfigurationError, TracebackOptions
 from ..Types.Protocol import SupportsWrite, _SupportsFilter
@@ -67,22 +67,6 @@ class TerminalHandler(logging.Handler):
         This handler is designed for human-readable output during development
         and interactive use. It is not intended for high-volume or structured
         logging pipelines.
-
-    Example:
-        ```python
-        from logspark import logger
-        from logspark.handlers import TerminalHandler
-        from logspark.Types import TracebackOptions
-
-        logger.configure(
-            level=logging.DEBUG,
-            handler=TerminalHandler(show_function=True),
-            traceback=TracebackOptions.COMPACT,
-        )
-
-        logger.info("Application started")
-        logger.error("Something went wrong", exc_info=True)
-        ```
     """
 
     _use_rich = False if RICH_TEXT is None else True
@@ -126,6 +110,19 @@ class TerminalHandler(logging.Handler):
               using ``shutil.get_terminal_size``. Zero-sized terminals fall
               back to conservative defaults.
             - TerminalHandler is stdout-oriented by design; stderr is never used implicitly
+
+        Resolution order:
+            1. If LOGSPARK_MODE is ``silenced``, output is discarded regardless
+               of stream or console configuration.
+            2. If a Rich Console is provided, ``stream`` must be None.
+            3. If Rich is available and not disabled, rendering is delegated
+               to SparkRichHandler.
+            4. Otherwise, output falls back to a stdlib StreamHandler.
+
+        Invariants:
+            - stderr is never selected implicitly.
+            - stdout is the default output stream when not silenced.
+            - Console configuration always takes precedence over stream.
 
         Raises:
             InvalidConfigurationError:
@@ -225,8 +222,9 @@ class TerminalHandler(logging.Handler):
 
     def setLevel(self, level: Union[int, str]) -> None:
         """Set level on both this handler and composed handler"""
-        super().setLevel(level)
-        self._handler.setLevel(level)
+        level_int = validate_level(level)
+        super().setLevel(level_int)
+        self._handler.setLevel(level_int)
 
     # noinspection PyShadowingBuiltins
     def addFilter(
