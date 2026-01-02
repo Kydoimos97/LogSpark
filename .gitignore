@@ -5,3 +5,5 @@
 /tests/.hypothesis/
 .hypothesis/
 scripts/
+/.coverage/
+/resources/
