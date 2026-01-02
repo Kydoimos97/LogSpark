@@ -25,7 +25,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.traceback import Traceback
 
-from logspark.Hooks.SparkRichHandler import SparkRichHandler
+from logspark._Internal.Intergration.SparkRichHandler import SparkRichHandler
 
 
 class TestSparkRichHandlerInitialization:
@@ -42,7 +42,7 @@ class TestSparkRichHandlerInitialization:
 
         # Should have CustomLogRender instance
         assert hasattr(handler, "_c_log_render")
-        from logspark.Hooks.CustomLogRender import CustomLogRender
+        from logspark._Internal.Intergration.CustomLogRender import CustomLogRender
 
         assert isinstance(handler._c_log_render, CustomLogRender)
 
@@ -126,7 +126,7 @@ class TestSparkRichHandlerPathResolution:
             # Reload the module to pick up the new PYTHONPATH
             import importlib
 
-            from logspark.Hooks import SparkRichHandler as shr_module
+            from logspark._Internal.Intergration import SparkRichHandler as shr_module
 
             importlib.reload(shr_module)
 
@@ -165,7 +165,7 @@ class TestSparkRichHandlerPathResolution:
             # Reload the module to pick up the cleared PYTHONPATH
             import importlib
 
-            from logspark.Hooks import SparkRichHandler as shr_module
+            from logspark._Internal.Intergration import SparkRichHandler as shr_module
 
             importlib.reload(shr_module)
 
@@ -255,7 +255,7 @@ class TestSparkRichHandlerPathResolution:
             # Reload the module
             import importlib
 
-            from logspark.Hooks import SparkRichHandler as shr_module
+            from logspark._Internal.Intergration import SparkRichHandler as shr_module
 
             importlib.reload(shr_module)
 

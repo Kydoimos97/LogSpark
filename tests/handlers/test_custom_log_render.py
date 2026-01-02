@@ -22,7 +22,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from logspark.Hooks.CustomLogRender import CustomLogRender
+from logspark._Internal.Intergration.CustomLogRender import CustomLogRender
 
 
 class TestCustomLogRenderInitialization:

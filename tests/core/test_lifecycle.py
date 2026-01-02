@@ -47,7 +47,7 @@ class TestLifecycleWorkflow:
 
     def test_configure_ddtrace_filter_duplicate_prevention(self, fresh_logger):
         """Test that DDTrace filter is not duplicated (lines 287-288)."""
-        from logspark.Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
+        from logspark.Filters.DDTraceCorrelationFilter import DDTraceCorrelationFilter
 
         # Configure logger first time
         fresh_logger.configure(level=logging.INFO)
