@@ -9,8 +9,8 @@ from ._Internal.Func import (
     validate_configuration_parameters,
 )
 from ._Internal.State import LoggerConfig, SingletonClass, is_fast_mode
+from .Filters.DDTraceCorrelationFilter import DDTraceCorrelationFilter
 from .Handlers.PreConfig import pre_config_handler
-from .Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
 from .Types import (
     FrozenConfigurationError,
     InvalidConfigurationError,
