@@ -46,7 +46,7 @@ prod_logger.setLevel(logging.WARNING)
 Add distributed tracing to existing handlers:
 
 ```python
-from logspark.Hooks import DDTraceCorrelationFilter
+from logspark.Filters import DDTraceCorrelationFilter
 
 # Add to any existing handler
 existing_handler = logging.StreamHandler()

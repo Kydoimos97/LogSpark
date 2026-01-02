@@ -86,7 +86,7 @@ spark_log_manager.unify(
 
 ```python
 # Add correlation filters to all managed loggers
-from logspark.Hooks import DDTraceCorrelationFilter
+from logspark.Filters import DDTraceCorrelationFilter
 
 spark_log_manager.adopt_all()
 spark_log_manager.unify(use_spark_handler=True)
