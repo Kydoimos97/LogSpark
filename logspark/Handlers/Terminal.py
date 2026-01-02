@@ -125,7 +125,7 @@ class TerminalHandler(logging.Handler):
             emit_console_warning()
 
         if _use_rich and _use_console:
-            from ..Hooks.SparkRichHandler import SparkRichHandler
+            from .._Internal.Intergration.SparkRichHandler import SparkRichHandler
 
             if console is None:
                 from rich.console import Console
