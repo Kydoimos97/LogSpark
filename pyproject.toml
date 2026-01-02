@@ -57,9 +57,7 @@ log_level = "CRITICAL"
 python_functions = [ "test_*" ]
 addopts = [
   "--strict-markers",
-  "--tb=short",
   "--disable-warnings",
-  "-ra"
 ]
 markers = [
   "require_rich: tests that require Rich to be installed and enabled"
@@ -84,7 +82,7 @@ line-length = 100
 target-version = "py311"
 
   [tool.ruff.lint]
-  select = [ "E", "F", "I" ]
+  select = [ "E", "F", "I" , "W", "B", "Q"]
   ignore = ["E501", "E402"]
 
   [tool.ruff.format]
@@ -99,7 +97,6 @@ dev = [
   "pydantic>=2.12.5",
   "pytest>=8.4.2",
   "pytest-cov>=7.0.0",
-  "pytest-sugar>=0.9.7",
   "pytest-xdist>=3.3.0",
   "ruff>=0.14.3",
 ]
@@ -121,3 +118,12 @@ json = [
 trace = [
     "ddtrace>=4.1.0",
 ]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = ["typings"]
+
+[[tool.mypy.overrides]]
+module = ["ddtrace.*", "pythonjsonlogger.*", "rich.*"]
+ignore_missing_imports = true
