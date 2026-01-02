@@ -29,8 +29,10 @@ extra_css:
 theme:
   name: material
   custom_dir: docs/overrides
+  favicon: assets/bolt.svg
   icon:
     logo: material/lightning-bolt
+    favicon: material/lightning-bolt
   features:
     - navigation.instant
     - navigation.instant.prefetch
@@ -39,6 +41,7 @@ theme:
     - navigation.indexes
     - navigation.tracking
     - navigation.top
+    - navigation.path
     - toc.integrate           # integrates toc into sidebar
     - content.code.copy
     - content.code.annotate
