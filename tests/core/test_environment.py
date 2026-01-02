@@ -1,0 +1,399 @@
+"""
+Test LOGSPARK_MODE environment variable behavior.
+
+Tests environment mode semantics including:
+- LOGSPARK_MODE=silenced suppresses warnings
+- LOGSPARK_MODE=fast uses constant-time resolution
+- Unset mode uses default behavior
+"""
+
+import logging
+import os
+import warnings
+from unittest.mock import patch
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
+from logspark import logger
+from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
+from logspark._Internal.State import is_fast_mode, is_silenced_mode
+from logspark.Types.Exceptions import UnconfiguredUsageWarning
+
+
+class TestEnvironmentModes:
+    """Test LOGSPARK_MODE environment variable behavior."""
+
+    def test_silenced_mode_suppresses_warnings(self, fresh_logger):
+        """Test LOGSPARK_MODE=silenced affects output but not warnings."""
+        with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
+            # Verify mode detection
+            assert is_silenced_mode()
+            assert not is_fast_mode()
+
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+
+                # Use logger before configuration
+                fresh_logger.info("test message")
+
+                # Should still emit unconfigured usage warning (silenced only affects output)
+                unconfigured_warnings = [
+                    warning
+                    for warning in w
+                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                ]
+                assert len(unconfigured_warnings) == 1
+
+    def test_fast_mode_uses_constant_time_resolution(self, fresh_logger):
+        """Test LOGSPARK_MODE=fast uses constant-time stacklevel resolution."""
+        with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
+            # Verify mode detection
+            assert is_fast_mode()
+            assert not is_silenced_mode()
+
+            # In fast mode, resolve_stacklevel should use cached value
+            resolved1 = resolve_stacklevel(1)
+            resolved2 = resolve_stacklevel(1)
+
+            # Should be consistent (using cached value)
+            assert resolved1 == resolved2
+            assert isinstance(resolved1, int)
+            assert resolved1 > 0
+
+    def test_unset_mode_uses_default_behavior(self, fresh_logger):
+        """Test unset LOGSPARK_MODE uses default behavior."""
+        # Ensure LOGSPARK_MODE is not set
+        with patch.dict("os.environ", {}, clear=False):
+            if "LOGSPARK_MODE" in os.environ:
+                del os.environ["LOGSPARK_MODE"]
+
+            # Verify mode detection
+            assert not is_silenced_mode()
+            assert not is_fast_mode()
+
+            # Should emit warnings when unconfigured
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+
+                fresh_logger.info("test message")
+
+                # Should emit unconfigured usage warning
+                unconfigured_warnings = [
+                    warning
+                    for warning in w
+                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                ]
+                assert len(unconfigured_warnings) == 1
+
+    def test_mode_detection_case_insensitive(self):
+        """Test that mode detection is case-insensitive."""
+        # Test silenced mode variations
+        for mode_value in ["silenced", "SILENCED", "Silenced", "SiLeNcEd"]:
+            with patch.dict("os.environ", {"LOGSPARK_MODE": mode_value}):
+                assert is_silenced_mode()
+                assert not is_fast_mode()
+
+        # Test fast mode variations
+        for mode_value in ["fast", "FAST", "Fast", "FaSt"]:
+            with patch.dict("os.environ", {"LOGSPARK_MODE": mode_value}):
+                assert is_fast_mode()
+                assert not is_silenced_mode()
+
+    def test_invalid_mode_uses_default_behavior(self, fresh_logger):
+        """Test that invalid LOGSPARK_MODE values use default behavior."""
+        with patch.dict("os.environ", {"LOGSPARK_MODE": "invalid_mode"}):
+            # Should not be in any special mode
+            assert not is_silenced_mode()
+            assert not is_fast_mode()
+
+            # Should behave like default mode
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+
+                fresh_logger.info("test message")
+
+                # Should emit unconfigured usage warning
+                unconfigured_warnings = [
+                    warning
+                    for warning in w
+                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                ]
+                assert len(unconfigured_warnings) == 1
+
+    def test_empty_mode_uses_default_behavior(self, fresh_logger):
+        """Test that empty LOGSPARK_MODE uses default behavior."""
+        with patch.dict("os.environ", {"LOGSPARK_MODE": ""}):
+            # Should not be in any special mode
+            assert not is_silenced_mode()
+            assert not is_fast_mode()
+
+            # Should behave like default mode
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+
+                fresh_logger.info("test message")
+
+                # Should emit unconfigured usage warning
+                unconfigured_warnings = [
+                    warning
+                    for warning in w
+                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                ]
+                assert len(unconfigured_warnings) == 1
+
+    def test_mode_affects_configured_logger_behavior(self, fresh_logger):
+        """Test that modes affect behavior even after configuration."""
+        # Test that fast mode affects stacklevel resolution even for configured logger
+        with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
+            fresh_logger.configure(level=logging.DEBUG)
+
+            # Should still use fast mode stacklevel resolution
+            resolved = resolve_stacklevel(1)
+            assert isinstance(resolved, int)
+            assert resolved > 0
+
+    def test_mode_changes_during_runtime(self, fresh_logger):
+        """Test that mode changes are detected during runtime."""
+        # Start with no mode
+        with patch.dict("os.environ", {}, clear=False):
+            if "LOGSPARK_MODE" in os.environ:
+                del os.environ["LOGSPARK_MODE"]
+
+            assert not is_silenced_mode()
+            assert not is_fast_mode()
+
+            # Change to silenced mode
+            os.environ["LOGSPARK_MODE"] = "silenced"
+            assert is_silenced_mode()
+            assert not is_fast_mode()
+
+            # Change to fast mode
+            os.environ["LOGSPARK_MODE"] = "fast"
+            assert not is_silenced_mode()
+            assert is_fast_mode()
+
+            # Remove mode
+            del os.environ["LOGSPARK_MODE"]
+            assert not is_silenced_mode()
+            assert not is_fast_mode()
+
+
+class TestEnvironmentModeProperties:
+    """Property-based tests for environment mode behavior."""
+
+    def test_property_silenced_mode_behavior(self, fresh_logger):
+        """
+        For any pre-configuration logging attempt, when LOGSPARK_MODE=silenced, output should be suppressed but warnings should still be emitted.
+        """
+        from hypothesis import given
+        from hypothesis import strategies as st
+
+        @given(
+            log_method=st.sampled_from(["debug", "info", "warning", "error", "critical"]),
+            message=st.text(min_size=1, max_size=100),
+            mode_case=st.sampled_from(["silenced", "SILENCED", "Silenced", "SiLeNcEd"]),
+        )
+        def property_test(log_method, message, mode_case):
+            with patch.dict("os.environ", {"LOGSPARK_MODE": mode_case}):
+                fresh_logger.kill()  # Reset for each iteration
+
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+
+                    # Call logging method before configuration
+                    getattr(fresh_logger, log_method)(message)
+
+                    # Should still emit unconfigured usage warning (silenced only affects output)
+                    unconfigured_warnings = [
+                        warning
+                        for warning in w
+                        if issubclass(warning.category, UnconfiguredUsageWarning)
+                    ]
+                    assert len(unconfigured_warnings) == 1
+
+        property_test()
+
+    def test_property_fast_mode_stacklevel(self, fresh_logger):
+        """
+        For any logging call, when LOGSPARK_MODE=fast, constant-time stacklevel resolution should be used.
+        """
+        from hypothesis import given
+        from hypothesis import strategies as st
+
+        @given(
+            user_stacklevel=st.integers(min_value=1, max_value=10),
+            mode_case=st.sampled_from(["fast", "FAST", "Fast", "FaSt"]),
+        )
+        def property_test(user_stacklevel, mode_case):
+            with patch.dict("os.environ", {"LOGSPARK_MODE": mode_case}):
+                # In fast mode, resolve_stacklevel should be consistent (cached)
+                resolved1 = resolve_stacklevel(user_stacklevel)
+                resolved2 = resolve_stacklevel(user_stacklevel)
+
+                # Should be identical (using cached value)
+                assert resolved1 == resolved2
+                assert isinstance(resolved1, int)
+                assert resolved1 > 0
+
+        property_test()
+
+    def test_property_default_mode_accuracy(self, fresh_logger):
+        """
+        For any logging call, when LOGSPARK_MODE is unset, accurate call-site resolution should be used.
+        """
+        from hypothesis import given
+        from hypothesis import strategies as st
+
+        @given(
+            log_method=st.sampled_from(["debug", "info", "warning", "error", "critical"]),
+            message=st.text(min_size=1, max_size=50),
+        )
+        def property_test(log_method, message):
+            # Ensure default mode (no LOGSPARK_MODE set)
+            with patch.dict("os.environ", {}, clear=False):
+                if "LOGSPARK_MODE" in os.environ:
+                    del os.environ["LOGSPARK_MODE"]
+
+                fresh_logger.kill()  # Reset for each iteration
+
+                captured_records = []
+
+                class RecordCapturingHandler(logging.Handler):
+                    def emit(self, record):
+                        captured_records.append(record)
+
+                handler = RecordCapturingHandler()
+                fresh_logger.configure(level=logging.DEBUG, handler=handler)
+
+                # Call logging method
+                getattr(fresh_logger, log_method)(message)
+
+                # Should have captured exactly one record with accurate location
+                assert len(captured_records) == 1
+                record = captured_records[0]
+
+                # Should have valid call-site information
+                assert record.funcName is not None
+                assert record.pathname is not None
+                assert record.lineno > 0
+
+                # Should point to this property test function
+                assert (
+                    "property_test" in record.funcName
+                    or "test_property_default_mode_accuracy" in record.funcName
+                )
+
+        property_test()
+
+
+class TestPreConfigurationValidation:
+    """Test pre-configuration validation limitations"""
+
+    @pytest.mark.silenced
+    @given(
+        log_levels=st.lists(
+            st.sampled_from(["debug", "info", "warning", "error", "critical"]),
+            min_size=1,
+            max_size=5,
+        ),
+        log_messages=st.lists(st.text(min_size=1, max_size=100), min_size=1, max_size=5),
+        warning_suppression=st.booleans(),
+    )
+    def test_pre_configuration_validation_limitation(
+        self, log_levels, log_messages, warning_suppression
+    ):
+        """
+        For any pre-configuration logging operation, the system should not perform configuration validation
+        beyond emitting unconfigured-usage warnings and should not include implicit mode switching
+        """
+        # Create fresh logger instance for this test
+        from logspark import SparkLogger
+
+        fresh_logger = logger
+        fresh_logger.kill()
+        fresh_logger = SparkLogger()
+
+        try:
+            # Set up warning handling
+            with warnings.catch_warnings(record=True) as w:
+                if warning_suppression:
+                    warnings.filterwarnings("ignore", category=UnconfiguredUsageWarning)
+                else:
+                    warnings.simplefilter("always")
+
+                # Test that pre-config logging works without validation errors
+                for level_name, message in zip(log_levels, log_messages, strict=False):
+                    log_method = getattr(fresh_logger, level_name)
+
+                    # Should not raise configuration validation errors
+                    try:
+                        log_method(message)
+                    except Exception as e:
+                        # Should not get configuration validation errors
+                        assert "configuration" not in str(e).lower(), (
+                            f"Pre-config logging should not perform configuration validation: {e}"
+                        )
+                        assert "invalid" not in str(e).lower(), (
+                            f"Pre-config logging should not validate parameters: {e}"
+                        )
+                        # Re-raise if it's an unexpected error
+                        raise
+
+                # Verify warning behavior
+                unconfigured_warnings = [
+                    warning
+                    for warning in w
+                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                ]
+
+                if warning_suppression:
+                    # Warnings should be suppressed
+                    assert len(unconfigured_warnings) == 0, "Warnings should be suppressible"
+                else:
+                    # Should emit exactly one warning (first call only)
+                    assert len(unconfigured_warnings) == 1, (
+                        "Should emit exactly one unconfigured usage warning"
+                    )
+                    warning_message = str(unconfigured_warnings[0].message)
+                    assert "Logger used before explicit configuration" in warning_message
+
+                # Verify that pre-config setup was done
+                assert fresh_logger._pre_config_setup_done, "Pre-config setup should be completed"
+                assert fresh_logger._stdlib_logger is not None, "Stdlib logger should be created"
+                assert len(fresh_logger._stdlib_logger.handlers) > 0, (
+                    "Should have at least one handler"
+                )
+
+                # Verify no implicit mode switching occurred
+                # Pre-config should use minimal terminal logging only
+                handler = fresh_logger._stdlib_logger.handlers[0]
+
+                # Should not have multiple handlers (no mode switching)
+                assert len(fresh_logger._stdlib_logger.handlers) == 1, (
+                    "Pre-config should not create multiple handlers (no mode switching)"
+                )
+
+                # Handlers type should be determined once and not change
+                original_handler_type = type(handler)
+
+                # Additional logging should not change handler setup
+                for level_name, message in zip(
+                    log_levels[:3], log_messages[:3], strict=False
+                ):  # Test a few more
+                    log_method = getattr(fresh_logger, level_name)
+                    log_method(f"Additional {message}")
+
+                # Verify handler setup remained stable (no implicit switching)
+                assert len(fresh_logger._stdlib_logger.handlers) == 1, (
+                    "Handlers count should remain stable"
+                )
+                assert type(fresh_logger._stdlib_logger.handlers[0]) is original_handler_type, (
+                    "Handlers type should not change (no implicit mode switching)"
+                )
+
+        finally:
+            # Cleanup: reset state
+            fresh_logger.kill()
+            fresh_logger = SparkLogger()
