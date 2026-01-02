@@ -6,4 +6,5 @@
 .hypothesis/
 scripts/
 /.coverage/
-/resources/
+/assets/
+/todo.md
