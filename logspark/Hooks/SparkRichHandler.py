@@ -5,7 +5,6 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union
 
 from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable
@@ -22,8 +21,8 @@ PYTHONPATH = PYTHONPATH.split(";")[0] if PYTHONPATH else None
 class SparkRichHandler(RichHandler):
     def __init__(
         self,
-        level: Union[int, str] = logging.NOTSET,
-        console: Optional[Console] = None,
+        level: int | str = logging.NOTSET,
+        console: Console | None = None,
         *,
         show_time: bool = True,
         show_level: bool = True,
@@ -31,13 +30,13 @@ class SparkRichHandler(RichHandler):
         show_function: bool = False,
         markup: bool = False,
         rich_tracebacks: bool = False,
-        tracebacks_width: Optional[int] = None,
+        tracebacks_width: int | None = None,
         tracebacks_extra_lines: int = 3,
-        tracebacks_theme: Optional[str] = None,
+        tracebacks_theme: str | None = None,
         tracebacks_word_wrap: bool = True,
         tracebacks_show_locals: bool = False,
-        log_time_format: Union[str, FormatTimeCallable] = "%H:%M:%S",
-        highlighter: Optional[Highlighter] = None,
+        log_time_format: str | FormatTimeCallable = "%H:%M:%S",
+        highlighter: Highlighter | None = None,
     ) -> None:
         super().__init__(
             level,
@@ -69,7 +68,7 @@ class SparkRichHandler(RichHandler):
         self,
         *,
         record: logging.LogRecord,
-        traceback: Optional[Traceback],
+        traceback: Traceback | None,
         message_renderable: "ConsoleRenderable",
     ) -> "ConsoleRenderable":
         """Render log for display.
@@ -83,6 +82,7 @@ class SparkRichHandler(RichHandler):
         Returns:
             ConsoleRenderable: Renderable to display log.
         """
+        # Resolve Path
         path = Path(record.pathname)
         log_path = None
         if PYTHONPATH is not None:
@@ -101,19 +101,37 @@ class SparkRichHandler(RichHandler):
             else:
                 log_path = path.as_posix()
 
+        if not path.is_absolute() or not self.enable_link_path:
+            link_path = None
+        else:
+            link_path = Path(path).as_uri()
+
+        # Resolve Renderables
+        if traceback:
+            renderables = [message_renderable, traceback]
+        else:
+            renderables = [message_renderable]
+
+        # Resolve Time
+        if self.formatter is None:
+            time_format = None
+        else:
+            time_format = self.formatter.datefmt
+
         level = self.get_level_text(record)
-        time_format = None if self.formatter is None else self.formatter.datefmt
         log_time = datetime.fromtimestamp(record.created)
         function_name = record.funcName
+
         log_renderable = self._c_log_render(
             console=self.console,
-            renderables=[message_renderable] if not traceback else [message_renderable, traceback],
+            renderables=renderables,
             log_time=log_time,
             time_format=time_format,
             level=level,
             path=str(log_path),
             line_no=record.lineno,
-            link_path=Path(path).as_uri() if self.enable_link_path else None,
+            link_path=link_path,
             function_name=function_name,
         )
+
         return log_renderable

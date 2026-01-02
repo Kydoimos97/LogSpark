@@ -1,6 +1,5 @@
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Union, Optional, Iterable, List
-
 
 from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable, RenderableType
@@ -35,9 +34,9 @@ class CustomLogRender:
         show_level: bool = False,
         show_path: bool = True,
         show_function: bool = False,
-        time_format: Union[str, FormatTimeCallable] = "[%x %X]",
+        time_format: str | FormatTimeCallable = "[%x %X]",
         omit_repeated_times: bool = True,
-        level_width: Optional[int] = 8,
+        level_width: int | None = 8,
     ) -> None:
         self.show_time = show_time
         self.show_level = show_level
@@ -46,25 +45,25 @@ class CustomLogRender:
         self.time_format = time_format
         self.omit_repeated_times = omit_repeated_times
         self.level_width = level_width
-        self._last_time: Optional[Text] = None
+        self._last_time: Text | None = None
 
     def __call__(
         self,
         console: Console,
         renderables: Iterable[ConsoleRenderable],
         *,
-        log_time: Optional[datetime] = None,
-        time_format: Optional[Union[str, FormatTimeCallable]] = None,
+        log_time: datetime | None = None,
+        time_format: str | FormatTimeCallable | None = None,
         level: TextType = "",
-        path: Optional[str] = None,
-        line_no: Optional[int] = None,
-        link_path: Optional[str] = None,
-        function_name: Optional[str] = None,
+        path: str | None = None,
+        line_no: int | None = None,
+        link_path: str | None = None,
+        function_name: str | None = None,
     ) -> Table:
         table = Table.grid(padding=(0, 0), expand=True)
         level_style = self._get_level_style(level)
         message_style = self._get_level_style(level, message=True)
-        row: List[RenderableType] = []
+        row: list[RenderableType] = []
 
         if self.show_time:
             table.add_column(style=self._TIME_STYLE, width=10, justify="right")
@@ -103,7 +102,7 @@ class CustomLogRender:
         table.add_row(*row)
         return table
 
-    def _render_function_(self, function_name: Optional[str]) -> Text:
+    def _render_function_(self, function_name: str | None) -> Text:
         if not function_name:
             return Text()
 
@@ -121,8 +120,8 @@ class CustomLogRender:
     def _render_time(
         self,
         console: Console,
-        log_time: Optional[datetime],
-        time_format: Optional[Union[str, FormatTimeCallable]],
+        log_time: datetime | None,
+        time_format: str | FormatTimeCallable | None,
     ) -> Text:
         log_time = log_time or console.get_datetime()
         fmt = time_format or self.time_format
@@ -143,8 +142,8 @@ class CustomLogRender:
     def _render_path(
         self,
         path: str,
-        line_no: Optional[int],
-        link_path: Optional[str],
+        line_no: int | None,
+        link_path: str | None,
     ) -> Text:
         text = Text(style=self._PATH_STYLE)
         text.append(path, style=f"link {link_path}" if link_path else "")
@@ -166,8 +165,8 @@ class CustomLogRender:
 
     @staticmethod
     def add_divider(
-        table: Table, row: List[RenderableType], level_style: Style
-    ) -> tuple[Table, List[RenderableType]]:
+        table: Table, row: list[RenderableType], level_style: Style
+    ) -> tuple[Table, list[RenderableType]]:
         table.add_column(width=1, justify="center")
         row.append(Text("-", style=level_style))
         return table, row
