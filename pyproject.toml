@@ -35,6 +35,8 @@ tag-pattern = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
 [tool.hatch.build.targets.sdist]
 include = [
   "logspark",
+  "logspark/py.typed",
+  "logspark/typings/**/*.pyi",
   "pyproject.toml",
   "README.md",
   "LICENSE",
@@ -43,6 +45,10 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = [ "logspark" ]
+
+[tool.hatch.build.targets.wheel.shared-data]
+"logspark/py.typed" = "logspark/py.typed"
+"logspark/typings" = "logspark/typings"
 
 [tool.pytest.ini_options]
 testpaths = [ "tests" ]
@@ -125,5 +131,12 @@ python_version = "3.11"
 mypy_path = ["typings"]
 
 [[tool.mypy.overrides]]
-module = ["ddtrace.*", "pythonjsonlogger.*", "rich.*"]
+module = [
+  "rich._log_render",
+  "rich.containers",
+  "rich.style",
+  "rich.text",
+  "rich.highlighter",
+  "rich.traceback",
+]
 ignore_missing_imports = true
