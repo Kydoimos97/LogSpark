@@ -1,12 +1,12 @@
 from .Exceptions import (
     FrozenConfigurationError,
+    IncompatibleConsoleWarning,
     InvalidConfigurationError,
     MissingDependencyException,
     UnconfiguredUsageWarning,
     UnfrozenGlobalOperationError,
-    IncompatibleConsoleWarning,
 )
-from .Options import TracebackOptions, PresetOptions
+from .Options import PresetOptions, TracebackOptions
 
 __all__ = [
     "TracebackOptions",

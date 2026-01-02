@@ -1,10 +1,10 @@
 import logging
-from typing import Protocol, Optional
+from typing import Protocol
 
 
 class SupportsWrite(Protocol):
     # noinspection PyUnusedFunction
-    def write(self, s: str) -> Optional[int]: ...
+    def write(self, s: str) -> int | None: ...
 
 
 class _SupportsFilter(Protocol):
