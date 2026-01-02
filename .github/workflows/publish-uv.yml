@@ -2,9 +2,9 @@
 name: Build & Publish (uv)
 
 on:
-#  push:
-#    tags:
-#      - "v*.*.*"
+  push:
+    tags:
+      - "v*.*.*"
 
 permissions:
   id-token: write         # REQUIRED for PyPI Trusted Publishing
