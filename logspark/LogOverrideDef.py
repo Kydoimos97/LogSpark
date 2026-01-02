@@ -1,8 +1,12 @@
+from collections.abc import Callable
 from functools import wraps
 from types import TracebackType
-from typing import Optional, Callable, Any
-from .Types import InvalidConfigurationError
-from . import SparkLogger, spark_logger
+from typing import TYPE_CHECKING, Any
+
+from ._Internal.Func import validate_level
+
+if TYPE_CHECKING:
+    from . import SparkLogger
 
 
 class LogOverride:
@@ -42,7 +46,7 @@ class LogOverride:
         remains immutable.
     """
 
-    def __init__(self, level: int):
+    def __init__(self, level: str | int):
         """
         Initialize LogOverride with the target logging level.
 
@@ -60,18 +64,17 @@ class LogOverride:
             debug_override = LogOverride(logging.DEBUG)
             ```
         """
-        if not isinstance(level, int):
-            raise InvalidConfigurationError(
-                f"LogOverride level must be an integer, got {type(level)}"
-            )
+        v_level = validate_level(level)
 
-        self.target_level = level
-        self.original_level: Optional[int] = None
-        self.logger_instance: Optional["SparkLogger"] = None
+        self.target_level = v_level
+        self.original_level: int | None = None
+        self.logger_instance: "SparkLogger | None" = None
 
     def __enter__(self) -> "LogOverride":
         """Enter the override context - adjust logger's effective level"""
         # Get the global logger singleton
+        from . import spark_logger
+
         self.logger_instance = spark_logger
 
         # Store original level for restoration
@@ -85,9 +88,9 @@ class LogOverride:
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Exit the override context - restore original level"""
         if self.logger_instance is not None and self.original_level is not None:

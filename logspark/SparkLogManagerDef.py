@@ -1,179 +1,184 @@
 import logging
 import threading
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from .Types import UnfrozenGlobalOperationError
-from .Types import InvalidConfigurationError
-from .Internal.State import SingletonClass
-from .Internal.State import LogManagerState
+from ._Internal.Func import validate_level
+from ._Internal.State import LogManagerState, SingletonClass
+from .Types import InvalidConfigurationError, UnfrozenGlobalOperationError
 
 if TYPE_CHECKING:
-    from . import SparkLogger
+    pass
 
 
 @SingletonClass
 class SparkLogManager:
     """
-    LogManager singleton for explicit global logging management.
+    Global SparkLogManager singleton instance.
 
-    Provides opt-in global control over multiple loggers while maintaining
-    stdlib compliance. Allows you to adopt existing loggers and apply
-    consistent formatting across your entire application.
-
-    The LogManager operates on a "managed logger" concept where you explicitly
-    choose which loggers to control, rather than automatically affecting all
-    logging in the application.
+    This instance provides a shared coordination point for logger adoption and
+    batch mutation within a process. Use is entirely opt-in.
     """
 
     def __init__(self) -> None:
+        """
+        Singleton utility for explicit, opt-in batch mutation of stdlib loggers.
+
+        SparkLogManager provides a controlled way to apply standard logging
+        operations (handler replacement, level changes, propagation control)
+        across a selected set of existing ``logging.Logger`` instances.
+
+        This class does NOT:
+        - replace loggers
+        - wrap or proxy logging calls
+        - modify the logging registry
+        - intercept log record dispatch
+        - restore previous logger state
+
+        It does not have ownership or hierarchy over
+        managed loggers. It operates strictly by mutating
+        already-created Logger objects using normal stdlib mechanisms.
+
+        Adoption is explicit and snapshot-based: only loggers that exist at the
+        time of adoption are affected. Loggers created later are not managed
+        unless explicitly adopted at a later time.
+
+        The singleton exists to provide a single coordination point for applying
+        logging policy in a process
+        """
         self._lock = threading.RLock()
         self._state = LogManagerState(managed_loggers={})
 
-        # Passively manage only LogSpark's logger by default
-        self._state.managed_loggers["LogSpark"] = logging.getLogger("LogSpark")
-
-    def adopt_all(self) -> None:
+    # -----Management-----
+    @property
+    def managed_names(self) -> list[str]:
         """
-        Adopt all loggers currently present in the logging registry.
+        Return the names of all currently managed loggers.
 
-        This method scans the standard library's logging registry and adds
-        all existing Logger instances to the managed logger collection.
-        Only actual Logger instances are adopted (not PlaceHolder objects).
+        This reflects the current contents of the manager's internal snapshot.
+        The returned list is sorted and contains logger names only.
+
+        This property is informational and does not imply ownership or control
+        beyond explicit mutation methods such as ``unify`` or ``release``.
+        """
+        managed_loggers = []
+        for logger in self._state.managed_loggers.values():
+            managed_loggers.append(logger.name)
+        managed_loggers.sort()
+        return managed_loggers
+
+    def managed(self, name: str) -> logging.Logger:
+        """
+        Retrieve a managed logger by name.
+
+        Args:
+            name: Name of the logger as returned by ``logging.Logger.name``.
+
+        Returns:
+            The managed stdlib Logger instance.
+
+        Raises:
+            KeyError: If the logger is not currently managed.
+
+        This method provides access to the actual Logger object and does not
+        restrict or mediate further direct mutations performed by the caller.
+        """
+        with self._lock:
+            if name not in self._state.managed_loggers:
+                raise KeyError(
+                    f"Logger '{name}' is not managed. Call adopt_all() or check managed loggers first."
+                )
+            return self._state.managed_loggers[name]
+
+    # -----Adoption-----
+    def adopt(self, logger: logging.Logger) -> None:
+        """
+        Adopt a single existing ``logging.Logger`` instance.
+
+        Adoption stores a reference to the logger and makes it eligible for
+        subsequent batch operations. No mutation occurs at adoption time.
+
+        Args:
+            logger: An existing stdlib Logger instance to manage.
 
         Note:
-            This is a snapshot operation - loggers created after calling
-            adopt_all() will not be automatically managed. Call this method
-            again if you need to adopt newly created loggers.
-
-        Example:
-            ```python
-            from logspark import LogManager
-
-            # Adopt all existing loggers
-            LogManager.adopt_all()
-
-            # Now you can access any logger by name
-            django_logger = LogManager.managed("django")
-            ```
+            Adoption does not modify the logger and does not prevent other
+            code from mutating it independently.
         """
+        with self._lock:
+            self._state.managed_loggers[logger.name] = logger
+
+    def adopt_all(self, ignore: list[str] | None = None, ignore_spark: bool = True) -> None:
+        """
+        Adopt all existing stdlib loggers currently registered.
+
+        This method snapshots the logging registry and adopts all concrete
+        ``logging.Logger`` instances present at the time of the call.
+
+        Args:
+            ignore: Optional list of logger names to exclude from adoption.
+            ignore_spark: When True, excludes the ``"LogSpark"`` logger by default.
+
+        Notes:
+            - This is a snapshot operation. Loggers created after this call
+              are not managed unless explicitly adopted later.
+            - PlaceHolder entries in the logging registry are ignored.
+            - Adoption does not mutate any logger state.
+
+        This method intentionally performs no forward-looking tracking and
+        does not re-check the registry automatically.
+        """
+        if ignore is None:
+            ignore = []
+
+        if ignore_spark:
+            ignore.append("LogSpark")
+
         with self._lock:
             # Get current loggers from logging registry
             current_loggers = logging.Logger.manager.loggerDict.copy()
 
             for name, logger_obj in current_loggers.items():
                 if isinstance(logger_obj, logging.Logger):
-                    self._state.managed_loggers[name] = logger_obj
+                    if name not in ignore:
+                        self._state.managed_loggers[name] = logger_obj
 
-    def managed(self, name: str) -> logging.Logger:
+    # ----- Release -----
+    def release(self, name: str) -> None:
         """
-        Return a managed logger by name.
+        Stop managing a specific logger.
+
+        This removes the logger from the managed snapshot. No mutation or
+        restoration of logger state is performed.
 
         Args:
-            name: The name of the logger to retrieve. This should match
-                 the name used when the logger was created or adopted.
-
-        Returns:
-            The standard library logging.Logger instance for the given name.
+            name: Name of the managed logger to release.
 
         Raises:
-            KeyError: If the specified logger name is not currently managed.
-                     Call adopt_all() first to adopt existing loggers, or ensure
-                     the logger was created after adoption.
-
-        Example:
-            ```python
-            from logspark import LogManager
-
-            LogManager.adopt_all()
-
-            # Get a specific managed logger
-            app_logger = LogManager.managed("myapp")
-            app_logger.info("This uses the managed logger")
-            ```
+            KeyError: If the logger is not currently managed.
         """
         with self._lock:
             if name not in self._state.managed_loggers:
-                raise KeyError(f"Logger '{name}' is not managed. Call adopt_all() first.")
-            return self._state.managed_loggers[name]
+                raise KeyError(
+                    f"Logger '{name}' is not managed. Call adopt_all() or check managed loggers first."
+                )
+            self._state.managed_loggers.pop(name)
 
-    def unify_format(self, logger_instance: Optional["SparkLogger"] = None) -> None:
+    def release_all(self) -> None:
         """
-        Apply LogSpark's handler and formatter configuration to all managed loggers.
+        Release all managed loggers and reset manager state.
 
-        This method takes the configuration from a LogSpark logger and applies
-        the same handler and logging level to all managed loggers, creating
-        consistent formatting across your entire application.
+        This clears the internal managed snapshot and resets the manager to
+        an empty baseline. No attempt is made to restore previous handler,
+        level, or propagation state on any logger.
 
-        Args:
-            logger_instance: The LogSpark logger instance to copy configuration from.
-                           If None, uses the global LogSpark logger singleton.
+        This method is intended for:
+        - test isolation
+        - controlled teardown
+        - explicit lifecycle management
 
-        Raises:
-            InvalidConfigurationError: If the source logger hasn't been configured yet.
-
-        Note:
-            The source logger must be configured before calling this method.
-            All managed loggers will have their existing handlers cleared and
-            replaced with the LogSpark configuration.
-
-        Example:
-            ```python
-            from logspark import logger, LogManager
-            from logspark.handlers import JSONHandler
-
-            # Configure LogSpark logger
-            logger.configure(
-                level=logging.INFO,
-                format=JSONHandler()
-            )
-
-            # Adopt existing loggers and unify their format
-            LogManager.adopt_all()
-            LogManager.unify_format()
-
-            # Now all managed loggers use JSON formatting
-            ```
+        It does not undo mutations applied via ``unify``.
         """
-        if logger_instance is None:
-            from .SparkLoggerDef import spark_logger
 
-            logger_instance = spark_logger
-
-        with self._lock:
-            # Get LogSpark logger configuration
-            if not logger_instance.is_frozen:
-                if logger_instance._config is None:
-                    raise InvalidConfigurationError("LogSpark logger not configured")
-                else:
-                    raise UnfrozenGlobalOperationError(
-                        "LogSpark logger needs to be frozen before calling this method"
-                    )
-
-            # Apply configuration to all managed loggers
-            for managed_logger in self._state.managed_loggers.values():
-                if managed_logger != logger_instance.instance:
-                    # Clear existing handlers
-                    managed_logger.handlers.clear()
-                    # Apply LogSpark's handler and level
-                    managed_logger.setLevel(logger_instance.config.level)
-                    managed_logger.addHandler(logger_instance.config.handler)
-
-    def release(self) -> None:
-        """
-        Release all managed loggers and reset the LogManager state.
-
-        This method relinquishes ownership of all managed loggers and clears
-        internal state. After calling release(), the LogManager behaves as if
-        freshly imported and manages no loggers until explicitly instructed
-        to do so again.
-
-        This operation does NOT attempt to restore previous handler or formatter
-        configurations on managed loggers. Any global formatting changes applied
-        via unify_format() remain in effect.
-
-        Intended for controlled teardown, test isolation, or explicit lifecycle
-        management.
-        """
         with self._lock:
             # Drop all managed loggers
             self._state.managed_loggers.clear()
@@ -186,7 +191,99 @@ class SparkLogManager:
             # Reset singleton slot so a fresh instance can be created
             cls = self.__class__
             if hasattr(cls, "_SingletonWrapper__cls_instance"):
-                setattr(cls, "_SingletonWrapper__cls_instance", None)
+                cls._SingletonWrapper__cls_instance = None
+
+    # -----Mutators-----
+    def unify(
+        self,
+        /,
+        level: int | str | None = None,
+        handler: logging.Handler | None = None,
+        propagate: bool | None = None,
+        use_spark_handler: bool = False,
+    ) -> None:
+        """
+        Apply standard logging mutations to all managed loggers.
+
+        This method performs batch mutation of managed Logger instances using
+        normal stdlib operations. It may replace handlers, adjust log levels,
+        and modify propagation behavior.
+
+        Args:
+            level:
+                Logging level to apply to each managed logger. When None,
+                the logger's existing level is preserved.
+
+            handler:
+                Handler instance to attach to each managed logger. When provided,
+                existing handlers are cleared and the given handler is attached.
+
+                The same handler instance is shared across all managed loggers.
+
+            propagate:
+                Value to assign to ``logger.propagate`` for each managed logger.
+                When None, propagation behavior is left unchanged.
+
+            use_spark_handler:
+                When True and ``handler`` is None, copies the handler from the
+                frozen LogSpark logger. This requires LogSpark to be configured
+                and frozen.
+
+        Raises:
+            InvalidConfigurationError:
+                If ``use_spark_handler`` is True but LogSpark is not configured.
+
+            UnfrozenGlobalOperationError:
+                If LogSpark exists but is not frozen when attempting to copy
+                its handler.
+
+            ValueError:
+                If ``handler`` is provided and is not a logging.Handler.
+
+        Important:
+            - This operation is destructive: existing handlers are removed.
+            - Previous logger state is not preserved or restored.
+            - Release does not revert applied mutations.
+
+        This method applies policy once and deliberately avoids reconciliation
+        or state tracking beyond the managed snapshot.
+        """
+        with self._lock:
+            # Get LogSpark logger configuration
+            if handler is None:
+                if use_spark_handler:
+                    from .SparkLoggerDef import spark_logger
+
+                    if not spark_logger.is_frozen:
+                        if spark_logger._config is None:
+                            raise InvalidConfigurationError("LogSpark logger not configured")
+                        else:
+                            raise UnfrozenGlobalOperationError(
+                                "LogSpark logger needs to be frozen before copying its handler"
+                            )
+                    elif spark_logger._config is not None:
+                        handler = spark_logger._config.handler
+                    else:
+                        raise InvalidConfigurationError("LogSpark logger has no configured handler")
+            elif not isinstance(handler, logging.Handler):
+                raise ValueError("Handler must be a logging.Handler instance")
+
+            if level is not None:
+                v_level = validate_level(level)
+            else:
+                v_level = None
+
+            # Apply configuration to all managed loggers
+            for managed_logger in self._state.managed_loggers.values():
+                # Clear existing handlers
+                if handler is not None:
+                    managed_logger.handlers.clear()
+                    managed_logger.addHandler(handler)
+                if v_level is not None:
+                    managed_logger.setLevel(v_level)
+                if propagate is not None:
+                    managed_logger.propagate = propagate
 
 
+# Singleton Pattern
 spark_log_manager = SparkLogManager()

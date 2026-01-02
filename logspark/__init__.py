@@ -1,8 +1,8 @@
 # Create singleton instances
-from .SparkLoggerDef import spark_logger, SparkLogger
-from .SparkLogManagerDef import spark_log_manager, SparkLogManager
+from . import Handlers, Types
 from .LogOverrideDef import LogOverride
-from . import Types, Handlers
+from .SparkLoggerDef import SparkLogger, spark_logger
+from .SparkLogManagerDef import SparkLogManager, spark_log_manager
 
 logger = spark_logger
 

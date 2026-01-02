@@ -1,34 +1,43 @@
 import logging
 import threading
 import warnings
-from typing import Optional, Union, Any
+from typing import Any
 
-from .Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
-from .Types import FrozenConfigurationError, InvalidConfigurationError
-from .Types.Exceptions import UnconfiguredUsageWarning
-from .Internal.State import SingletonClass
-from .Internal.State import LoggerConfig
+from ._Internal.Func import (
+    configure_handler_traceback_policy,
+    resolve_stacklevel,
+    validate_configuration_parameters,
+)
+from ._Internal.State import LoggerConfig, SingletonClass, is_fast_mode
 from .Handlers.PreConfig import pre_config_handler
-from .Internal.Func import configure_handler_traceback_policy
-from .Internal.Func import resolve_stacklevel
-from .Internal.Func import validate_configuration_parameters
-from .Internal.State import is_fast_mode
-from .Types import TracebackOptions, PresetOptions
+from .Hooks.DDTraceCorrelationFilter import DDTraceCorrelationFilter
+from .Types import (
+    FrozenConfigurationError,
+    InvalidConfigurationError,
+    PresetOptions,
+    TracebackOptions,
+)
+from .Types.Exceptions import UnconfiguredUsageWarning
 
 
 @SingletonClass
 class SparkLogger:
     """
-    LogSpark Logger singleton with explicit lifecycle management
+    Singleton logger with explicit configuration and freeze semantics.
 
-    Lifecycle: import → configure → freeze → use
+    Lifecycle:
+        import → configure → freeze → use
+
+    Invariant:
+        Once configured, logging behavior is immutable for the lifetime
+        of the logger instance.
     """
 
     def __init__(self) -> None:
         self._lock = threading.RLock()
-        self._config: Optional[LoggerConfig] = None
+        self._config: LoggerConfig | None = None
         self._frozen = False
-        self._stdlib_logger: Optional[logging.Logger] = None
+        self._stdlib_logger: logging.Logger | None = None
         self._pre_config_setup_done = False
         self._unconfigured_warning_emitted = False
 
@@ -68,7 +77,7 @@ class SparkLogger:
     @property
     def config(self) -> LoggerConfig:
         if self._config is None:
-            raise InvalidConfigurationError(f"LogSpark logger not configured")
+            raise InvalidConfigurationError("LogSpark logger not configured")
         return self._config
 
     # PUBLIC LOGGING API
@@ -160,11 +169,11 @@ class SparkLogger:
     # PUBLIC SETTINGS API
     def configure(
         self,
-        level: int = logging.INFO,
+        level: str | int = logging.INFO,
         *,
-        traceback: Union[TracebackOptions, str, None] = TracebackOptions.COMPACT,
-        handler: Optional[logging.Handler] = None,
-        preset: Optional[Union[PresetOptions, str]] = None,
+        traceback: TracebackOptions | str | None = TracebackOptions.COMPACT,
+        handler: logging.Handler | None = None,
+        preset: PresetOptions | str | None = None,
         no_freeze: bool = False,
     ) -> None:
         """
@@ -229,26 +238,28 @@ class SparkLogger:
                 raise FrozenConfigurationError("Cannot configure logger after freeze")
 
             # Validate parameters before creating configuration
-            tracebackoption, presetoption = validate_configuration_parameters(level, traceback, handler, preset, no_freeze)
+            v_level, v_traceback, v_preset = validate_configuration_parameters(
+                level, traceback, handler, preset, no_freeze
+            )
 
             # Default to TerminalHandler if none provided
             if is_fast_mode() and handler is None:
                 # Fast logging with no explicit handler - use NullHandler for maximum speed
                 fmt: logging.Handler = logging.NullHandler()
-            elif handler is None and presetoption is not None:
+            elif handler is None and v_preset is not None:
                 # if handler is none but preset isn't we apply the preset
-                if presetoption == PresetOptions.TERMINAL:
+                if v_preset == PresetOptions.TERMINAL:
                     from .Handlers import TerminalHandler
 
                     fmt = TerminalHandler()
-                elif presetoption == PresetOptions.JSON:
+                elif v_preset == PresetOptions.JSON:
                     from .Handlers import JSONHandler
 
                     fmt = JSONHandler()
                 else:
                     # invalid preset
                     raise ValueError(f"Invalid preset '{preset}'")
-            elif handler is None and presetoption is None:
+            elif handler is None and v_preset is None:
                 # both are none so we fall back to default
                 from .Handlers import TerminalHandler
 
@@ -259,9 +270,7 @@ class SparkLogger:
                 fmt = handler
 
             # Create configuration
-            config = LoggerConfig(
-                level=level, handler=fmt, traceback_policy=tracebackoption
-            )
+            config = LoggerConfig(level=v_level, handler=fmt, traceback_policy=v_traceback)
 
             self._config = config
 
@@ -334,20 +343,10 @@ class SparkLogger:
             # Reset singleton slot (critical)
             cls = self.__class__
             if hasattr(cls, "_SingletonWrapper__cls_instance"):
-                setattr(cls, "_SingletonWrapper__cls_instance", None)
+                cls._SingletonWrapper__cls_instance = None
 
     # INTERNAL
     def _log_with_callsite(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
-        """
-        Log with accurate call-site resolution
-
-        Args:
-            level: Logging level
-            msg: Message to log
-            *args: Message formatting arguments
-            **kwargs: Additional logging arguments
-        """
-
         # Get user-provided stacklevel or default
         user_stacklevel = kwargs.get("stacklevel", 1)
 
@@ -363,7 +362,6 @@ class SparkLogger:
             self._ensure_pre_config_setup()
 
     def _ensure_pre_config_setup(self) -> None:
-        """Set up minimal terminal logging before configuration"""
         if self._pre_config_setup_done:
             return
 
@@ -383,7 +381,6 @@ class SparkLogger:
             self._pre_config_setup_done = True
 
     def _emit_unconfigured_warning(self) -> None:
-        """Emit suppressible warning for unconfigured usage (only once per instance)"""
         if not self._unconfigured_warning_emitted:
             warnings.warn_explicit(
                 message="\nLogger used before explicit configuration. \n"
