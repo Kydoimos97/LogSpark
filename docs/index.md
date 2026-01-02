@@ -1,4 +1,7 @@
-# LogSpark
+<div align="center">
+<img alt="Logo.png" src="assets/Logo.png" width="250" height="250"/>
+</div>
+
 
 **Drop-in logging foundation** for Python projects.
 
@@ -16,7 +19,7 @@ spark_logger.info("Application started")
 spark_logger.error("Something went wrong")
 ```
 
-That's it. You now have:
+You now have:
 
 - Terminal output with colors and structure
 - Automatic Rich formatting when available
@@ -60,7 +63,7 @@ logger.addHandler(TerminalHandler(show_time=True))
 
 ```python
 # Add filters to existing loggers
-from logspark.Hooks import DDTraceCorrelationFilter
+from logspark.Filters import DDTraceCorrelationFilter
 
 existing_handler.addFilter(DDTraceCorrelationFilter())
 ```
