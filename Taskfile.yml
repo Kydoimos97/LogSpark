@@ -1,25 +1,35 @@
 version: '3'
 
 tasks:
+
   test:
-    desc: Run all tests
+    desc: Run all tests with minimal output
     cmds:
-      - uv run pytest
+      - uv run pytest -q --tb=no
+
+  test-failure:
+    desc: Run tests and show failure locations
+    cmds:
+      - uv run pytest --tb=short -rf
 
   test-verbose:
-    desc: Run all tests with verbose output
+    desc: Run tests with expanded output
     cmds:
-      - uv run pytest -v -s
-
-  test-compact:
-    desc: Run all tests with compact output
-    cmds:
-      - uv run pytest --tb=short
+      - uv run pytest -v --tb=long
 
   test-coverage:
-    desc: Run all tests with coverage report
+    desc: Run tests with coverage (silent)
     cmds:
-      - uv run pytest --cov=logspark --cov-report=term-missing --cov-report=html
+      - |
+        COVERAGE_FILE=.coverage/coverage.db \
+        uv run pytest \
+          -q \
+          --tb=no \
+          -r0 \
+          --cov=logspark \
+          --cov-report=term \
+          --cov-report=html:.coverage/html
+
 
   docs:
     desc: Start mkdocs development server
@@ -30,5 +40,10 @@ tasks:
     desc: Run Tests without rich installed
     cmds:
       - uv pip uninstall rich
-      - uv run pytest
+      - uv run pytest --tb=short -rf
       - uv pip install rich
+
+  mypy:
+    desc: Run mypy in strict mode on logspark
+    cmds:
+      - mypy ./logspark --strict
