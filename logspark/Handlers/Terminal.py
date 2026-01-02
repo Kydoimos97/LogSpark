@@ -1,37 +1,19 @@
 import logging
 import sys
 import traceback
+from collections.abc import Callable
 from logging import Filter
 from types import TracebackType
-from typing import Optional, Union, Callable, cast, IO, TYPE_CHECKING
+from typing import IO, TYPE_CHECKING, Optional, cast
 
-from ..Internal.Func import emit_console_warning, get_devnull, validate_level
-from ..Internal.State.Env import is_supported_terminal, is_silenced_mode
+from .._Internal.Func import emit_console_warning, get_devnull, validate_level
+from .._Internal.State import is_rich_available, is_silenced_mode, is_supported_terminal
 from ..Types import InvalidConfigurationError, TracebackOptions
 from ..Types.Protocol import SupportsWrite, _SupportsFilter
 
 if TYPE_CHECKING:
     from rich.console import Console
-    from rich.text import Text
-
-RICH_TEXT: Optional[type["Text"]] = None
-RICH_CONSOLE: Optional[type["Console"]] = None
-
-try:
-    # noinspection PyUnresolvedReferences
-    from rich.console import Console
-
-    # noinspection PyUnresolvedReferences
-    from rich.text import Text
-
-    RICH_CONSOLE = Console
-    RICH_TEXT = Text
-    if not is_supported_terminal():
-        emit_console_warning()
-        RICH_TEXT = None
-        RICH_CONSOLE = None
-except ImportError:
-    pass
+    from rich.highlighter import NullHighlighter
 
 
 class TerminalHandler(logging.Handler):
@@ -69,11 +51,9 @@ class TerminalHandler(logging.Handler):
         logging pipelines.
     """
 
-    _use_rich = False if RICH_TEXT is None else True
-
     def __init__(
         self,
-        stream: Optional[SupportsWrite] = None,
+        stream: SupportsWrite | None = None,
         *,
         show_time: bool = True,
         show_level: bool = True,
@@ -128,23 +108,41 @@ class TerminalHandler(logging.Handler):
             InvalidConfigurationError:
                 If both ``stream`` and ``console`` are provided.
         """
-        # Detect Rich availability and create appropriate handler
-        if self._use_rich and not no_rich:
+
+        # Rich is imported and user doesn't overwrite rich support
+        if not no_rich:
+            _use_rich = is_rich_available()
+        else:
+            _use_rich = False
+
+        # Console override or console check passed
+        if console is None:
+            _use_console = is_supported_terminal()
+        else:
+            _use_console = True
+
+        if _use_rich and not _use_console:
+            emit_console_warning()
+
+        if _use_rich and _use_console:
             from ..Hooks.SparkRichHandler import SparkRichHandler
-            from rich.highlighter import NullHighlighter
 
             if console is None:
+                from rich.console import Console
+
                 spark_stream = self._resolve_stream(stream)
                 spark_stream = cast(IO[str], spark_stream)
                 console = Console(file=spark_stream, tab_size=4, no_color=not use_color)
             else:
                 if stream is not None:
                     raise InvalidConfigurationError(
-                        f"Cannot set stream when passing in a pre-configured console."
+                        "Cannot set stream when passing in a pre-configured console."
                     )
 
-            highlighter: Optional[NullHighlighter] = None
+            highlighter: "NullHighlighter | None" = None
             if not use_color:
+                from rich.highlighter import NullHighlighter
+
                 highlighter = NullHighlighter()
 
             self._handler: logging.Handler = SparkRichHandler(
@@ -186,9 +184,9 @@ class TerminalHandler(logging.Handler):
         """
         # Handle traceback policy for terminal output consistency
         if record.exc_info:
-            exc_type: Optional[type[BaseException]] = record.exc_info[0]
-            exc_value: Optional[BaseException] = record.exc_info[1]
-            tb: Optional[TracebackType] = record.exc_info[2]
+            exc_type: type[BaseException] | None = record.exc_info[0]
+            exc_value: BaseException | None = record.exc_info[1]
+            tb: TracebackType | None = record.exc_info[2]
             traceback_policy = getattr(record, "traceback_policy", TracebackOptions.NONE)
 
             if traceback_policy == TracebackOptions.NONE or exc_type is None or exc_value is None:
@@ -220,7 +218,7 @@ class TerminalHandler(logging.Handler):
 
         self._handler.emit(record)
 
-    def setLevel(self, level: Union[int, str]) -> None:
+    def setLevel(self, level: int | str) -> None:
         """Set level on both this handler and composed handler"""
         level_int = validate_level(level)
         super().setLevel(level_int)
@@ -228,7 +226,7 @@ class TerminalHandler(logging.Handler):
 
     # noinspection PyShadowingBuiltins
     def addFilter(
-        self, filter: Union[Filter, Callable[[logging.LogRecord], bool], _SupportsFilter]
+        self, filter: Filter | Callable[[logging.LogRecord], bool] | _SupportsFilter
     ) -> None:
         """Add filter to both this handler and composed handler"""
         super().addFilter(filter)
@@ -236,14 +234,14 @@ class TerminalHandler(logging.Handler):
 
     # noinspection PyShadowingBuiltins
     def removeFilter(
-        self, filter: Union[Filter, Callable[[logging.LogRecord], bool], _SupportsFilter]
+        self, filter: Filter | Callable[[logging.LogRecord], bool] | _SupportsFilter
     ) -> None:
         """Remove filter from both this handler and composed handler"""
         super().removeFilter(filter)
         self._handler.removeFilter(filter)
 
     @staticmethod
-    def _resolve_stream(stream: Optional[SupportsWrite]) -> SupportsWrite:
+    def _resolve_stream(stream: SupportsWrite | None) -> SupportsWrite:
         stream = stream or sys.stdout
         if is_silenced_mode():
             stream = get_devnull()

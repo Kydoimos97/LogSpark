@@ -1,8 +1,8 @@
 import logging
 import sys
 
-from ..Internal.State import is_silenced_mode
-from ..Internal.Func import get_devnull
+from .._Internal.Func import get_devnull
+from .._Internal.State import is_silenced_mode
 
 
 def pre_config_handler() -> logging.Handler:

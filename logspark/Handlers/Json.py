@@ -2,13 +2,12 @@ import logging
 import sys
 import traceback
 from types import TracebackType
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from ..Internal.State import is_silenced_mode
-from ..Internal.Func import get_devnull
-from ..Types import MissingDependencyException
+from .._Internal.Func import get_devnull
+from .._Internal.State import is_silenced_mode
+from ..Types import MissingDependencyException, TracebackOptions
 from ..Types.Protocol import SupportsWrite
-from ..Types import TracebackOptions
 
 if TYPE_CHECKING:
     from pythonjsonlogger.json import JsonFormatter
@@ -45,70 +44,88 @@ class _SingleLineJSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """
-        Format record ensuring single-line output
-
-        Args:
-            record: LogRecord to format
-
-        Returns:
-            Single-line JSON string
+        Format record ensuring single-line JSON output.
         """
-        # Handle traceback information if present
         if record.exc_info:
-            # Format traceback according to policy stored in record
-            exc_type: Optional[type[BaseException]] = record.exc_info[0]
-            exc_value: Optional[BaseException] = record.exc_info[1]
-            tb: Optional[TracebackType] = record.exc_info[2]
-            traceback_policy = getattr(record, "traceback_policy", TracebackOptions.NONE)
+            self._apply_traceback_policy(record)
 
-            if traceback_policy == TracebackOptions.NONE or exc_type is None or exc_value is None:
-                # Remove exception info to prevent traceback inclusion
-                record.exc_info = None
-                record.exc_text = None
-            elif traceback_policy == TracebackOptions.COMPACT:
-                # Format compact traceback as single line - essential info only
-                try:
-                    # Get the most relevant frame (usually the last one)
-                    tb_frames = traceback.extract_tb(tb)
-                    if tb_frames:
-                        last_frame = tb_frames[-1]
-                        compact_tb = (
-                            f"{exc_type.__name__}: {exc_value} | "
-                            f"{last_frame.filename}:{last_frame.lineno} "
-                            f"in {last_frame.name}"
-                        )
-                    else:
-                        compact_tb = f"{exc_type.__name__}: {exc_value}"
-
-                    # Set exc_text which python-json-logger will use as exc_info field
-                    record.exc_text = compact_tb
-                except Exception:
-                    # Fallback if traceback processing fails
-                    record.exc_text = f"{exc_type.__name__}: {exc_value}"
-
-                record.exc_info = None  # Prevent default formatting
-
-            elif traceback_policy == TracebackOptions.FULL:
-                # Format full traceback as single line - complete info but single line
-                try:
-                    exc_lines = traceback.format_exception(exc_type, exc_value, tb)
-                    # Join all lines and convert to single line by replacing newlines with ' | '
-                    full_tb = "".join(exc_lines).replace("\n", " | ").replace("\r", "").strip()
-                    record.exc_text = full_tb
-                except Exception:
-                    # Fallback if traceback processing fails
-                    record.exc_text = f"{exc_type.__name__}: {exc_value}"
-
-                record.exc_info = None  # Prevent default formatting
-
-        # Format using python-json-logger
         formatted: str = self._json_formatter.format(record)
 
-        # Critical invariant: Ensure single-line output by replacing any remaining newlines
-        # This is the final enforcement point for the single-line JSON invariant
-        single_line = formatted.replace("\n", " | ").replace("\r", "").strip()
+        # Physical single-line invariant only (JSON-safe)
+        return formatted.replace("\n", " ").replace("\r", " ").strip()
 
-        return single_line
+    def _apply_traceback_policy(self, record: logging.LogRecord) -> None:
+        exc_info = record.exc_info
+        assert exc_info is not None
+
+        exc_type: type[BaseException] | None = exc_info[0]
+        exc_value: BaseException | None = exc_info[1]
+        tb: TracebackType | None = exc_info[2]
+        policy: TracebackOptions = getattr(record, "traceback_policy", TracebackOptions.COMPACT)
+
+        if not exc_type or not exc_value or policy == TracebackOptions.NONE:
+            self._clear_exception(record)
+            return
+
+        if policy == TracebackOptions.COMPACT:
+            record.exc_text = self._format_compact(exc_type, exc_value, tb)
+        elif policy == TracebackOptions.FULL:
+            record.exc_text = self._format_full(exc_type, exc_value, tb)
+
+        record.exc_info = None
+
+    @staticmethod
+    def _clear_exception(record: logging.LogRecord) -> None:
+        record.exc_info = None
+        record.exc_text = None
+
+    def _format_compact(
+        self,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        tb: TracebackType | None,
+    ) -> str:
+        """
+        Format exception using COMPACT traceback policy.
+        Expected shape:
+        "<ExceptionType>: <message> | <filename>:<lineno> in <function>"
+        """
+        try:
+            if tb is None:
+                return f"{exc_type.__name__}: {self._sanitize(exc_value)}"
+            frames = traceback.extract_tb(tb)
+            if frames:
+                frame = frames[-1]
+                return (
+                    f"{exc_type.__name__}: {self._sanitize(exc_value)} | "
+                    f"{frame.filename}:{frame.lineno} in {frame.name}"
+                )
+            return f"{exc_type.__name__}: {self._sanitize(exc_value)}"
+        except Exception:
+            return f"{exc_type.__name__}: {self._sanitize(exc_value)}"
+
+    def _format_full(
+        self,
+        exc_type: type[BaseException],
+        exc_value: BaseException,
+        tb: TracebackType | None,
+    ) -> str:
+        """
+        Format exception using FULL traceback policy.
+        Expected shape (single line):
+        "Traceback (most recent call last): | File \"...\", line X, in func | ... | ValueError: message"
+        """
+        try:
+            if tb is None:
+                return f"{exc_type.__name__}: {self._sanitize(exc_value)}"
+            lines = traceback.format_exception(exc_type, exc_value, tb)
+            return " | ".join(self._sanitize(line) for line in lines if line.strip())
+        except Exception:
+            return f"{exc_type.__name__}: {self._sanitize(exc_value)}"
+
+    @staticmethod
+    def _sanitize(value: object) -> str:
+        return str(value).replace("\n", " ").replace("\r", " ").strip()
 
 
 class JSONHandler(logging.StreamHandler[SupportsWrite]):
@@ -145,7 +162,7 @@ class JSONHandler(logging.StreamHandler[SupportsWrite]):
         ```
     """
 
-    def __init__(self, stream: Optional[SupportsWrite] = None):
+    def __init__(self, stream: SupportsWrite | None = None):
         """
         Initialize JSON handler with python-json-logger backend.
 
@@ -190,5 +207,5 @@ class JSONHandler(logging.StreamHandler[SupportsWrite]):
             # Wrap formatter to ensure single-line output and handle tracebacks
             self.setFormatter(_SingleLineJSONFormatter(formatter))
 
-        except ImportError:
-            raise MissingDependencyException(["python-json-logger"])
+        except ImportError as e:
+            raise MissingDependencyException(["python-json-logger"]) from e
