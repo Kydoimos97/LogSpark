@@ -1,41 +1,143 @@
 """
-Pytest configuration and fixtures for LogSpark Logging tests
+Pytest configuration and fixtures for LogSpark test suite refactor.
+Provides behavioral test infrastructure with dependency guards and environment isolation.
 """
+
 import io
 import os
 import sys
-from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
+import pytest
+from hypothesis import Verbosity, settings
 
-
+# Add project root to path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-import pytest
-from logspark.Types import TracebackOptions
-import logging
+# Hypothesis configuration for property-based testing
+settings.register_profile("default", max_examples=100, verbosity=Verbosity.normal)
+settings.load_profile("default")
 
-from pathlib import Path
 
-def pytest_ignore_collect(path, config):
-    try:
-        from pathlib import Path
-        p = Path(path)
-    except TypeError:
-        # fallback for py.path.local
-        p = Path(str(path))
+# Dependency Guard Fixtures
+@pytest.fixture
+def require_rich():
+    """Skip test if Rich is not available"""
+    pytest.importorskip("rich")
 
-    if p.is_dir() and p.name == "rich":
-        try:
-            import rich  # noqa: F401
-        except Exception:
-            return True
 
-    return False
+@pytest.fixture
+def require_ddtrace():
+    """Skip test if DDTrace is not available"""
+    pytest.importorskip("ddtrace")
 
+
+@pytest.fixture
+def require_json_logger():
+    """Skip test if python-json-logger is not available"""
+    pytest.importorskip("pythonjsonlogger")
+
+
+# Environment Isolation Fixtures
+@pytest.fixture
+def isolated_environment():
+    """Provide clean environment for each test"""
+    original_env = os.environ.copy()
+    yield
+    os.environ.clear()
+    os.environ.update(original_env)
+
+
+@pytest.fixture
+def silenced_mode():
+    """Set LOGSPARK_MODE=silenced for test"""
+    with patch.dict(os.environ, {"LOGSPARK_MODE": "silenced"}):
+        yield
+
+
+@pytest.fixture
+def fast_mode():
+    """Set LOGSPARK_MODE=fast for test"""
+    with patch.dict(os.environ, {"LOGSPARK_MODE": "fast"}):
+        yield
+
+
+@pytest.fixture
+def default_mode():
+    """Ensure LOGSPARK_MODE is unset for default behavior"""
+    with patch.dict(os.environ, {}, clear=False):
+        if "LOGSPARK_MODE" in os.environ:
+            del os.environ["LOGSPARK_MODE"]
+        yield
+
+
+# Fresh Instance Management Fixtures
+@pytest.fixture
+def fresh_logger():
+    """Provide fresh logger instance with proper cleanup"""
+    from logspark import logger
+
+    logger.kill()  # Reset to clean state
+    yield logger
+    logger.kill()  # Cleanup
+
+
+@pytest.fixture
+def fresh_log_manager():
+    """Provide fresh log manager with proper cleanup"""
+    from logspark import spark_log_manager
+
+    spark_log_manager.release_all()
+    # Clear the LogSpark logger that gets auto-added by release_all()
+    with spark_log_manager._lock:
+        spark_log_manager._state.managed_loggers.clear()
+    yield spark_log_manager
+    spark_log_manager.release_all()
+
+
+# Test Infrastructure Fixtures
+@pytest.fixture
+def test_stream():
+    """Provide StringIO stream for capturing log output"""
+    return io.StringIO()
+
+
+@pytest.fixture
+def test_handler(test_stream):
+    """Provide test StreamHandler for configuration"""
+    import logging
+
+    handler = logging.StreamHandler(test_stream)
+    formatter = logging.Formatter("%(levelname)s: %(message)s")
+    handler.setFormatter(formatter)
+    return handler
+
+
+@pytest.fixture
+def configured_logger(fresh_logger, test_handler):
+    """Provide configured but not frozen logger"""
+    import logging
+
+    from logspark.Types import TracebackOptions
+
+    fresh_logger.configure(
+        level=logging.INFO, traceback=TracebackOptions.NONE, handler=test_handler
+    )
+    return fresh_logger
+
+
+@pytest.fixture
+def frozen_logger(configured_logger):
+    """Provide configured and frozen logger"""
+    return configured_logger
+
+
+# Legacy compatibility fixture for existing tests
 @pytest.fixture(autouse=True)
 def logspark_mode(request):
+    """Legacy fixture for backward compatibility with existing tests"""
     marker = request.node.get_closest_marker("silenced")
 
     if marker:
@@ -47,67 +149,23 @@ def logspark_mode(request):
 
     os.environ.pop("LOGSPARK_MODE", None)
 
-@pytest.fixture
-def fresh_logger():
-    """Provide a fresh logger instance for testing"""
-    from logspark import logger
-    
-    # Use the new kill() method to properly reset the logger
-    logger.kill()
-    
-    yield logger
-    
-    # Cleanup using kill() method
-    logger.kill()
 
+# Collection-time dependency handling
+def pytest_ignore_collect(path, config):
+    """Skip collection of tests that require unavailable dependencies"""
+    try:
+        from pathlib import Path
 
-@pytest.fixture
-def fresh_log_manager():
-    """Provide a fresh logmanager instance for testing"""
-    from logspark import spark_log_manager
+        p = Path(path)
+    except TypeError:
+        # fallback for py.path.local
+        p = Path(str(path))
 
-    # Use the new release() method to properly reset the log manager
-    spark_log_manager.release()
+    # Skip rich directory if Rich is not available
+    if p.is_dir() and p.name == "rich":
+        try:
+            import rich  # noqa: F401
+        except ImportError:
+            return True
 
-    yield spark_log_manager
-
-    # Cleanup using release() method
-    spark_log_manager.release()
-
-
-@pytest.fixture
-def test_stream():
-    """Provide a devnull stream for capturing log output"""
-    # with StringIO() as stream:
-    #     yield stream
-    stream = io.StringIO()
-    yield stream
-
-@pytest.fixture
-def test_handler(test_stream):
-    """Provide a test StreamHandler for configuration"""
-    handler = logging.StreamHandler(test_stream)
-    formatter = logging.Formatter("%(levelname)s: %(message)s")
-    handler.setFormatter(formatter)
-    return handler
-
-
-@pytest.fixture
-def configured_logger(fresh_logger, test_handler):
-    """Provide a configured but not frozen logger"""
-    fresh_logger.configure(level=logging.INFO, traceback=TracebackOptions.NONE, handler=test_handler)
-    return fresh_logger
-
-
-@pytest.fixture
-def frozen_logger(configured_logger):
-    """Provide a configured and frozen logger"""
-    return configured_logger
-
-
-# Hypothesis configuration
-from hypothesis import Verbosity, settings
-
-# Configure hypothesis for property-based testing
-settings.register_profile("default", max_examples=100, verbosity=Verbosity.normal)
-settings.load_profile("default")
+    return False
