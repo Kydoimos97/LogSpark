@@ -1,17 +1,16 @@
 import logging
-from typing import Optional, Union
 
-from ...Types import InvalidConfigurationError
-from ...Types import PresetOptions, TracebackOptions
+from ...Types import InvalidConfigurationError, PresetOptions, TracebackOptions
+from .validate_level import validate_level
 
 
 def validate_configuration_parameters(
-    level: int,
-    traceback: Union[TracebackOptions, str, None],
-    handler: Optional[logging.Handler],
-    preset: Optional[Union[PresetOptions, str]]  ,
-    no_freeze: bool
-) -> tuple[TracebackOptions, Optional[PresetOptions]]:
+    level: str | int,
+    traceback: TracebackOptions | str | None,
+    handler: logging.Handler | None,
+    preset: PresetOptions | str | None,
+    no_freeze: bool,
+) -> tuple[int, TracebackOptions, PresetOptions | None]:
     """
     Validate configuration parameters
 
@@ -19,8 +18,7 @@ def validate_configuration_parameters(
         InvalidConfigurationError: If any parameter is invalid
     """
     # Validate level is a valid integer (stdlib logging accepts any integer)
-    if not isinstance(level, int):
-        raise InvalidConfigurationError(f"level must be an integer, got {type(level)}")
+    level = validate_level(level)
 
     # Validate traceback
     traceback = _resolve_traceback_options(traceback)
@@ -35,13 +33,12 @@ def validate_configuration_parameters(
         )
 
     if not isinstance(no_freeze, bool):
-        raise InvalidConfigurationError(
-                f"no_freeze must be a bool, got {type(no_freeze)}"
-                )
+        raise InvalidConfigurationError(f"no_freeze must be a bool, got {type(no_freeze)}")
 
-    return traceback, preset
+    return level, traceback, preset
 
-def _resolve_traceback_options(traceback: Union[TracebackOptions, str, None]) -> TracebackOptions:
+
+def _resolve_traceback_options(traceback: TracebackOptions | str | None) -> TracebackOptions:
     traceback_map = {
         "none": TracebackOptions.NONE,
         "compact": TracebackOptions.COMPACT,
@@ -72,11 +69,12 @@ def _resolve_traceback_options(traceback: Union[TracebackOptions, str, None]) ->
         )
     return traceback
 
-def _resolve_preset_options(preset: Optional[Union[PresetOptions, str]]) -> Optional[PresetOptions]:
+
+def _resolve_preset_options(preset: PresetOptions | str | None) -> PresetOptions | None:
     preset_map = {
-                "terminal": PresetOptions.TERMINAL,
-                "json": PresetOptions.JSON,
-            }
+        "terminal": PresetOptions.TERMINAL,
+        "json": PresetOptions.JSON,
+    }
 
     if isinstance(preset, str):
         preset_map = {
@@ -86,8 +84,7 @@ def _resolve_preset_options(preset: Optional[Union[PresetOptions, str]]) -> Opti
         preset = preset.lower()
         if preset not in preset_map:
             raise InvalidConfigurationError(
-                f"Invalid preset option '{preset}'. "
-                f"Valid options: {list(preset_map.keys())}"
+                f"Invalid preset option '{preset}'. Valid options: {list(preset_map.keys())}"
             )
         preset = preset_map[preset]
 

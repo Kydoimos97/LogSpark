@@ -1,5 +1,6 @@
 import os
 import shutil
+from importlib.util import find_spec
 
 
 def is_silenced_mode() -> bool:
@@ -8,7 +9,8 @@ def is_silenced_mode() -> bool:
     but output is discarded. This mode is intended for tests and high-volume
     scenarios where logging correctness must be validated without producing output.
     """
-    return os.getenv("LOGSPARK_MODE", '').lower() == "silenced"
+    return os.getenv("LOGSPARK_MODE", "").lower() == "silenced"
+
 
 def is_fast_mode() -> bool:
     """
@@ -16,7 +18,8 @@ def is_fast_mode() -> bool:
     When set, uses constant-time stacklevel resolution instead of frame walking.
     Recommended for high-throughput scenarios where logging performance is critical.
     """
-    return os.getenv('LOGSPARK_MODE', '').lower() == "fast"
+    return os.getenv("LOGSPARK_MODE", "").lower() == "fast"
+
 
 def is_supported_terminal() -> bool:
     """If height and size aren't available or set the console is generally not supported by rich"""
@@ -27,3 +30,9 @@ def is_supported_terminal() -> bool:
     return True
 
 
+def is_rich_available() -> bool:
+    try:
+        return find_spec("rich") is not None
+    except ValueError:
+        # Module present but broken / partially initialized
+        return False

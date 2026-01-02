@@ -1,7 +1,4 @@
-from typing import Union
-
-
-def validate_level(level: Union[str, int]) -> int:
+def validate_level(level: str | int) -> int:
     """
     Validate and normalize a logging level using stdlib registration.
 

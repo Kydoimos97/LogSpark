@@ -1,7 +1,7 @@
 #  Copyright (c) 2024-2025.
 #  Author: Willem van der Schans.
 #  Licensed under the MIT License (https://opensource.org/license/mit).
-from typing import Any, Type, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 T = TypeVar("T")
 
@@ -11,7 +11,7 @@ class _SingletonViolationException(Exception):
     Raised when a class using @SingletonClass improperly defines its own __new__ method.
     """
 
-    def __init__(self, cls: Type[Any]) -> None:
+    def __init__(self, cls: type[Any]) -> None:
         cls_name = getattr(cls, "__name__", "<unknown class>")
         msg = (
             f"Singleton violation in '{cls_name}':\n"
@@ -24,7 +24,7 @@ class _SingletonViolationException(Exception):
         super().__init__(msg)
 
 
-def SingletonClass(cls: Type[T]) -> Type[T]:
+def SingletonClass(cls: type[T]) -> type[T]:
     """
     Enforces singleton behavior by wrapping the class in a custom subclass.
 
@@ -43,15 +43,15 @@ def SingletonClass(cls: Type[T]) -> Type[T]:
 
         def __new__(cls_, *args: Any, **kwargs: Any) -> Any:
             if cls_.__cls_instance is None:
-                cls_.__cls_instance = super(SingletonWrapper, cls_).__new__(cls_)
+                cls_.__cls_instance = super().__new__(cls_)
             return cls_.__cls_instance
 
         def __init__(self, *args: Any, **kwargs: Any):
             if not getattr(self, "__singleton_initialized__", False):
-                super(SingletonWrapper, self).__init__(*args, **kwargs)
-                setattr(self, "__singleton_initialized__", True)
+                super().__init__(*args, **kwargs)
+                self.__singleton_initialized__ = True
 
     SingletonWrapper.__name__ = cls.__name__
     SingletonWrapper.__qualname__ = cls.__qualname__
     SingletonWrapper.__doc__ = cls.__doc__
-    return cast(Type[T], SingletonWrapper)
+    return cast(type[T], SingletonWrapper)

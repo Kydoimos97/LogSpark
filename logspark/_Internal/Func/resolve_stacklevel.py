@@ -1,10 +1,11 @@
-import sys
 import logging
+import sys
 import threading
 from types import FrameType
-from typing import Optional
+
 from ..State import is_fast_mode
-_CACHED_SL: Optional[int] = None
+
+_CACHED_SL: int | None = None
 _CALIBRATION_LOCK = threading.Lock()
 _INTERNAL_PREFIX = "logspark"
 
@@ -34,7 +35,7 @@ def _calibrate_fast_stacklevel() -> int:
     class _ProbeHandler(logging.Handler):
         def emit(self, record: logging.LogRecord) -> None:
             nonlocal found_level
-            f: Optional[FrameType] = sys._getframe(0)
+            f: FrameType | None = sys._getframe(0)
             # Exhaustive search for the one-off calibration
             for level in range(1, _CALIBRATION_DEPTH):
                 if f is None:
@@ -64,7 +65,7 @@ def resolve_stacklevel(user_stacklevel: int = 1) -> int:
     """
     if not is_fast_mode():
         try:
-            frame: Optional[FrameType] = sys._getframe(2)
+            frame: FrameType | None = sys._getframe(2)
             for level in range(1, _RUNTIME_MAX_DEPTH):
                 if frame is None:
                     break
