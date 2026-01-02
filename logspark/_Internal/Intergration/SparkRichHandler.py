@@ -24,19 +24,29 @@ class SparkRichHandler(RichHandler):
         level: int | str = logging.NOTSET,
         console: Console | None = None,
         *,
-        show_time: bool = True,
-        show_level: bool = True,
-        show_path: bool = True,
-        show_function: bool = False,
+        # Main Settings
+        min_message_width: int = 60,
         markup: bool = False,
-        rich_tracebacks: bool = False,
+        rich_tracebacks: bool = True,
+        highlighter: Highlighter | None = None,
+        # Time settings
+        show_time: bool = True,
+        log_time_format: str | FormatTimeCallable = "%H:%M:%S",
+        # Level Settings
+        show_level: bool = True,
+        level_width: int = 8,
+        # Path Settings
+        show_path: bool = True,
+        max_path_width: int = 40,
+        # Function Settings
+        show_function: bool = False,
+        max_function_width: int = 25,
+        # Traceback Settings
         tracebacks_width: int | None = None,
         tracebacks_extra_lines: int = 3,
         tracebacks_theme: str | None = None,
         tracebacks_word_wrap: bool = True,
         tracebacks_show_locals: bool = False,
-        log_time_format: str | FormatTimeCallable = "%H:%M:%S",
-        highlighter: Highlighter | None = None,
     ) -> None:
         super().__init__(
             level,
@@ -61,7 +71,10 @@ class SparkRichHandler(RichHandler):
             show_function=show_function,
             time_format=log_time_format,
             omit_repeated_times=True,
-            level_width=8,
+            level_width=level_width,
+            max_path_width=max_path_width,
+            max_function_width=max_function_width,
+            min_message_width=min_message_width,
         )
 
     def render(
