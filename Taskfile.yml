@@ -34,7 +34,7 @@ tasks:
   docs:
     desc: Start mkdocs development server
     cmds:
-      - uv run mkdocs serve
+      - uv run mkdocs serve --livereload
 
   test-no-rich:
     desc: Run Tests without rich installed
