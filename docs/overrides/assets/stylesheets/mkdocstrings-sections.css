@@ -1,86 +1,73 @@
 /* --- MkDocStrings API Styling Improvements --- */
-
 /* Function blocks */
-.doc.doc-object.doc-function {
-  margin: 1.75rem 0;
-  padding: 1.25rem 1.5rem;
-  border-radius: 10px;
-  background-color: var(--md-code-bg-color);
-  box-shadow: 0 0 0 1px var(--md-default-fg-color--lighter);
-  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+@media screen and (min-width: 40em) {
+     .doc.doc-object.doc-function {
+         margin: 1.75rem 0;
+         padding: 1.25rem 1.5rem;
+         border-radius: 10px;
+         background-color: var(--md-code-bg-color);
+         box-shadow: 0 0 0 1px var(--md-default-fg-color--lighter);
+         transition: background-color 0.25s ease, box-shadow 0.25s ease;
+    }
+    /* Slight lift on hover */
+     .doc.doc-object.doc-function:hover {
+         box-shadow: 0 0 0 1px var(--md-accent-fg-color);
+    }
+    /* Function heading */
+     .doc.doc-object.doc-function .doc-heading {
+         margin-top: 0;
+         padding-bottom: 0.25rem;
+         border-bottom: 1px solid var(--md-default-fg-color--lighter);
+         font-size: 1.05em;
+         font-weight: 600;
+    }
+    /* Function signature box */
+     .doc.doc-object.doc-function .doc-signature {
+         background: var(--md-default-bg-color);
+         padding: 0.5rem 0.75rem;
+         border-radius: 6px;
+         font-family: var(--md-code-font-family);
+         font-size: 0.9em;
+         overflow-x: auto;
+    }
+    /* Subtle differentiation for module sections */
+     .doc.doc-object.doc-module {
+         margin-top: 2.5rem;
+         padding-top: 1rem;
+         border-top: 2px solid var(--md-default-fg-color--lighter);
+    }
+    /* Dark mode adjustments */
+     [data-md-color-scheme="slate"] .doc.doc-object.doc-function {
+         background-color: #1c1e22;
+         box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+     .md-typeset ol li, .md-typeset ul li {
+         margin-bottom: .2em;
+         margin-left: 1.5rem !important;
+    }
+     p {
+         padding-left: 0.5rem;
+    }
+     .highlight {
+         margin-left: 1.5rem !important;
+    }
 }
-
-/* Slight lift on hover */
-.doc.doc-object.doc-function:hover {
-  box-shadow: 0 0 0 1px var(--md-accent-fg-color);
+ .md-typeset h2 {
+     padding-top: 1rem;
+     border-top: 2px solid var(--md-default-fg-color);
+     color: var(--md-typeset-a-color);
 }
-
-/* Function heading */
-.doc.doc-object.doc-function .doc-heading {
-  margin-top: 0;
-  padding-bottom: 0.25rem;
-  border-bottom: 1px solid var(--md-default-fg-color--lighter);
-  font-size: 1.05em;
-  font-weight: 600;
+ .md-typeset ol li, .md-typeset ul li {
+     margin-bottom: .2em;
 }
-
-/* Function signature box */
-.doc.doc-object.doc-function .doc-signature {
-  background: var(--md-default-bg-color);
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-family: var(--md-code-font-family);
-  font-size: 0.9em;
-  overflow-x: auto;
+ strong, ::marker {
+     color: var(--md-typeset-a-color);
 }
-
-/* Subtle differentiation for module sections */
-.doc.doc-object.doc-module {
-  margin-top: 2.5rem;
-  padding-top: 1rem;
-  border-top: 2px solid var(--md-default-fg-color--lighter);
+ .md-typeset a {
+     text-decoration: underline;
+     color: var(--md-typeset-a-color);
 }
-
-/* Dark mode adjustments */
-[data-md-color-scheme="slate"] .doc.doc-object.doc-function {
-  background-color: #1c1e22;
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-
-strong, ::marker {
-    color: var(--md-typeset-a-color);
-}
-
-
-
-.md-typeset a {
-   text-decoration: underline;
-   color: var(--md-typeset-a-color);
-}
-
-.md-typeset h1 {
-    color: var(--md-typeset-a-color);
-    text-align: center;
-
-}
-
-.md-typeset h2 {
-    padding-top: 1rem;
-    border-top: 2px solid var(--md-default-fg-color);
-    color: var(--md-typeset-a-color);
-}
-
-.md-typeset ol li, .md-typeset ul li {
-    margin-bottom: .2em;
-    margin-left: 1.5rem !important;
-}
-
-p {
-   padding-left: 0.5rem;
-}
-
-
-.highlight {
- margin-left: 1.5rem !important;
+ .md-typeset h1 {
+     color: var(--md-typeset-a-color);
+     text-align: center;
 }
