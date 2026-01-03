@@ -10,7 +10,41 @@ from rich.table import Table
 from rich.text import Text, TextType
 
 
-class CustomLogRender:
+class SparkRichLogRenderer:
+    """
+    Custom log renderer with budget-based column layout for Rich console output.
+
+    Provides structured, terminal-aware log rendering that adapts to available
+    screen space while maintaining readability. Uses a priority-based width
+    allocation strategy to ensure message content is always visible.
+
+    Features:
+        - Budget-based column width allocation
+        - Configurable display of time, level, path, and function columns
+        - Automatic column collapse under space constraints
+        - Message column always receives priority for width allocation
+        - Rich styling with consistent color scheme
+
+    Layout Strategy:
+        1. Fixed columns (time, level, arrow) allocated first
+        2. Message column guaranteed minimum width
+        3. Optional metadata columns (path, function) allocated from remaining space
+        4. Columns collapse gracefully when terminal width is insufficient
+
+    Args:
+        show_time: Whether to display timestamps (default: True)
+        show_level: Whether to display log levels (default: False)
+        show_path: Whether to display source file paths (default: True)
+        show_function: Whether to display function names (default: False)
+        time_format: Time format string or callable (default: "[%x %X]")
+        omit_repeated_times: Whether to hide repeated timestamps (default: True)
+        level_width: Fixed width for level column (default: 8)
+        max_path_width: Maximum width for path column (default: 40)
+        max_function_width: Maximum width for function column (default: 25)
+        min_message_width: Minimum width reserved for log messages (default: 60)
+    """
+
+    _layout_degradation_flag: bool = False
     _TIME_STYLE = Style(color="white", dim=True)
     _PATH_STYLE = Style(color="cyan")
     _FUNCTION_STYLE = Style(color="white", dim=True)
@@ -23,8 +57,8 @@ class CustomLogRender:
         "MESSAGE_DEBUG": Style(color="white", dim=True, italic=True),
         "MESSAGE_INFO": Style(color="white"),
         "MESSAGE_WARNING": Style.null(),
-        "MESSAGE_ERROR": Style.null(),
-        "MESSAGE_CRITICAL": Style.null(),
+        "MESSAGE_ERROR": Style(color="red", dim=True),
+        "MESSAGE_CRITICAL": Style(color="magenta"),
     }
 
     # noinspection PyMissingConstructor
@@ -120,7 +154,6 @@ class CustomLogRender:
         table = Table.grid(padding=(0, 0), expand=False)
         level_style = self._get_level_style(level)
         message_style = self._get_level_style(level, message=True)
-
         row: list[RenderableType] = []
 
         # Create Renderables
@@ -170,7 +203,7 @@ class CustomLogRender:
             row.append(Text(" → "))
 
         # Message
-        table.add_column(style=message_style, overflow="fold", justify="left", width=message_width)
+        table.add_column(overflow="fold", justify="left", width=message_width, style=message_style)
         row.append(Renderables(renderables))
 
         if path_renderable is not None:
@@ -253,8 +286,8 @@ class CustomLogRender:
         arrow_width: int = 4
 
         # Determine available horizontal space from the console
-        available_width, _ = console.size
-
+        console_width = console.width
+        available_width = console_width
         # Fallback: unknown terminal width → user-controlled minimums
         if available_width is None or not isinstance(available_width, int):
             return (
@@ -309,6 +342,8 @@ class CustomLogRender:
                     path_width = 0
                 if function_renderable is not None:
                     function_width = 0
+
+                self._layout_degradation_flag = True
 
             # Case 1b: Message can be satisfied, options must shrink proportionally
             else:
@@ -418,3 +453,7 @@ class CustomLogRender:
         table.add_column(width=1, justify="center")
         row.append(Text("-", style=level_style))
         return table, row
+
+    @property
+    def is_layout_degraded(self) -> bool:
+        return self._layout_degradation_flag
