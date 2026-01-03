@@ -30,7 +30,7 @@ Predefined handler configurations.
 ### Values
 
 - `TERMINAL` ("terminal"): TerminalHandler with Rich formatting when available
-- `JSON` ("json"): JSONHandler for structured output
+- `JSON` ("json"): SparkJSONHandler for structured output
 
 ### String Equivalents
 

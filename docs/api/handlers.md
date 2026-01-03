@@ -10,9 +10,9 @@
 - **pre-config fallback uses stderr** when spark_logger is used before configure()
 - **Rich rendering is delegated, not reimplemented**
 
-## JSONHandler
+## SparkJSONHandler
 
-::: logspark.Handlers.JSONHandler
+::: logspark.Handlers.SparkJSONHandler
 
 ### Guarantees
 
