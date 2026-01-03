@@ -32,9 +32,3 @@ class MissingDependencyException(LogSparkError):
     def __init__(self, dependencies: list[str]) -> None:
         msg = f"Missing required dependencies:\n{', '.join(dependencies)}\n"
         super().__init__(msg)
-
-
-class IncompatibleConsoleWarning(UserWarning):
-    """Warning emitted when found console is not compatible with rich"""
-
-    pass

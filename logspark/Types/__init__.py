@@ -1,6 +1,5 @@
 from .Exceptions import (
     FrozenConfigurationError,
-    IncompatibleConsoleWarning,
     InvalidConfigurationError,
     MissingDependencyException,
     UnconfiguredUsageWarning,
@@ -16,5 +15,4 @@ __all__ = [
     "MissingDependencyException",
     "UnconfiguredUsageWarning",
     "UnfrozenGlobalOperationError",
-    "IncompatibleConsoleWarning",
 ]
