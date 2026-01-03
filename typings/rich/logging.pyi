@@ -1,6 +1,4 @@
 from logging import Handler, LogRecord
-from typing import Any
-
 from .console import Console
 
 class RichHandler(Handler):
@@ -17,6 +15,7 @@ class RichHandler(Handler):
         show_path: bool = ...,
         markup: bool = ...,
         rich_tracebacks: bool = ...,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None: ...
+
     def get_level_text(self, record: LogRecord) -> str: ...

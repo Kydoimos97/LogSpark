@@ -1,19 +1,24 @@
+from datetime import datetime
 from typing import (
     IO,
-    Any,
+    Iterable,
     NamedTuple,
     Protocol,
     TypeAlias,
     Union,
     runtime_checkable,
-)
+    )
+
+from .segment import Segment
+
 
 class ConsoleDimensions(NamedTuple):
     width: int
     height: int
 
 class ConsoleOptions: ...
-class RenderResult: ...
+
+RenderResult = Iterable[Union[RenderableType, Segment]]
 
 @runtime_checkable
 class ConsoleRenderable(Protocol):
@@ -21,7 +26,7 @@ class ConsoleRenderable(Protocol):
         self,
         console: "Console",
         options: ConsoleOptions,
-    ) -> RenderResult: ...
+    ) -> Iterable[ConsoleRenderable | RichCast | str | Segment]: ...
 
 @runtime_checkable
 class RichCast(Protocol):
@@ -44,8 +49,14 @@ class Console:
         height: int | None = ...,
         tab_size: int = ...,
         no_color: bool = ...,
-        **kwargs: Any,
+        **kwargs: object,
     ) -> None: ...
+
     @property
     def size(self) -> ConsoleDimensions: ...
-    def get_datetime(self) -> Any: ...
+
+    @property
+    def width(self) -> int:
+        ...
+
+    def get_datetime(self) -> datetime: ...
