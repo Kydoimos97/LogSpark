@@ -16,8 +16,8 @@ def pre_config_handler() -> logging.Handler:
     # stdlib StreamHandler
     handler = logging.StreamHandler(stream)
     fmt = logging.Formatter(
-        fmt="%(asctime)-8s - %(filename)s:%(lineno)d - %(levelname)-8s -> %(message)s",
-        datefmt="%H:%M:%S",
+        fmt="%(asctime)-8s - %(levelname)-8s - %(filename)s:%(lineno)d -> %(message)s",
+        datefmt="[%H:%M:%S]",
     )
     handler.setFormatter(fmt)
 
