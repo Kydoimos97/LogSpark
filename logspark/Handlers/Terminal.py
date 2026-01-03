@@ -6,12 +6,22 @@ from logging import Filter
 from types import TracebackType
 from typing import IO, TYPE_CHECKING, Optional, cast
 
-from .._Internal.Func import emit_console_warning, get_devnull, validate_level
-from .._Internal.State import is_rich_available, is_silenced_mode, is_supported_terminal
+from .._Internal.Func import (
+    emit_color_incompatible_console_warning,
+    emit_color_incompatible_rich_console_warning,
+    generate_stdlib_format,
+    get_devnull,
+    is_color_compatible_terminal,
+    validate_level,
+    validate_rich_timeformat,
+    validate_stdlib_timeformat,
+)
+from .._Internal.State import is_rich_available, is_silenced_mode
 from ..Types import InvalidConfigurationError, TracebackOptions
 from ..Types.Protocol import SupportsWrite, _SupportsFilter
 
 if TYPE_CHECKING:
+    from rich._log_render import FormatTimeCallable
     from rich.console import Console
     from rich.highlighter import NullHighlighter
 
@@ -55,46 +65,66 @@ class TerminalHandler(logging.Handler):
         self,
         stream: SupportsWrite | None = None,
         *,
-        show_time: bool = True,
-        show_level: bool = True,
-        show_path: bool = True,
-        show_function: bool = False,
         use_color: bool = True,
         no_rich: bool = False,
         console: Optional["Console"] = None,
+        # Main Settings
+        min_message_width: int = 60,
+        rich_tracebacks: bool = True,
+        # Time settings
+        show_time: bool = True,
+        log_time_format: "str | FormatTimeCallable" = "[%H:%M:%S]",
+        omit_repeated_times: bool = True,
+        # Level Settings
+        show_level: bool = True,
+        level_width: int = 8,
+        # Path Settings
+        show_path: bool = True,
+        max_path_width: int = 40,
+        # Function Settings
+        show_function: bool = False,
+        max_function_width: int = 25,
+        # Traceback Settings
+        tracebacks_width: int | None = None,
+        tracebacks_extra_lines: int = 3,
     ) -> None:
         """
         Initialize a terminal logging handler.
 
         Args:
-            stream:
-                Output stream for log records. Defaults to ``sys.stdout`` when
-                Rich is used. Must implement a ``write(str)`` method.
-            show_time:
-                Whether to display a timestamp in log output.
-            show_level:
-                Whether to display the log level.
-            show_path:
-                Whether to display the source file and line number.
-            show_function:
-                Whether to display the calling function name.
-            console:
-                Optional pre-configured Rich ``Console`` instance. If provided,
-                ``stream`` must not be set.
+            stream: Output stream for log records. Defaults to sys.stdout when
+                Rich is used. Must implement a write(str) method.
+            use_color: Whether to enable colored output (default: True)
+            no_rich: Whether to disable Rich rendering and use stdlib handler (default: False)
+            console: Optional pre-configured Rich Console instance. If provided,
+                stream must not be set.
+            min_message_width: Minimum width reserved for log messages (default: 60)
+            rich_tracebacks: Whether to use Rich's enhanced traceback formatting (default: True)
+            show_time: Whether to display timestamps (default: True)
+            log_time_format: Time format string or callable (default: "[%H:%M:%S]")
+            omit_repeated_times: Whether to hide repeated timestamps (default: True)
+            show_level: Whether to display log levels (default: True)
+            level_width: Fixed width for level column (default: 8)
+            show_path: Whether to display source file paths (default: True)
+            max_path_width: Maximum width for path column (default: 40)
+            show_function: Whether to display function names (default: False)
+            max_function_width: Maximum width for function column (default: 25)
+            tracebacks_width: Optional width limit for tracebacks
+            tracebacks_extra_lines: Extra context lines in tracebacks (default: 3)
 
         Behavior:
             - If Rich is available, a Rich-backed handler is created.
             - If Rich is not available, output is delegated to a standard
-              ``logging.StreamHandler``.
+              logging.StreamHandler.
             - When no console is provided, terminal dimensions are inferred
-              using ``shutil.get_terminal_size``. Zero-sized terminals fall
+              using shutil.get_terminal_size. Zero-sized terminals fall
               back to conservative defaults.
             - TerminalHandler is stdout-oriented by design; stderr is never used implicitly
 
         Resolution order:
-            1. If LOGSPARK_MODE is ``silenced``, output is discarded regardless
+            1. If LOGSPARK_MODE is silenced, output is discarded regardless
                of stream or console configuration.
-            2. If a Rich Console is provided, ``stream`` must be None.
+            2. If a Rich Console is provided, stream must be None.
             3. If Rich is available and not disabled, rendering is delegated
                to SparkRichHandler.
             4. Otherwise, output falls back to a stdlib StreamHandler.
@@ -106,8 +136,11 @@ class TerminalHandler(logging.Handler):
 
         Raises:
             InvalidConfigurationError:
-                If both ``stream`` and ``console`` are provided.
+                If both stream and console are provided.
         """
+
+        # Initialize handler to None
+        _handler: logging.Handler | None = None
 
         # Rich is imported and user doesn't overwrite rich support
         if not no_rich:
@@ -115,18 +148,8 @@ class TerminalHandler(logging.Handler):
         else:
             _use_rich = False
 
-        # Console override or console check passed
-        if console is None:
-            _use_console = is_supported_terminal()
-        else:
-            _use_console = True
-
-        if _use_rich and not _use_console:
-            emit_console_warning()
-
-        if _use_rich and _use_console:
-            from .._Internal.Intergration.SparkRichHandler import SparkRichHandler
-
+        if _use_rich:
+            rich_time_format = validate_rich_timeformat(log_time_format)
             if console is None:
                 from rich.console import Console
 
@@ -139,35 +162,80 @@ class TerminalHandler(logging.Handler):
                         "Cannot set stream when passing in a pre-configured console."
                     )
 
+            _compatible = is_color_compatible_terminal(console.file)
+            if _compatible and hasattr(console, "_force_terminal"):
+                console._force_terminal = True
+            if not _compatible and use_color:
+                emit_color_incompatible_rich_console_warning()
+
             highlighter: "NullHighlighter | None" = None
             if not use_color:
                 from rich.highlighter import NullHighlighter
 
                 highlighter = NullHighlighter()
 
-            self._handler: logging.Handler = SparkRichHandler(
-                console=console,
-                show_time=show_time,
-                show_path=show_path,
-                show_level=show_level,
-                show_function=show_function,
-                markup=False,  # Disable markup to prevent injection
-                rich_tracebacks=True,  # Rich handles traceback formatting
-                tracebacks_show_locals=False,  # Keep tracebacks focused
-                log_time_format="[%H:%M:%S]",
+            from ..Handlers.Rich.SparkRichHandler import SparkRichHandler
+
+            _handler = SparkRichHandler(
+                # Main Settings
+                console=console,  # Keep tracebacks focused
+                log_time_format=rich_time_format,
                 highlighter=highlighter,
+                min_message_width=min_message_width,
+                markup=False,  # Disable markup to prevent injection
+                rich_tracebacks=rich_tracebacks,  # Rich handles traceback formatting
+                # Time settings
+                show_time=show_time,
+                omit_repeated_times=omit_repeated_times,
+                # Level Settings
+                show_level=show_level,
+                level_width=level_width,
+                # Path Settings
+                show_path=show_path,
+                max_path_width=max_path_width,
+                # Function Settings
+                show_function=show_function,
+                max_function_width=max_function_width,
+                # Traceback Settings
+                tracebacks_width=tracebacks_width,
+                tracebacks_extra_lines=tracebacks_extra_lines,
             )
-        else:
+
+        if _handler is None:
             # Rich not available - fall back to stdlib StreamHandler
+            std_lib_time_format = validate_stdlib_timeformat(log_time_format)
             spark_stream = self._resolve_stream(stream)
-            self._handler = logging.StreamHandler(stream=spark_stream)
-
-            fmt = logging.Formatter(
-                fmt="%(asctime)-8s - %(levelname)-8s - %(filename)s:%(lineno)d -> %(message)s",
-                datefmt="[%H:%M:%S]",
+            _handler = logging.StreamHandler(stream=spark_stream)
+            fmt: logging.Formatter | None = None
+            fmt_string = generate_stdlib_format(
+                show_time=show_time,
+                show_level=show_level,
+                level_width=level_width,
+                show_path=show_path,
+                show_function=show_function,
             )
+            _compatible = is_color_compatible_terminal(spark_stream)
+            if use_color:
+                # Don't pass the console as we aren't checking rich
+                if _compatible:
+                    from ..Formatters import SparkColorFormatter
 
-            self._handler.setFormatter(fmt)
+                    fmt = SparkColorFormatter(
+                        fmt=fmt_string,
+                        datefmt=std_lib_time_format,
+                    )
+                else:
+                    emit_color_incompatible_console_warning()
+
+            if fmt is None:
+                fmt = logging.Formatter(
+                    fmt=fmt_string,
+                    datefmt=std_lib_time_format,
+                )
+
+            _handler.setFormatter(fmt)
+
+        self._handler = _handler
 
         # Initialize parent Handlers
         super().__init__()
@@ -201,9 +269,9 @@ class TerminalHandler(logging.Handler):
                         last_frame = tb_frames[-1]
                         compact_tb = (
                             f"{exc_type.__name__}: {exc_value}\n  "
-                            f'File "{last_frame.filename}", '
-                            f"line {last_frame.lineno}, "
-                            f"in {last_frame.name}"
+                            f'    File "{last_frame.filename}", '
+                            f"    line {last_frame.lineno}, "
+                            f"    in {last_frame.name}"
                         )
                     else:
                         compact_tb = f"{exc_type.__name__}: {exc_value}"
