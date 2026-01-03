@@ -253,9 +253,9 @@ class SparkLogger:
 
                     fmt = TerminalHandler()
                 elif v_preset == PresetOptions.JSON:
-                    from .Handlers import JSONHandler
+                    from .Handlers import SparkJSONHandler
 
-                    fmt = JSONHandler()
+                    fmt = SparkJSONHandler()
                 else:
                     # invalid preset
                     raise ValueError(f"Invalid preset '{preset}'")
