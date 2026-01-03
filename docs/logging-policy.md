@@ -17,7 +17,7 @@ export LOGSPARK_MODE=fast
 export LOGSPARK_MODE=silenced
 
 # Force Rich formatting (override terminal detection)
-export FORCE_RICH=true
+export FORCE_COLOR=true
 ```
 
 ## Performance Modes: Different Problems, Different Solutions
@@ -122,10 +122,10 @@ LogSpark automatically detects environment capabilities:
 **Override mechanisms**:
 ```bash
 # Force Rich even in detected incompatible terminals
-export FORCE_RICH=true
+export FORCE_COLOR=true
 
 # Disable Rich entirely (testing fallback behavior)
-export FORCE_RICH=false
+unset FORCE_COLOR
 ```
 
 ## Policy Consistency Across Services

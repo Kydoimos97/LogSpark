@@ -19,7 +19,7 @@ Use LogSpark handlers with your existing logging setup:
 
 ```python
 import logging
-from logspark.Handlers import TerminalHandler, JSONHandler
+from logspark.Handlers import TerminalHandler, SparkJSONHandler
 
 # Development setup
 dev_logger = logging.getLogger("myapp")
@@ -28,7 +28,7 @@ dev_logger.setLevel(logging.INFO)
 
 # Production setup  
 prod_logger = logging.getLogger("myapp")
-prod_logger.addHandler(JSONHandler())
+prod_logger.addHandler(SparkJSONHandler())
 prod_logger.setLevel(logging.WARNING)
 ```
 
@@ -136,7 +136,7 @@ spark_logger.configure(level=logging.INFO, preset="json")
 
 # Legacy module: Use handler only
 legacy_logger = logging.getLogger("legacy")
-legacy_logger.addHandler(JSONHandler())
+legacy_logger.addHandler(SparkJSONHandler())
 
 # Third-party noise: Use global control
 from logspark import spark_log_manager

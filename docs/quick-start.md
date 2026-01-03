@@ -105,7 +105,7 @@ spark_log_manager.unify(use_spark_handler=True)
 # Or apply custom configuration
 spark_log_manager.unify(
     level=logging.WARNING,  # Suppress noisy dependencies
-    handler=JSONHandler(),
+    handler=SparkJSONHandler(),
     propagate=False
 )
 
@@ -131,7 +131,7 @@ export LOGSPARK_MODE=fast
 export LOGSPARK_MODE=silenced
 
 # Force Rich formatting (override terminal detection)
-export FORCE_RICH=true
+export FORCE_COLOR=true
 ```
 
 ## Installation Options

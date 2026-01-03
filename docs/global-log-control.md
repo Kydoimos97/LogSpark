@@ -47,7 +47,7 @@ spark_log_manager.unify(use_spark_handler=True)
 # Or apply custom configuration
 spark_log_manager.unify(
     level=logging.WARNING,  # Suppress INFO/DEBUG noise
-    handler=JSONHandler(),  # Consistent JSON output
+    handler=SparkJSONHandler(),  # Consistent JSON output
     propagate=False         # Prevent duplicate logs
 )
 ```
