@@ -3,6 +3,7 @@
 #  Licensed under the MIT License (https://opensource.org/license/mit).
 import logging
 import os
+import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -12,13 +13,47 @@ from rich.highlighter import Highlighter
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
-from .CustomLogRender import CustomLogRender
+from ...Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
 
 PYTHONPATH = os.environ.get("PYTHONPATH", None)
 PYTHONPATH = PYTHONPATH.split(";")[0] if PYTHONPATH else None
 
 
 class SparkRichHandler(RichHandler):
+    """
+    Enhanced Rich logging handler with customizable layout and rendering.
+
+    Extends Rich's RichHandler with LogSpark-specific features including:
+    - Configurable column widths and display options
+    - Custom log rendering with budget-based layout
+    - Enhanced path resolution and function name display
+    - Flexible time formatting and level display
+
+    This handler uses a SparkRichLogRenderer for structured, terminal-aware output
+    that adapts to available screen space while maintaining readability.
+
+    Args:
+        level: Minimum log level to handle
+        console: Optional Rich Console instance for output
+        min_message_width: Minimum width reserved for log messages (default: 60)
+        markup: Whether to enable Rich markup in log messages (default: False)
+        rich_tracebacks: Whether to use Rich's enhanced traceback formatting (default: True)
+        highlighter: Optional Rich Highlighter for syntax highlighting
+        show_time: Whether to display timestamps (default: True)
+        log_time_format: Time format string or callable (default: "%H:%M:%S")
+        omit_repeated_times: Whether to hide repeated timestamps (default: True)
+        show_level: Whether to display log levels (default: True)
+        level_width: Fixed width for level column (default: 8)
+        show_path: Whether to display source file paths (default: True)
+        max_path_width: Maximum width for path column (default: 40)
+        show_function: Whether to display function names (default: False)
+        max_function_width: Maximum width for function column (default: 25)
+        tracebacks_width: Optional width limit for tracebacks
+        tracebacks_extra_lines: Extra context lines in tracebacks (default: 3)
+    """
+
+    _warn_width_shown: bool = False
+
     def __init__(
         self,
         level: int | str = logging.NOTSET,
@@ -32,6 +67,7 @@ class SparkRichHandler(RichHandler):
         # Time settings
         show_time: bool = True,
         log_time_format: str | FormatTimeCallable = "%H:%M:%S",
+        omit_repeated_times: bool = True,
         # Level Settings
         show_level: bool = True,
         level_width: int = 8,
@@ -44,9 +80,6 @@ class SparkRichHandler(RichHandler):
         # Traceback Settings
         tracebacks_width: int | None = None,
         tracebacks_extra_lines: int = 3,
-        tracebacks_theme: str | None = None,
-        tracebacks_word_wrap: bool = True,
-        tracebacks_show_locals: bool = False,
     ) -> None:
         super().__init__(
             level,
@@ -58,24 +91,23 @@ class SparkRichHandler(RichHandler):
             rich_tracebacks=rich_tracebacks,
             tracebacks_width=tracebacks_width,
             tracebacks_extra_lines=tracebacks_extra_lines,
-            tracebacks_theme=tracebacks_theme,
-            tracebacks_word_wrap=tracebacks_word_wrap,
-            tracebacks_show_locals=tracebacks_show_locals,
             log_time_format=log_time_format,
             highlighter=highlighter,
         )
-        self._c_log_render: CustomLogRender = CustomLogRender(
+        self._c_log_render: SparkRichLogRenderer = SparkRichLogRenderer(
             show_time=show_time,
             show_level=show_level,
             show_path=show_path,
             show_function=show_function,
             time_format=log_time_format,
-            omit_repeated_times=True,
+            omit_repeated_times=omit_repeated_times,
             level_width=level_width,
             max_path_width=max_path_width,
             max_function_width=max_function_width,
             min_message_width=min_message_width,
         )
+        self._show_path: bool = show_path
+        self._show_function: bool = show_function
 
     def render(
         self,
@@ -147,4 +179,32 @@ class SparkRichHandler(RichHandler):
             function_name=function_name,
         )
 
+        if self._c_log_render.is_layout_degraded and not self._warn_width_shown:
+            self._emit_degradation_warning()
+
         return log_renderable
+
+    def _emit_degradation_warning(self) -> None:
+        class ConsoleWidthWarning(UserWarning):
+            """Warning emitted when found console size affects availability of layout elements"""
+
+            pass
+
+        cols_hidden = []
+        if self._c_log_render.show_path:
+            cols_hidden.append("Path")
+        if self._c_log_render.show_function:
+            cols_hidden.append("Function")
+        cols = ", ".join(cols_hidden)
+        message = (
+            "\nLogSpark layout degraded: terminal width ({width} cols) is smaller than minimum message width (80 cols). "
+            "    Optionally selected metadata columns were hidden: {cols}"
+            "    Adjust column settings or increase terminal width to restore full layout."
+        ).format(width=self.console.width, cols=cols)
+        warnings.warn(
+            message=message,
+            category=ConsoleWidthWarning,
+            stacklevel=2,
+            source="LogSpark",
+        )
+        self._warn_width_shown = True
