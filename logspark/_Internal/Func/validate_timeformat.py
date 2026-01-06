@@ -12,13 +12,16 @@ _default_timeformat = "[%H:%M:%S]"
 def emit_invalid_timeformat_warning() -> None:
     class InvalidTimeFormatWarning(UserWarning):
         """Console does not support requested timeformat"""
+
         pass
 
-    msg = ("\nWARNING: Requested timeformat is invalid\n"
-           "    | falling back to default timeformat: [%H:%M:%S]")
+    msg = (
+        "\nWARNING: Requested timeformat is invalid\n"
+        "  | falling back to default timeformat: [%H:%M:%S]"
+    )
 
     emit_warning(
-        message= msg,
+        message=msg,
         category=InvalidTimeFormatWarning,
         stacklevel=4,
     )
