@@ -21,6 +21,9 @@ def is_fast_mode() -> bool:
 
 
 def is_rich_available() -> bool:
+    """
+    Check if Rich library is available for import.
+    """
     try:
         return find_spec("rich") is not None
     except ValueError:
