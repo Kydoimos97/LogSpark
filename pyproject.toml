@@ -100,12 +100,10 @@ exclude_lines = [
     "-> .*:",
     "\\.\\.\\.",
 ]
-
-directory = ".cov"
 sort = "Cover"
 
 [tool.coverage.xml]
-output = ".cov/coverage.xml"
+output = "coverage.xml"
 
 [tool.ruff]
 line-length = 100
@@ -154,13 +152,13 @@ strict = true
 python_version = "3.11"
 mypy_path = ["typings"]
 
-[[tool.mypy.overrides]]
-module = [
-  "rich._log_render",
-  "rich.containers",
-  "rich.style",
-  "rich.text",
-  "rich.highlighter",
-  "rich.traceback",
-]
-ignore_missing_imports = true
+#[[tool.mypy.overrides]]
+#module = [
+#  "rich._log_render",
+#  "rich.containers",
+#  "rich.style",
+#  "rich.text",
+#  "rich.highlighter",
+#  "rich.traceback",
+#]
+#ignore_missing_imports = true
