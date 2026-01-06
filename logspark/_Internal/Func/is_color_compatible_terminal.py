@@ -1,14 +1,17 @@
-from __future__ import annotations
-
 import os
+import shutil
 import sys
 import warnings
+from typing import Any
 
 from ...Types.Protocol import SupportsWrite
 
-
 def _is_idle() -> bool:
-    """Detect IDLE, which claims to be a TTY but cannot handle ANSI."""
+    """Detect IDLE, which claims to be a TTY but cannot handle ANSI.
+    Originally inspired by Rich (https://github.com/Textualize/rich)
+    - rich.console.Console.is_terminal
+    MIT License
+    """
     module = getattr(sys.stdin, "__module__", "")
     return module.startswith("idlelib")
 
@@ -18,20 +21,20 @@ def _is_jupyter() -> bool:
 
     Originally inspired by Rich (https://github.com/Textualize/rich)
     - rich.console._is_jupyter
-    MIT License
+
 
     """
     try:
-        ipython = get_ipython()  # type: ignore[name-defined]
-        shell = ipython.__class__.__name__
+        ipython = get_ipython()  # type: ignore[name-defined]  # pragma: no cover
+        shell = ipython.__class__.__name__ # pragma: no cover
     except NameError:
         return False
 
     if (
-        "google.colab" in str(ipython.__class__)
-        or os.getenv("DATABRICKS_RUNTIME_VERSION")
+        "google.colab" in str(ipython.__class__)  # pragma: no cover
+        or os.getenv("DATABRICKS_RUNTIME_VERSION")  # pragma: no cover
         or shell == "ZMQInteractiveShell"
-        or shell == "HexShell"
+        or shell == "HexShell"  # pragma: no cover
     ):
         return True
 
@@ -63,19 +66,19 @@ def is_color_compatible_terminal(stream: SupportsWrite | None = None) -> bool:
     - full Rich feature compatibility
     """
 
-    # Known bad environments
-    if _is_idle():
-        return False
-
-    if _is_jupyter():
-        return False
-
     # Explicit overrides
     force_color = os.environ.get("FORCE_COLOR")
     if force_color is not None:
         return force_color != ""
 
     if os.environ.get("NO_COLOR") is not None:
+        return False
+
+    # Known bad environments
+    if _is_idle():
+        return False
+
+    if _is_jupyter():
         return False
 
     # Env Variables
@@ -89,9 +92,15 @@ def is_color_compatible_terminal(stream: SupportsWrite | None = None) -> bool:
     if term in ("dumb", "unknown"):
         return False
 
+
+    if os.environ.get('TERMINAL_EMULATOR') is not None and os.environ.get('TERM') is not None:
+        return True
+
     # Windows conservative fallback
-    if os.name == "nt":
-        if not os.environ.get("WT_SESSION") and not os.environ.get("ANSICON"):
+    if os.name == "nt" or "Windows" in os.environ.get('OS', ""):
+        if os.environ.get("WT_SESSION") or os.environ.get("ANSICON"):
+            return True
+        else:
             return False
 
     # Stream-based detection
@@ -111,17 +120,17 @@ def emit_color_incompatible_rich_console_warning() -> None:
         """Console does not support requested Rich color features"""
 
         pass
-
-    warnings.warn(
+    from .emit_warning import emit_warning
+    emit_warning(
         message=(
-            "Rich colored output requested, but the current console does not appear to support ANSI colors.\n"
-            "    Rich layout and rendering remain active, but output will not be colored.\n"
-            "    Rich output will not be colored and possibly degraded.\n"
-            "    To force Rich color usage, set FORCE_COLOR=true in the enviornment or pass a Console(force_terminal=True)."
+            "\nWARNING: Rich colored output requested, \n"
+            "    | however the current console does not appear to support ANSI colors.\n"
+            "    | Rich layout and rendering remain active, but output will not be colored.\n"
+            "    | To force Rich color usage, set FORCE_COLOR=true in the enviornment\n"
+            "    | or pass a Console(force_terminal=True)."
         ),
         category=RichColorDegradedWarning,
-        stacklevel=2,
-        source="LogSpark",
+        stacklevel=4,
     )
 
 
@@ -130,15 +139,14 @@ def emit_color_incompatible_console_warning() -> None:
         """Console does not support color features"""
 
         pass
-
-    warnings.warn(
+    from .emit_warning import emit_warning
+    emit_warning(
         message=(
-            "\nColored output requested, but the current console does not appear to support "
-            "ANSI escape sequences.\n"
-            "    Output will not be colored and possibly degraded.\n"
-            "    To force color usage, set FORCE_COLOR=true in the enviornment"
+            "\nWARNING: Colored output requested,\n"
+            "    | however the current console does not appear to support ANSI escape sequences.\n"
+            "    | The Output will not be colored as a result.\n"
+            "    | To force color usage, set FORCE_COLOR=true in the enviornment."
         ),
         category=AnsiColorDegradedWarning,
-        stacklevel=2,
-        source="LogSpark",
+        stacklevel=4,
     )

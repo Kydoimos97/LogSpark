@@ -14,6 +14,7 @@ from .validate_timeformat import (
     validate_rich_timeformat,
     validate_stdlib_timeformat,
 )
+from .emit_warning import emit_warning
 
 __all__ = [
     "resolve_stacklevel",
