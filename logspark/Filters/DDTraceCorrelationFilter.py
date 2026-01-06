@@ -8,10 +8,9 @@ _dd_tracer: Optional["Tracer"] = None
 
 try:
     from ddtrace.trace import tracer
-
     _dd_tracer = tracer
-except ImportError:
-    _dd_tracer = None
+except ImportError:  # pragma: no cover
+    _dd_tracer = None  # pragma: no cover
 
 
 class DDTraceCorrelationFilter(logging.Filter):
