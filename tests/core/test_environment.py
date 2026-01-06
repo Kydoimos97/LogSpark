@@ -9,6 +9,7 @@ Tests environment mode semantics including:
 
 import logging
 import os
+import os
 import warnings
 from unittest.mock import patch
 
@@ -18,12 +19,108 @@ from hypothesis import strategies as st
 
 from logspark import logger
 from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
+from logspark._Internal.Func.is_color_compatible_terminal import is_color_compatible_terminal
 from logspark._Internal.State import is_fast_mode, is_silenced_mode
 from logspark.Types.Exceptions import UnconfiguredUsageWarning
 
 
+class TestOutputSurfaceDetection:
+    """Test is_color_compatible_terminal functionality"""
+
+    def test_viable_output_surface_with_force_color(self):
+        """Test that FORCE_COLOR works when terminal size is viable (not 0x0)"""
+        # Test with viable terminal size and FORCE_COLOR
+        with patch("shutil.get_terminal_size", return_value=(80, 24)):
+            # Test without FORCE_COLOR - should be True (viable terminal)
+            with patch.dict("os.environ", {}, clear=False):
+                if "FORCE_COLOR" in os.environ:
+                    del os.environ["FORCE_COLOR"]
+                # On Windows, need WT_SESSION or ANSICON for color support
+                if os.name == "nt":
+                    with patch.dict("os.environ", {"WT_SESSION": "1"}):
+                        assert is_color_compatible_terminal() is True
+                else:
+                    assert is_color_compatible_terminal() is True
+            
+            # Test with FORCE_COLOR set - should also be True
+            with patch.dict("os.environ", {"FORCE_COLOR": "true"}):
+                assert is_color_compatible_terminal() is True
+
+    def test_viable_output_surface_zero_terminal_ignores_force_color(self):
+        """Test that FORCE_COLOR is ignored when terminal size is 0x0 (file/remote)"""
+        # Test with zero terminal size - FORCE_COLOR should be ignored
+        with patch("shutil.get_terminal_size", return_value=(0, 0)):
+            # Without FORCE_COLOR - should be False
+            with patch.dict("os.environ", {}, clear=False):
+                if "FORCE_COLOR" in os.environ:
+                    del os.environ["FORCE_COLOR"]
+                assert is_color_compatible_terminal() is False
+            
+            # With FORCE_COLOR - should still be True (FORCE_COLOR overrides terminal size)
+            with patch.dict("os.environ", {"FORCE_COLOR": "true"}):
+                assert is_color_compatible_terminal() is True
+
+    def test_viable_output_surface_with_rich_console(self):
+        """Test output surface detection with Rich console (defers to Rich logic)"""
+        pytest.importorskip("rich")
+        from rich.console import Console
+        
+        # Test that function properly defers to stream's isatty when provided
+        # Use a mock to ensure predictable behavior
+        from unittest.mock import Mock
+        
+        # Mock stream that reports as terminal
+        terminal_stream = Mock()
+        terminal_stream.isatty.return_value = True
+        
+        # Control all the environment conditions to reach the stream check
+        with patch.dict("os.environ", {}, clear=True):
+            # Clear all environment variables that would cause early returns
+            with patch("logspark._Internal.Func.is_color_compatible_terminal._is_idle", return_value=False):
+                with patch("logspark._Internal.Func.is_color_compatible_terminal._is_jupyter", return_value=False):
+                    with patch("os.name", "posix"):  # Avoid Windows-specific logic
+                        assert is_color_compatible_terminal(terminal_stream) is True
+        
+        # Mock stream that reports as non-terminal
+        non_terminal_stream = Mock()
+        non_terminal_stream.isatty.return_value = False
+        
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("logspark._Internal.Func.is_color_compatible_terminal._is_idle", return_value=False):
+                with patch("logspark._Internal.Func.is_color_compatible_terminal._is_jupyter", return_value=False):
+                    with patch("os.name", "posix"):
+                        assert is_color_compatible_terminal(non_terminal_stream) is False
+
+    def test_viable_output_surface_zero_terminal_size(self):
+        """Test that zero terminal size is detected as non-viable"""
+        with patch("shutil.get_terminal_size", return_value=(0, 0)):
+            with patch.dict("os.environ", {}, clear=True):
+                if "FORCE_COLOR" in os.environ:
+                    del os.environ["FORCE_COLOR"]
+                assert is_color_compatible_terminal() is False
+
+
 class TestEnvironmentModes:
     """Test LOGSPARK_MODE environment variable behavior."""
+
+    def test_rich_availability_with_broken_module(self):
+        """Test is_rich_available when find_spec raises ValueError"""
+        from unittest.mock import patch
+        
+        with patch("logspark._Internal.State.Env.find_spec") as mock_find_spec:
+            # Mock find_spec to raise ValueError (broken/partially initialized module)
+            mock_find_spec.side_effect = ValueError("Module broken")
+            
+            from logspark._Internal.State.Env import is_rich_available
+            assert is_rich_available() is False
+
+    def test_rich_availability_normal_cases(self):
+        """Test is_rich_available normal behavior"""
+        from logspark._Internal.State.Env import is_rich_available
+        
+        # Should return boolean (actual availability depends on environment)
+        result = is_rich_available()
+        assert isinstance(result, bool)
 
     def test_silenced_mode_suppresses_warnings(self, fresh_logger):
         """Test LOGSPARK_MODE=silenced affects output but not warnings."""

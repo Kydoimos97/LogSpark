@@ -64,7 +64,7 @@ class TestStacklevelResolution:
         logspark_frame = MockFrame("logspark.SparkLoggerDef")
         assert _is_internal(logspark_frame)
 
-        logspark_handlers_frame = MockFrame("logspark.Handlers.TerminalHandler")
+        logspark_handlers_frame = MockFrame("logspark.Handlers.SparkTerminalHandler")
         assert _is_internal(logspark_handlers_frame)
 
         logspark_internal_frame = MockFrame("logspark._Internal.Func.resolve_stacklevel")
@@ -274,9 +274,9 @@ class TestCallSiteResolutionProperties:
         import inspect
 
         # Configure logger with test parameters
-        from logspark.Handlers import TerminalHandler
+        from logspark.Handlers import SparkTerminalHandler
 
-        handler = TerminalHandler()
+        handler = SparkTerminalHandler()
         logger.configure(level=logging.DEBUG, handler=handler, no_freeze=True)
 
         # Capture log output to examine call-site information
@@ -369,9 +369,9 @@ class TestCallSiteResolutionProperties:
             return
 
         with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
-            from logspark.Handlers import TerminalHandler
+            from logspark.Handlers import SparkTerminalHandler
 
-            handler = TerminalHandler()
+            handler = SparkTerminalHandler()
             logger.configure(level=logging.DEBUG, handler=handler, no_freeze=True)
 
             # Capture log output with a formatter that includes the message clearly
