@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from rich.highlighter import NullHighlighter
 
 
-class TerminalHandler(logging.Handler):
+class SparkTerminalHandler(logging.Handler):
     """
     Human-readable terminal logging handler with optional Rich rendering.
 
@@ -119,7 +119,7 @@ class TerminalHandler(logging.Handler):
             - When no console is provided, terminal dimensions are inferred
               using shutil.get_terminal_size. Zero-sized terminals fall
               back to conservative defaults.
-            - TerminalHandler is stdout-oriented by design; stderr is never used implicitly
+            - SparkTerminalHandler is stdout-oriented by design; stdout is the default stream
 
         Resolution order:
             1. If LOGSPARK_MODE is silenced, output is discarded regardless
@@ -130,7 +130,6 @@ class TerminalHandler(logging.Handler):
             4. Otherwise, output falls back to a stdlib StreamHandler.
 
         Invariants:
-            - stderr is never selected implicitly.
             - stdout is the default output stream when not silenced.
             - Console configuration always takes precedence over stream.
 
@@ -155,19 +154,33 @@ class TerminalHandler(logging.Handler):
 
                 spark_stream = self._resolve_stream(stream)
                 spark_stream = cast(IO[str], spark_stream)
-                console = Console(file=spark_stream, tab_size=4, no_color=not use_color)
+                _compatible = is_color_compatible_terminal(spark_stream)
+                # Force Behavior when color support is detected
+                if _compatible:
+                    console = Console(
+                        file=spark_stream,
+                        tab_size=4,
+                        no_color=not use_color,
+                        color_system="truecolor",
+                        force_terminal=True,
+                        legacy_windows=False,
+                    )
+                    # Force initial truecolor fallback then run validation as compatibility
+                    color_system = console._detect_color_system()
+                    if color_system is not None:
+                        console._color_system = color_system
+                else:
+                    console = Console(file=spark_stream, tab_size=4, no_color=not use_color)
             else:
                 if stream is not None:
                     raise InvalidConfigurationError(
                         "Cannot set stream when passing in a pre-configured console."
                     )
 
-            _compatible = is_color_compatible_terminal(console.file)
-            if _compatible and hasattr(console, "_force_terminal"):
-                console._force_terminal = True
-            if not _compatible and use_color:
+            if not is_color_compatible_terminal(console.file) and use_color:
                 emit_color_incompatible_rich_console_warning()
 
+            # Set Highlighter
             highlighter: "NullHighlighter | None" = None
             if not use_color:
                 from rich.highlighter import NullHighlighter
