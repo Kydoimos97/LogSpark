@@ -76,12 +76,36 @@ import_mode = "importlib"
 
 [tool.coverage.run]
 source = [ "logspark" ]
-omit = [ "tests/*", "*/__init__.py" ]
+relative_files = true
+data_file = ".cov/.coverage"
 
 [tool.coverage.report]
-omit = [ "tests/*", "*/__init__.py" ]
+precision = 0
 show_missing = true
-skip_empty = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+    "def __repr__",
+    "def __str__",
+    "pass",
+    "\"\"\"",
+    "'''",
+    "-> .*:",
+    "\\.\\.\\.",
+]
+
+directory = ".cov"
+sort = "Cover"
+
+[tool.coverage.xml]
+output = ".cov/coverage.xml"
 
 [tool.ruff]
 line-length = 100
