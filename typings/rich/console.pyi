@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import IntEnum
 from typing import (
     IO,
     Iterable,
@@ -15,6 +16,8 @@ from .segment import Segment
 class ConsoleDimensions(NamedTuple):
     width: int
     height: int
+
+class ColorSystem(IntEnum): ...
 
 class ConsoleOptions: ...
 
@@ -40,6 +43,7 @@ RenderableType: TypeAlias = Union[
 
 class Console:
     file: IO[str] | None
+    _color_system: ColorSystem | None
 
     def __init__(
         self,
@@ -60,3 +64,5 @@ class Console:
         ...
 
     def get_datetime(self) -> datetime: ...
+
+    def _detect_color_system(self) -> ColorSystem | None: ...
