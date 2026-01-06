@@ -174,6 +174,15 @@ class TestSingletonViolationDetection:
         instance = ValidClass()
         assert instance is not None
 
+    def test_violation_cls_instance_literal_attribute(self):
+        """Test that defining literal __cls_instance attribute raises violation exception."""
+        # Create a class dynamically with the literal __cls_instance attribute
+        class_dict = {"__cls_instance": None}
+        TestClass = type("TestClass", (), class_dict)
+        
+        with pytest.raises(_SingletonViolationException, match="Singleton violation"):
+            SingletonClass(TestClass)
+
     def test_violation_exception_message_contains_class_name(self):
         """Test that violation exception message contains the class name."""
         with pytest.raises(_SingletonViolationException) as exc_info:

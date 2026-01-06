@@ -25,16 +25,16 @@ class TestTracebackConsistencyAcrossHandlers:
         # Skip if JSON handler dependencies are not available
         pytest.importorskip("pythonjsonlogger")
 
-        from logspark.Handlers.Json import JSONHandler
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handlers
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
         configure_handler_traceback_policy(terminal_handler, TracebackOptions.COMPACT)
 
         json_stream = io.StringIO()
-        json_handler = JSONHandler(stream=json_stream)
+        json_handler = SparkJSONHandler(stream=json_stream)
         configure_handler_traceback_policy(json_handler, TracebackOptions.COMPACT)
 
         # Create identical records with exception
@@ -92,16 +92,16 @@ class TestTracebackConsistencyAcrossHandlers:
         # Skip if JSON handler dependencies are not available
         pytest.importorskip("pythonjsonlogger")
 
-        from logspark.Handlers.Json import JSONHandler
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handlers
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
         configure_handler_traceback_policy(terminal_handler, TracebackOptions.FULL)
 
         json_stream = io.StringIO()
-        json_handler = JSONHandler(stream=json_stream)
+        json_handler = SparkJSONHandler(stream=json_stream)
         configure_handler_traceback_policy(json_handler, TracebackOptions.FULL)
 
         # Create identical records with exception
@@ -157,11 +157,11 @@ class TestTracebackConsistencyAcrossHandlers:
     def test_none_policy_consistency_across_all_handlers(self):
         """Test that NONE policy is applied consistently across all handler types"""
         from logspark.Handlers.PreConfig import pre_config_handler
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handlers
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
         configure_handler_traceback_policy(terminal_handler, TracebackOptions.NONE)
 
         preconfig_handler = pre_config_handler()
@@ -218,11 +218,11 @@ class TestTracebackConsistencyAcrossHandlers:
     def test_cross_handler_policy_isolation(self):
         """Test that different handlers can have different traceback policies without interference"""
         from logspark.Handlers.PreConfig import pre_config_handler
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handlers with different policies
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
         configure_handler_traceback_policy(terminal_handler, TracebackOptions.COMPACT)
 
         preconfig_handler = pre_config_handler()
@@ -276,11 +276,11 @@ class TestTracebackConsistencyAcrossHandlers:
 
     def test_filter_order_independence(self):
         """Test that traceback policy filters work regardless of filter order"""
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handler and add custom filter before traceback policy
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         # Add a custom filter first
         class CustomFilter(logging.Filter):
@@ -356,11 +356,11 @@ class TestTracebackConsistencyProperties:
 
         """
         from logspark.Handlers.PreConfig import pre_config_handler
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handlers with COMPACT policy
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
         configure_handler_traceback_policy(terminal_handler, TracebackOptions.COMPACT)
 
         preconfig_handler = pre_config_handler()
@@ -443,11 +443,11 @@ class TestTracebackConsistencyProperties:
 
         """
         from logspark.Handlers.PreConfig import pre_config_handler
-        from logspark.Handlers.Terminal import TerminalHandler
+        from logspark.Handlers.Terminal import SparkTerminalHandler
 
         # Create handlers with FULL policy
         terminal_stream = io.StringIO()
-        terminal_handler = TerminalHandler(stream=terminal_stream)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
         configure_handler_traceback_policy(terminal_handler, TracebackOptions.FULL)
 
         preconfig_handler = pre_config_handler()

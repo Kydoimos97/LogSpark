@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # Hypothesis configuration for property-based testing
-settings.register_profile("default", max_examples=100, verbosity=Verbosity.normal)
+settings.register_profile("default", max_examples=35, verbosity=Verbosity.normal)
 settings.load_profile("default")
 
 

@@ -13,7 +13,7 @@ from io import StringIO
 
 import pytest
 
-from logspark.Handlers import JSONHandler, TerminalHandler
+from logspark.Handlers import SparkJSONHandler, SparkTerminalHandler
 from logspark.Types import TracebackOptions
 
 
@@ -282,7 +282,7 @@ class TestJSONFormattingPerformance:
     def test_json_formatting_throughput(self, fresh_logger, request, capsys):
         """Test JSON formatting performance"""
         with StringIO() as devnull:
-            json_handler = JSONHandler(devnull)
+            json_handler = SparkJSONHandler(devnull)
 
             fresh_logger.configure(
                 level=logging.INFO, traceback=TracebackOptions.NONE, handler=json_handler
@@ -311,7 +311,7 @@ class TestJSONFormattingPerformance:
 
         for policy in policies:
             with StringIO() as devnull:
-                json_handler = JSONHandler(devnull)
+                json_handler = SparkJSONHandler(devnull)
 
                 # Reset logger
                 fresh_logger._config = None
@@ -395,7 +395,7 @@ class TestManagerUnificationPerformance:
 
         # Configure and freeze the main logger
         fresh_logger.configure(
-            level=logging.INFO, traceback=TracebackOptions.COMPACT, handler=TerminalHandler()
+            level=logging.INFO, traceback=TracebackOptions.COMPACT, handler=SparkTerminalHandler()
         )
         fresh_logger.freeze()
 
