@@ -261,10 +261,9 @@ class SparkLogManager:
                             raise UnfrozenGlobalOperationError(
                                 "LogSpark logger needs to be frozen before copying its handler"
                             )
-                    elif spark_logger._config is not None:
-                        handler = spark_logger._config.handler
-                    else:
-                        raise InvalidConfigurationError("LogSpark logger has no configured handler")
+                    # You cannot freeze without a config
+                    assert spark_logger._config is not None
+                    handler = spark_logger._config.handler
             elif not isinstance(handler, logging.Handler):
                 raise ValueError("Handler must be a logging.Handler instance")
 
