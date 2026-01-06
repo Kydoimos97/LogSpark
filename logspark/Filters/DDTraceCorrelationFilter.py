@@ -8,6 +8,7 @@ _dd_tracer: Optional["Tracer"] = None
 
 try:
     from ddtrace.trace import tracer
+
     _dd_tracer = tracer
 except ImportError:  # pragma: no cover
     _dd_tracer = None  # pragma: no cover

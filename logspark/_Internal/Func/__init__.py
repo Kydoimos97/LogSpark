@@ -1,4 +1,5 @@
 from .configure_handler_traceback_policy import configure_handler_traceback_policy
+from .emit_warning import emit_warning
 from .generate_stdlib_format import generate_stdlib_format
 from .get_devnull import get_devnull
 from .is_color_compatible_terminal import (
@@ -14,7 +15,6 @@ from .validate_timeformat import (
     validate_rich_timeformat,
     validate_stdlib_timeformat,
 )
-from .emit_warning import emit_warning
 
 __all__ = [
     "resolve_stacklevel",

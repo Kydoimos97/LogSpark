@@ -1,4 +1,4 @@
-from .SparkJSONHandler import SparkJSONHandler
-from .Terminal import TerminalHandler
+from .Json import SparkJSONHandler
+from .Terminal import SparkTerminalHandler
 
-__all__ = ["TerminalHandler", "SparkJSONHandler"]
+__all__ = ["SparkTerminalHandler", "SparkJSONHandler"]
