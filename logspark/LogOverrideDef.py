@@ -73,9 +73,9 @@ class LogOverride:
     def __enter__(self) -> "LogOverride":
         """Enter the override context - adjust logger's effective level"""
         # Get the global logger singleton
-        from . import spark_logger
+        from . import SparkLogger
 
-        self.logger_instance = spark_logger
+        self.logger_instance = SparkLogger()
 
         # Store original level for restoration
         self.original_level = self.logger_instance.instance.level
