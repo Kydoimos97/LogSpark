@@ -1,10 +1,8 @@
 import os
-import shutil
 import sys
-import warnings
-from typing import Any
 
 from ...Types.Protocol import SupportsWrite
+
 
 def _is_idle() -> bool:
     """Detect IDLE, which claims to be a TTY but cannot handle ANSI.
@@ -26,7 +24,7 @@ def _is_jupyter() -> bool:
     """
     try:
         ipython = get_ipython()  # type: ignore[name-defined]  # pragma: no cover
-        shell = ipython.__class__.__name__ # pragma: no cover
+        shell = ipython.__class__.__name__  # pragma: no cover
     except NameError:
         return False
 
@@ -92,12 +90,11 @@ def is_color_compatible_terminal(stream: SupportsWrite | None = None) -> bool:
     if term in ("dumb", "unknown"):
         return False
 
-
-    if os.environ.get('TERMINAL_EMULATOR') is not None and os.environ.get('TERM') is not None:
+    if os.environ.get("TERMINAL_EMULATOR") is not None and os.environ.get("TERM") is not None:
         return True
 
     # Windows conservative fallback
-    if os.name == "nt" or "Windows" in os.environ.get('OS', ""):
+    if os.name == "nt" or "Windows" in os.environ.get("OS", ""):
         if os.environ.get("WT_SESSION") or os.environ.get("ANSICON"):
             return True
         else:
@@ -120,14 +117,16 @@ def emit_color_incompatible_rich_console_warning() -> None:
         """Console does not support requested Rich color features"""
 
         pass
+
     from .emit_warning import emit_warning
+
     emit_warning(
         message=(
             "\nWARNING: Rich colored output requested, \n"
-            "    | however the current console does not appear to support ANSI colors.\n"
-            "    | Rich layout and rendering remain active, but output will not be colored.\n"
-            "    | To force Rich color usage, set FORCE_COLOR=true in the enviornment\n"
-            "    | or pass a Console(force_terminal=True)."
+            "  | however the current console does not appear to support ANSI colors.\n"
+            "  | Rich layout and rendering remain active, but output will not be colored.\n"
+            "  | To force Rich color usage, set FORCE_COLOR=true in the enviornment\n"
+            "  | or pass a Console(force_terminal=True)."
         ),
         category=RichColorDegradedWarning,
         stacklevel=4,
@@ -139,13 +138,15 @@ def emit_color_incompatible_console_warning() -> None:
         """Console does not support color features"""
 
         pass
+
     from .emit_warning import emit_warning
+
     emit_warning(
         message=(
             "\nWARNING: Colored output requested,\n"
-            "    | however the current console does not appear to support ANSI escape sequences.\n"
-            "    | The Output will not be colored as a result.\n"
-            "    | To force color usage, set FORCE_COLOR=true in the enviornment."
+            "  | however the current console does not appear to support ANSI escape sequences.\n"
+            "  | The Output will not be colored as a result.\n"
+            "  | To force color usage, set FORCE_COLOR=true in the enviornment."
         ),
         category=AnsiColorDegradedWarning,
         stacklevel=4,
