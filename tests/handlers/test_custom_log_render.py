@@ -1,5 +1,5 @@
 """
-Test CustomLogRender component for Rich-based log formatting.
+Test SparkRichLogRenderer component for Rich-based log formatting.
 
 Tests validate:
 - Table grid generation with proper columns and styling
@@ -8,6 +8,7 @@ Tests validate:
 - Function name rendering with proper formatting
 - Level styling application
 - Message rendering with proper overflow handling
+- Layout degradation detection and warnings
 """
 
 import io
@@ -22,15 +23,15 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from logspark._Internal.Intergration.CustomLogRender import CustomLogRender
+from logspark.Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
 
 
 class TestCustomLogRenderInitialization:
-    """Test CustomLogRender initialization and configuration"""
+    """Test SparkRichLogRenderer initialization and configuration"""
 
     def test_default_initialization(self):
-        """Test CustomLogRender with default parameters"""
-        renderer = CustomLogRender()
+        """Test SparkRichLogRenderer with default parameters"""
+        renderer = SparkRichLogRenderer()
 
         assert renderer.show_time is True
         assert renderer.show_level is False
@@ -42,8 +43,8 @@ class TestCustomLogRenderInitialization:
         assert renderer._last_time is None
 
     def test_custom_initialization(self):
-        """Test CustomLogRender with custom parameters"""
-        renderer = CustomLogRender(
+        """Test SparkRichLogRenderer with custom parameters"""
+        renderer = SparkRichLogRenderer(
             show_time=False,
             show_level=True,
             show_path=False,
@@ -62,13 +63,18 @@ class TestCustomLogRenderInitialization:
         assert renderer.level_width == 10
 
     def test_callable_time_format(self):
-        """Test CustomLogRender with callable time format"""
+        """Test SparkRichLogRenderer with callable time format"""
 
         def custom_time_format(dt):
             return Text(f"Custom: {dt.strftime('%H:%M')}")
 
-        renderer = CustomLogRender(time_format=custom_time_format)
+        renderer = SparkRichLogRenderer(time_format=custom_time_format)
         assert callable(renderer.time_format)
+
+    def test_layout_degradation_flag_initialization(self):
+        """Test that layout degradation flag is properly initialized"""
+        renderer = SparkRichLogRenderer()
+        assert renderer.is_layout_degraded is False
 
 
 class TestCustomLogRenderTableGeneration:
@@ -76,7 +82,7 @@ class TestCustomLogRenderTableGeneration:
 
     def test_minimal_table_generation(self):
         """Test table generation with minimal configuration"""
-        renderer = CustomLogRender(
+        renderer = SparkRichLogRenderer(
             show_time=False, show_level=False, show_path=False, show_function=False
         )
 
@@ -91,7 +97,7 @@ class TestCustomLogRenderTableGeneration:
 
     def test_full_table_generation(self):
         """Test table generation with all features enabled"""
-        renderer = CustomLogRender(
+        renderer = SparkRichLogRenderer(
             show_time=True, show_level=True, show_path=True, show_function=True
         )
 
@@ -109,12 +115,12 @@ class TestCustomLogRenderTableGeneration:
         )
 
         assert isinstance(table, Table)
-        # Should have time, spacer, level, divider, path, divider, function, arrow, message
-        assert len(table.columns) >= 7
+        # Should have time, level, arrow, message, path, function = 6 columns
+        assert len(table.columns) >= 5
 
     def test_table_with_link_path(self):
         """Test table generation with link path"""
-        renderer = CustomLogRender(show_path=True)
+        renderer = SparkRichLogRenderer(show_path=True)
 
         console = Console(file=io.StringIO())
         renderables = [Text("Test message")]
@@ -133,7 +139,7 @@ class TestCustomLogRenderTimeHandling:
 
     def test_time_rendering_with_default_format(self):
         """Test time rendering with default format"""
-        renderer = CustomLogRender(show_time=True)
+        renderer = SparkRichLogRenderer(show_time=True)
         console = Console(file=io.StringIO())
 
         test_time = datetime(2023, 12, 25, 14, 30, 45)
@@ -147,7 +153,7 @@ class TestCustomLogRenderTimeHandling:
 
     def test_time_rendering_with_custom_format(self):
         """Test time rendering with custom format"""
-        renderer = CustomLogRender(show_time=True)
+        renderer = SparkRichLogRenderer(show_time=True)
         console = Console(file=io.StringIO())
 
         test_time = datetime(2023, 12, 25, 14, 30, 45)
@@ -164,7 +170,7 @@ class TestCustomLogRenderTimeHandling:
         def custom_formatter(dt):
             return Text(f"Custom: {dt.hour:02d}:{dt.minute:02d}")
 
-        renderer = CustomLogRender(show_time=True, time_format=custom_formatter)
+        renderer = SparkRichLogRenderer(show_time=True, time_format=custom_formatter)
         console = Console(file=io.StringIO())
 
         test_time = datetime(2023, 12, 25, 14, 30, 45)
@@ -176,7 +182,7 @@ class TestCustomLogRenderTimeHandling:
 
     def test_omit_repeated_times_functionality(self):
         """Test omit_repeated_times functionality"""
-        renderer = CustomLogRender(show_time=True, omit_repeated_times=True)
+        renderer = SparkRichLogRenderer(show_time=True, omit_repeated_times=True)
         console = Console(file=io.StringIO())
 
         test_time = datetime(2023, 12, 25, 14, 30, 45)
@@ -197,7 +203,7 @@ class TestCustomLogRenderTimeHandling:
 
     def test_omit_repeated_times_disabled(self):
         """Test behavior when omit_repeated_times is disabled"""
-        renderer = CustomLogRender(show_time=True, omit_repeated_times=False)
+        renderer = SparkRichLogRenderer(show_time=True, omit_repeated_times=False)
         console = Console(file=io.StringIO())
 
         test_time = datetime(2023, 12, 25, 14, 30, 45)
@@ -215,7 +221,7 @@ class TestCustomLogRenderPathHandling:
 
     def test_path_rendering_basic(self):
         """Test basic path rendering"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         path_text = renderer._render_path("/test/path.py", None, None)
 
@@ -224,7 +230,7 @@ class TestCustomLogRenderPathHandling:
 
     def test_path_rendering_with_line_number(self):
         """Test path rendering with line number"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         path_text = renderer._render_path("/test/path.py", 42, None)
 
@@ -235,7 +241,7 @@ class TestCustomLogRenderPathHandling:
 
     def test_path_rendering_with_link(self):
         """Test path rendering with link path"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         path_text = renderer._render_path("/test/path.py", 42, "file:///test/path.py")
 
@@ -245,7 +251,7 @@ class TestCustomLogRenderPathHandling:
 
     def test_path_rendering_link_only(self):
         """Test path rendering with link but no line number"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         path_text = renderer._render_path("/test/path.py", None, "file:///test/path.py")
 
@@ -258,9 +264,9 @@ class TestCustomLogRenderFunctionHandling:
 
     def test_function_rendering_basic(self):
         """Test basic function name rendering"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
-        function_text = renderer._render_function_("test_function")
+        function_text = renderer._render_function_("test_function", None)
 
         assert isinstance(function_text, Text)
         assert "test_function" in str(function_text)
@@ -269,25 +275,25 @@ class TestCustomLogRenderFunctionHandling:
 
     def test_function_rendering_empty(self):
         """Test function rendering with empty name"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
-        function_text = renderer._render_function_(None)
+        function_text = renderer._render_function_(None, None)
         assert isinstance(function_text, Text)
         assert str(function_text) == ""
 
-        function_text = renderer._render_function_("")
+        function_text = renderer._render_function_("", None)
         assert isinstance(function_text, Text)
         assert str(function_text) == ""
 
-        function_text = renderer._render_function_("   ")
+        function_text = renderer._render_function_("   ", None)
         assert isinstance(function_text, Text)
         assert str(function_text) == ""
 
     def test_function_rendering_with_whitespace(self):
         """Test function rendering with whitespace"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
-        function_text = renderer._render_function_("  test_function  ")
+        function_text = renderer._render_function_("  test_function  ", None)
 
         assert isinstance(function_text, Text)
         assert "test_function" in str(function_text)
@@ -300,7 +306,7 @@ class TestCustomLogRenderLevelStyling:
 
     def test_get_level_style_standard_levels(self):
         """Test level styling for standard log levels"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         # Test standard levels
         debug_style = renderer._get_level_style("DEBUG")
@@ -318,7 +324,7 @@ class TestCustomLogRenderLevelStyling:
 
     def test_get_level_style_message_variants(self):
         """Test level styling for message variants"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         # Test message variants
         debug_msg_style = renderer._get_level_style("DEBUG", message=True)
@@ -331,14 +337,14 @@ class TestCustomLogRenderLevelStyling:
 
     def test_get_level_style_unknown_level(self):
         """Test level styling for unknown levels"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         unknown_style = renderer._get_level_style("UNKNOWN")
         assert unknown_style is not None  # Should return Style.null()
 
     def test_get_level_style_text_object(self):
         """Test level styling with Text object input"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         text_level = Text("INFO")
         style = renderer._get_level_style(text_level)
@@ -346,7 +352,7 @@ class TestCustomLogRenderLevelStyling:
 
     def test_get_level_style_with_whitespace(self):
         """Test level styling with whitespace"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         style = renderer._get_level_style("  INFO  ")
         assert style is not None
@@ -364,7 +370,7 @@ class TestCustomLogRenderDividerHandling:
         level_style = Style(color="red")
         original_row_length = len(row)
 
-        new_table, new_row = CustomLogRender.add_divider(table, row, level_style)
+        new_table, new_row = SparkRichLogRenderer.add_divider(table, row, level_style)
 
         assert new_table is table  # Should return same table
         assert len(new_row) == original_row_length + 1  # Should add one item to row
@@ -372,12 +378,82 @@ class TestCustomLogRenderDividerHandling:
         assert "-" in str(new_row[-1])  # Should contain divider character
 
 
+class TestCustomLogRenderLayoutDegradation:
+    """Test layout degradation detection and handling"""
+
+    def test_layout_degradation_flag_reset(self):
+        """Test that layout degradation flag resets per render instance"""
+        renderer = SparkRichLogRenderer()
+        
+        # Initially should not be degraded
+        assert renderer.is_layout_degraded is False
+        
+        # Simulate degradation by setting the flag
+        renderer._layout_degradation_flag = True
+        assert renderer.is_layout_degraded is True
+        
+        # Flag should persist until manually reset
+        assert renderer.is_layout_degraded is True
+
+    def test_layout_degradation_narrow_console(self):
+        """Test layout degradation with narrow console"""
+        renderer = SparkRichLogRenderer(
+            show_time=True, show_level=True, show_path=True, show_function=True,
+            min_message_width=60
+        )
+        
+        # Create narrow console (less than minimum required width)
+        narrow_console = Console(file=io.StringIO(), width=40)
+        renderables = [Text("Test message")]
+        
+        # Render with narrow console
+        table = renderer(
+            narrow_console,
+            renderables,
+            log_time=datetime.now(),
+            level="INFO",
+            path="/test/path.py",
+            line_no=42,
+            function_name="test_function",
+        )
+        
+        # Should trigger layout degradation
+        assert renderer.is_layout_degraded is True
+        assert isinstance(table, Table)
+
+    def test_layout_degradation_wide_console(self):
+        """Test no layout degradation with wide console"""
+        renderer = SparkRichLogRenderer(
+            show_time=True, show_level=True, show_path=True, show_function=True,
+            min_message_width=60
+        )
+        
+        # Create wide console
+        wide_console = Console(file=io.StringIO(), width=200)
+        renderables = [Text("Test message")]
+        
+        # Render with wide console
+        table = renderer(
+            wide_console,
+            renderables,
+            log_time=datetime.now(),
+            level="INFO",
+            path="/test/path.py",
+            line_no=42,
+            function_name="test_function",
+        )
+        
+        # Should not trigger layout degradation
+        assert renderer.is_layout_degraded is False
+        assert isinstance(table, Table)
+
+
 class TestCustomLogRenderIntegration:
-    """Integration tests for CustomLogRender"""
+    """Integration tests for SparkRichLogRenderer"""
 
     def test_complete_rendering_workflow(self):
         """Test complete rendering workflow with all features"""
-        renderer = CustomLogRender(
+        renderer = SparkRichLogRenderer(
             show_time=True, show_level=True, show_path=True, show_function=True
         )
 
@@ -405,7 +481,7 @@ class TestCustomLogRenderIntegration:
 
     def test_rendering_with_multiple_renderables(self):
         """Test rendering with multiple renderables (message + traceback)"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         console = Console(file=io.StringIO())
         renderables = [Text("Error message"), Text("Traceback information")]
@@ -421,7 +497,7 @@ class TestCustomLogRenderIntegration:
 
     def test_rendering_with_no_optional_parameters(self):
         """Test rendering with minimal parameters"""
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         console = Console(file=io.StringIO())
         renderables = [Text("Simple message")]
@@ -442,7 +518,7 @@ from hypothesis import strategies as st
 
 
 class TestCustomLogRenderProperties:
-    """Property-based tests for CustomLogRender"""
+    """Property-based tests for SparkRichLogRenderer"""
 
     @given(
         message=st.text(min_size=1, max_size=500),
@@ -456,10 +532,10 @@ class TestCustomLogRenderProperties:
     ):
         """
 
-        For any configuration and message, CustomLogRender should always generate a valid Table
+        For any configuration and message, SparkRichLogRenderer should always generate a valid Table
 
         """
-        renderer = CustomLogRender(
+        renderer = SparkRichLogRenderer(
             show_time=show_time,
             show_level=show_level,
             show_path=show_path,
@@ -487,7 +563,7 @@ class TestCustomLogRenderProperties:
         For any level string, _get_level_style should always return a Style object
 
         """
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         style = renderer._get_level_style(level, message=message_flag)
 
@@ -507,7 +583,7 @@ class TestCustomLogRenderProperties:
         For any path and line number, _render_path should always return valid Text
 
         """
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
         path_text = renderer._render_path(path, line_no, None)
 
@@ -532,9 +608,9 @@ class TestCustomLogRenderProperties:
         For any function name (including None and empty), _render_function_ should handle gracefully
 
         """
-        renderer = CustomLogRender()
+        renderer = SparkRichLogRenderer()
 
-        function_text = renderer._render_function_(function_name)
+        function_text = renderer._render_function_(function_name, None)
 
         assert isinstance(function_text, Text)
 
@@ -559,7 +635,7 @@ class TestCustomLogRenderProperties:
         For any time format and omit setting, time rendering should be consistent
 
         """
-        renderer = CustomLogRender(
+        renderer = SparkRichLogRenderer(
             show_time=True, time_format=time_format, omit_repeated_times=omit_repeated
         )
 

@@ -3,16 +3,18 @@ Test SparkRichHandler component for Rich-based logging.
 
 Tests validate:
 - Proper inheritance from RichHandler
-- CustomLogRender integration
+- SparkRichLogRenderer integration
 - Path resolution and formatting
 - Log record rendering with all features
 - Console and stream handling
 - Function name and line number processing
+- Layout degradation warnings
 """
 
 import io
 import logging
 import os
+import warnings
 from datetime import datetime
 from unittest.mock import Mock, patch
 
@@ -25,7 +27,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.traceback import Traceback
 
-from logspark._Internal.Intergration.SparkRichHandler import SparkRichHandler
+from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 
 
 class TestSparkRichHandlerInitialization:
@@ -40,11 +42,11 @@ class TestSparkRichHandlerInitialization:
 
         assert isinstance(handler, RichHandler)
 
-        # Should have CustomLogRender instance
+        # Should have SparkRichLogRenderer instance
         assert hasattr(handler, "_c_log_render")
-        from logspark._Internal.Intergration.CustomLogRender import CustomLogRender
+        from logspark.Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
 
-        assert isinstance(handler._c_log_render, CustomLogRender)
+        assert isinstance(handler._c_log_render, SparkRichLogRenderer)
 
         # Check default configuration
         assert handler._c_log_render.show_time is True
@@ -76,7 +78,7 @@ class TestSparkRichHandlerInitialization:
         # Check console setting
         assert handler.console is console
 
-        # Check CustomLogRender configuration
+        # Check SparkRichLogRenderer configuration
         assert handler._c_log_render.show_time is False
         assert handler._c_log_render.show_level is False
         assert handler._c_log_render.show_path is False
@@ -101,9 +103,6 @@ class TestSparkRichHandlerInitialization:
             rich_tracebacks=False,
             tracebacks_width=120,
             tracebacks_extra_lines=5,
-            tracebacks_theme="monokai",
-            tracebacks_word_wrap=False,
-            tracebacks_show_locals=True,
             log_time_format="[%H:%M:%S]",
             highlighter=highlighter,
         )
@@ -112,6 +111,122 @@ class TestSparkRichHandlerInitialization:
         assert handler.console is console
         assert handler._c_log_render.show_function is True
         assert handler._c_log_render.time_format == "[%H:%M:%S]"
+
+
+class TestSparkRichHandlerLayoutDegradation:
+    """Test layout degradation warning functionality"""
+
+    def test_layout_degradation_warning_emitted_once(self):
+        """Test that layout degradation warning is emitted only once per handler instance"""
+        # Create narrow console to trigger degradation
+        narrow_console = Console(file=io.StringIO(), width=40)
+        handler = SparkRichHandler(
+            console=narrow_console,
+            show_path=True,
+            show_function=True,
+            min_message_width=60
+        )
+
+        # Create log record
+        record = logging.LogRecord(
+            name="test.logger",
+            level=logging.INFO,
+            pathname="/test/path/module.py",
+            lineno=42,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+
+        message_renderable = Text("Test message")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            # First render should emit warning
+            handler.render(record=record, traceback=None, message_renderable=message_renderable)
+            
+            # Second render should not emit warning again
+            handler.render(record=record, traceback=None, message_renderable=message_renderable)
+
+            # Should have exactly one warning
+            degradation_warnings = [
+                warning for warning in w 
+                if "layout degraded" in str(warning.message).lower()
+            ]
+            assert len(degradation_warnings) == 1
+
+    def test_layout_degradation_warning_content(self):
+        """Test that layout degradation warning contains expected information"""
+        narrow_console = Console(file=io.StringIO(), width=40)
+        handler = SparkRichHandler(
+            console=narrow_console,
+            show_path=True,
+            show_function=True,
+            min_message_width=60
+        )
+
+        record = logging.LogRecord(
+            name="test.logger",
+            level=logging.INFO,
+            pathname="/test/path/module.py",
+            lineno=42,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+
+        message_renderable = Text("Test message")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            handler.render(record=record, traceback=None, message_renderable=message_renderable)
+
+            degradation_warnings = [
+                warning for warning in w 
+                if "layout degraded" in str(warning.message).lower()
+            ]
+            
+            if degradation_warnings:
+                warning_msg = str(degradation_warnings[0].message)
+                assert "terminal width" in warning_msg.lower()
+                assert "40 cols" in warning_msg or "40" in warning_msg
+                assert "Path" in warning_msg or "Function" in warning_msg
+
+    def test_no_layout_degradation_warning_wide_console(self):
+        """Test that no warning is emitted with wide console"""
+        wide_console = Console(file=io.StringIO(), width=200)
+        handler = SparkRichHandler(
+            console=wide_console,
+            show_path=True,
+            show_function=True,
+            min_message_width=60
+        )
+
+        record = logging.LogRecord(
+            name="test.logger",
+            level=logging.INFO,
+            pathname="/test/path/module.py",
+            lineno=42,
+            msg="Test message",
+            args=(),
+            exc_info=None,
+        )
+
+        message_renderable = Text("Test message")
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            handler.render(record=record, traceback=None, message_renderable=message_renderable)
+
+            # Should have no layout degradation warnings
+            degradation_warnings = [
+                warning for warning in w 
+                if "layout degraded" in str(warning.message).lower()
+            ]
+            assert len(degradation_warnings) == 0
 
 
 class TestSparkRichHandlerPathResolution:
@@ -126,7 +241,7 @@ class TestSparkRichHandlerPathResolution:
             # Reload the module to pick up the new PYTHONPATH
             import importlib
 
-            from logspark._Internal.Intergration import SparkRichHandler as shr_module
+            from logspark.Handlers.Rich import SparkRichHandler as shr_module
 
             importlib.reload(shr_module)
 
@@ -152,8 +267,9 @@ class TestSparkRichHandlerPathResolution:
                 record=record, traceback=None, message_renderable=message_renderable
             )
 
-            # Should return a renderable (Table from CustomLogRender)
-            assert result is not None
+            # Should return a renderable (Table from SparkRichLogRenderer)
+            from rich.table import Table
+            assert isinstance(result, Table)
 
     def test_path_resolution_without_pythonpath(self):
         """Test path resolution when PYTHONPATH is not set"""
@@ -165,7 +281,7 @@ class TestSparkRichHandlerPathResolution:
             # Reload the module to pick up the cleared PYTHONPATH
             import importlib
 
-            from logspark._Internal.Intergration import SparkRichHandler as shr_module
+            from logspark.Handlers.Rich import SparkRichHandler as shr_module
 
             importlib.reload(shr_module)
 
@@ -192,7 +308,8 @@ class TestSparkRichHandlerPathResolution:
             )
 
             # Should return a renderable
-            assert result is not None
+            from rich.table import Table
+            assert isinstance(result, Table)
 
     def test_path_resolution_short_path(self):
         """Test path resolution with short path (less than 2 parts)"""
@@ -218,7 +335,8 @@ class TestSparkRichHandlerPathResolution:
         )
 
         # Should return a renderable
-        assert result is not None
+        from rich.table import Table
+        assert isinstance(result, Table)
 
     def test_path_resolution_two_parts(self):
         """Test path resolution with exactly 2 parts"""
@@ -244,7 +362,8 @@ class TestSparkRichHandlerPathResolution:
         )
 
         # Should return a renderable
-        assert result is not None
+        from rich.table import Table
+        assert isinstance(result, Table)
 
     def test_path_resolution_relative_path_error(self):
         """Test path resolution when relative_to raises ValueError"""
@@ -255,7 +374,7 @@ class TestSparkRichHandlerPathResolution:
             # Reload the module
             import importlib
 
-            from logspark._Internal.Intergration import SparkRichHandler as shr_module
+            from logspark.Handlers.Rich import SparkRichHandler as shr_module
 
             importlib.reload(shr_module)
 
@@ -281,7 +400,8 @@ class TestSparkRichHandlerPathResolution:
             )
 
             # Should return a renderable even when relative_to fails
-            assert result is not None
+            from rich.table import Table
+            assert isinstance(result, Table)
 
 
 class TestSparkRichHandlerRendering:
@@ -311,7 +431,7 @@ class TestSparkRichHandlerRendering:
             record=record, traceback=None, message_renderable=message_renderable
         )
 
-        # Should return a Table from CustomLogRender
+        # Should return a Table from SparkRichLogRenderer
         from rich.table import Table
 
         assert isinstance(result, Table)
@@ -727,7 +847,7 @@ class TestSparkRichHandlerProperties:
     ):
         """
 
-        For any configuration, the handler should consistently apply settings to CustomLogRender
+        For any configuration, the handler should consistently apply settings to SparkRichLogRenderer
 
         """
         handler = SparkRichHandler(
@@ -738,7 +858,7 @@ class TestSparkRichHandlerProperties:
         )
         handler.enable_link_path = False  # Disable link path to avoid URI issues
 
-        # Verify configuration was applied to CustomLogRender
+        # Verify configuration was applied to SparkRichLogRenderer
         assert handler._c_log_render.show_time == show_time
         assert handler._c_log_render.show_level == show_level
         assert handler._c_log_render.show_path == show_path
@@ -812,7 +932,7 @@ class TestSparkRichHandlerProperties:
     def test_property_time_format_handling(self, time_format, message):
         """
 
-        For any time format, the handler should pass it correctly to CustomLogRender
+        For any time format, the handler should pass it correctly to SparkRichLogRenderer
 
         """
         handler = SparkRichHandler(show_time=True, log_time_format=time_format)

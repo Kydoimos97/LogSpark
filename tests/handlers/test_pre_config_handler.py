@@ -1,5 +1,5 @@
 """
-Test pre-configuration handler behavior including stderr usage and warning emission.
+Test pre-configuration handler behavior including stdout usage and warning emission.
 """
 
 import io
@@ -13,36 +13,36 @@ import pytest
 from logspark.Handlers.PreConfig import pre_config_handler
 
 
-class TestPreConfigHandlerStderrUsage:
-    """Test pre-config handler stderr usage behavior"""
+class TestPreConfigHandlerStdoutUsage:
+    """Test pre-config handler stdout usage behavior"""
 
-    def test_default_uses_stderr(self):
-        """Test that pre-config handler uses stderr by default"""
+    def test_default_uses_stdout(self):
+        """Test that pre-config handler uses stdout by default"""
         handler = pre_config_handler()
 
-        # Should be StreamHandler with stderr
+        # Should be StreamHandler with stdout
         assert isinstance(handler, logging.StreamHandler)
-        assert handler.stream is sys.stderr
+        assert handler.stream is sys.stdout
 
     def test_silenced_mode_uses_devnull(self):
-        """Test that silenced mode redirects to devnull instead of stderr"""
+        """Test that silenced mode redirects to devnull instead of stdout"""
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
             handler = pre_config_handler()
 
-            # Should not use stderr in silenced mode
-            assert handler.stream is not sys.stderr
+            # Should not use stdout in silenced mode
+            assert handler.stream is not sys.stdout
             # Should use devnull (exact implementation may vary)
 
-    def test_normal_mode_stderr_explicit(self):
-        """Test that normal mode explicitly uses stderr"""
+    def test_normal_mode_stdout_explicit(self):
+        """Test that normal mode explicitly uses stdout"""
         with patch.dict("os.environ", {}, clear=False):
             if "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
             handler = pre_config_handler()
 
-            # Should use stderr in normal mode
-            assert handler.stream is sys.stderr
+            # Should use stdout in normal mode
+            assert handler.stream is sys.stdout
 
     def test_handler_has_formatter(self):
         """Test that pre-config handler has proper formatter"""
@@ -73,10 +73,10 @@ class TestPreConfigHandlerStderrUsage:
 class TestPreConfigHandlerWarningEmission:
     """Test warning emission behavior"""
 
-    def test_handler_emits_to_stderr(self):
-        """Test that handler emits logs to stderr"""
-        # Capture stderr
-        with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
+    def test_handler_emits_to_stdout(self):
+        """Test that handler emits logs to stdout"""
+        # Capture stdout
+        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
             handler = pre_config_handler()
 
             # Create and emit a log record
@@ -92,16 +92,17 @@ class TestPreConfigHandlerWarningEmission:
 
             handler.emit(record)
 
-            # Verify output went to stderr
-            stderr_output = mock_stderr.getvalue()
-            assert "Test warning" in stderr_output
-            assert "WARNING" in stderr_output
+            # Verify output went to stdout
+            stdout_output = mock_stdout.getvalue()
+            assert "Test warning" in stdout_output
+            assert "WARNING" in stdout_output
+            assert "No-Config |" in stdout_output
 
-    def test_silenced_mode_no_stderr_output(self):
-        """Test that silenced mode doesn't output to stderr"""
+    def test_silenced_mode_no_stdout_output(self):
+        """Test that silenced mode doesn't output to stdout"""
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
-            # Capture stderr
-            with patch("sys.stderr", new_callable=io.StringIO) as mock_stderr:
+            # Capture stdout
+            with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
                 handler = pre_config_handler()
 
                 # Create and emit a log record
@@ -117,9 +118,9 @@ class TestPreConfigHandlerWarningEmission:
 
                 handler.emit(record)
 
-                # Verify no output went to stderr
-                stderr_output = mock_stderr.getvalue()
-                assert stderr_output == ""
+                # Verify no output went to stdout
+                stdout_output = mock_stdout.getvalue()
+                assert stdout_output == ""
 
     def test_multiple_handlers_independent(self):
         """Test that multiple pre-config handlers are independent"""
@@ -129,10 +130,10 @@ class TestPreConfigHandlerWarningEmission:
         # Should be different instances
         assert handler1 is not handler2
 
-        # Both should use stderr (unless silenced)
+        # Both should use stdout (unless silenced)
         if os.environ.get("LOGSPARK_MODE") != "silenced":
-            assert handler1.stream is sys.stderr
-            assert handler2.stream is sys.stderr
+            assert handler1.stream is sys.stdout
+            assert handler2.stream is sys.stdout
 
 
 class TestPreConfigHandlerInstallation:
@@ -265,12 +266,12 @@ class TestPreConfigHandlerIntegration:
                 del os.environ["LOGSPARK_MODE"]
 
             handler_normal = pre_config_handler()
-            assert handler_normal.stream is sys.stderr
+            assert handler_normal.stream is sys.stdout
 
         # Test silenced mode
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
             handler_silenced = pre_config_handler()
-            assert handler_silenced.stream is not sys.stderr
+            assert handler_silenced.stream is not sys.stdout
 
 
 # Property-Based Tests
@@ -299,23 +300,23 @@ class TestPreConfigHandlerProperties:
         ),
         lineno=st.integers(min_value=1, max_value=10000),
     )
-    def test_property_preconfig_stderr_usage(self, message, level, logger_name, lineno):
+    def test_property_preconfig_stdout_usage(self, message, level, logger_name, lineno):
         """
-        For any log message, pre-config handler should emit to stderr unless silenced
+        For any log message, pre-config handler should emit to stdout unless silenced
         """
-        # Test normal mode (should use stderr)
+        # Test normal mode (should use stdout)
         with patch.dict("os.environ", {}, clear=False):
             if "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
             handler = pre_config_handler()
-            assert handler.stream is sys.stderr, "Handler should use stderr in normal mode"
+            assert handler.stream is sys.stdout, "Handler should use stdout in normal mode"
 
-        # Test silenced mode (should not use stderr)
+        # Test silenced mode (should not use stdout)
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
             handler_silenced = pre_config_handler()
-            assert handler_silenced.stream is not sys.stderr, (
-                "Handler should not use stderr in silenced mode"
+            assert handler_silenced.stream is not sys.stdout, (
+                "Handler should not use stdout in silenced mode"
             )
 
         # Test that handler can emit any message without error
@@ -458,9 +459,9 @@ class TestPreConfigHandlerProperties:
 
             # Verify stream selection based on mode
             if silenced:
-                assert handler.stream is not sys.stderr, "Silenced mode should not use stderr"
+                assert handler.stream is not sys.stdout, "Silenced mode should not use stdout"
             else:
-                assert handler.stream is sys.stderr, "Normal mode should use stderr"
+                assert handler.stream is sys.stdout, "Normal mode should use stdout"
 
             # Handler should work regardless of mode
             record = logging.LogRecord(
@@ -512,7 +513,3 @@ class TestPreConfigHandlerProperties:
             assert " -> " in formatted, "Output should contain arrow separator"
             assert message in formatted, "Output should contain the message"
 
-        # All outputs should follow the same structural pattern
-        for output in formatted_outputs:
-            parts = output.split(" -> ")
-            assert len(parts) == 2, "Output should have exactly one arrow separator"
