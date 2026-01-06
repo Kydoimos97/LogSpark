@@ -29,4 +29,5 @@ __all__ = [
     "validate_stdlib_timeformat",
     "emit_invalid_timeformat_warning",
     "generate_stdlib_format",
+    "emit_warning",
 ]
