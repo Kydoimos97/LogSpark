@@ -3,7 +3,6 @@
 #  Licensed under the MIT License (https://opensource.org/license/mit).
 import logging
 import os
-import warnings
 from datetime import datetime
 from pathlib import Path
 
@@ -13,6 +12,7 @@ from rich.highlighter import Highlighter
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
+from ..._Internal.Func import emit_warning
 from ...Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
 
 PYTHONPATH = os.environ.get("PYTHONPATH", None)
@@ -81,6 +81,7 @@ class SparkRichHandler(RichHandler):
         tracebacks_width: int | None = None,
         tracebacks_extra_lines: int = 3,
     ) -> None:
+
         super().__init__(
             level,
             console,
@@ -166,7 +167,6 @@ class SparkRichHandler(RichHandler):
         level = self.get_level_text(record)
         log_time = datetime.fromtimestamp(record.created)
         function_name = record.funcName
-
         log_renderable = self._c_log_render(
             console=self.console,
             renderables=renderables,
@@ -181,7 +181,6 @@ class SparkRichHandler(RichHandler):
 
         if self._c_log_render.is_layout_degraded and not self._warn_width_shown:
             self._emit_degradation_warning()
-
         return log_renderable
 
     def _emit_degradation_warning(self) -> None:
@@ -197,14 +196,14 @@ class SparkRichHandler(RichHandler):
             cols_hidden.append("Function")
         cols = ", ".join(cols_hidden)
         message = (
-            "\nLogSpark layout degraded: terminal width ({width} cols) is smaller than minimum message width (80 cols). "
-            "    Optionally selected metadata columns were hidden: {cols}"
-            "    Adjust column settings or increase terminal width to restore full layout."
+            "\nLogSpark layout degraded: \n"
+            "  | terminal width ({width} cols) is smaller than minimum message width (80 cols).\n"
+            "  | Optionally selected metadata columns were hidden: {cols}\n"
+            "  | Adjust column settings or increase terminal width to restore full layout."
         ).format(width=self.console.width, cols=cols)
-        warnings.warn(
+        emit_warning(
             message=message,
             category=ConsoleWidthWarning,
-            stacklevel=2,
-            source="LogSpark",
+            stacklevel=4,
         )
         self._warn_width_shown = True
