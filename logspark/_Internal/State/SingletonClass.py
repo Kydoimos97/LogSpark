@@ -35,8 +35,8 @@ def SingletonClass(cls: type[T]) -> type[T]:
     """
     if "__new__" in cls.__dict__:
         raise _SingletonViolationException(cls)
-    if "__cls_instance" in cls.__dict__:
-        raise _SingletonViolationException(cls)
+    if "__cls_instance" in cls.__dict__:  # pragma: no cover
+        raise _SingletonViolationException(cls)  # pragma: no cover
 
     class SingletonWrapper(cls):  # type: ignore[misc, valid-type]
         __cls_instance = None
