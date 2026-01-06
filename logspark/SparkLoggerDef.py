@@ -1,10 +1,11 @@
 import logging
+import sys
 import threading
-import warnings
 from typing import Any
 
 from ._Internal.Func import (
     configure_handler_traceback_policy,
+    emit_warning,
     resolve_stacklevel,
     validate_configuration_parameters,
 )
@@ -40,6 +41,7 @@ class SparkLogger:
         self._stdlib_logger: logging.Logger | None = None
         self._pre_config_setup_done = False
         self._unconfigured_warning_emitted = False
+        self._logger_name = "LogSpark"
 
     # PROPERTIES
     @property
@@ -242,16 +244,16 @@ class SparkLogger:
                 level, traceback, handler, preset, no_freeze
             )
 
-            # Default to TerminalHandler if none provided
+            # Default to SparkTerminalHandler if none provided
             if is_fast_mode() and handler is None:
                 # Fast logging with no explicit handler - use NullHandler for maximum speed
                 fmt: logging.Handler = logging.NullHandler()
             elif handler is None and v_preset is not None:
                 # if handler is none but preset isn't we apply the preset
                 if v_preset == PresetOptions.TERMINAL:
-                    from .Handlers import TerminalHandler
+                    from .Handlers import SparkTerminalHandler
 
-                    fmt = TerminalHandler()
+                    fmt = SparkTerminalHandler()
                 elif v_preset == PresetOptions.JSON:
                     from .Handlers import SparkJSONHandler
 
@@ -261,9 +263,9 @@ class SparkLogger:
                     raise ValueError(f"Invalid preset '{preset}'")
             elif handler is None and v_preset is None:
                 # both are none so we fall back to default
-                from .Handlers import TerminalHandler
+                from .Handlers import SparkTerminalHandler
 
-                fmt = TerminalHandler()
+                fmt = SparkTerminalHandler()
             else:
                 # handler has been passed
                 assert handler is not None
@@ -275,6 +277,9 @@ class SparkLogger:
             self._config = config
 
             # Clear existing handlers but preserve filters (including ddtrace)
+            for _handler in self.instance.handlers:
+                _handler.flush()
+                _handler.close()
             self.instance.handlers.clear()
             self.instance.setLevel(config.level)
 
@@ -329,9 +334,12 @@ class SparkLogger:
         with self._lock:
             # Tear down stdlib logger
             if self._stdlib_logger is not None:
-                self._stdlib_logger.handlers.clear()
-                self._stdlib_logger.filters.clear()
-                self._stdlib_logger.setLevel(logging.NOTSET)
+                name = self._stdlib_logger.name
+                for h in self._stdlib_logger.handlers[:]:
+                    self._stdlib_logger.removeHandler(h)
+                    h.close()
+
+                logging.Logger.manager.loggerDict.pop(name, None)
 
             # Reset instance state
             self._config = None
@@ -340,10 +348,9 @@ class SparkLogger:
             self._pre_config_setup_done = False
             self._unconfigured_warning_emitted = False
 
-            # Reset singleton slot (critical)
-            cls = self.__class__
-            if hasattr(cls, "_SingletonWrapper__cls_instance"):
-                cls._SingletonWrapper__cls_instance = None
+            # Intentionally do not reset Singleton slot
+            # this maintans the relationship between singleton and
+            # the global logging registry
 
     # INTERNAL
     def _log_with_callsite(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
@@ -353,6 +360,10 @@ class SparkLogger:
         # Resolve appropriate stacklevel to point to actual calling code
         resolved_stacklevel = resolve_stacklevel(user_stacklevel)
         kwargs["stacklevel"] = resolved_stacklevel
+
+        if self._config is None:
+            sys.stderr.flush()
+            sys.stdout.flush()
 
         self.instance.log(level, msg, *args, **kwargs)
 
@@ -367,13 +378,12 @@ class SparkLogger:
 
         with self._lock:
             # Create stdlib logger with LogSpark defaults
-            self._stdlib_logger = logging.getLogger("LogSpark")
+            self._stdlib_logger = logging.getLogger(self._logger_name)
+            if self._stdlib_logger.handlers:
+                self._raise_logger_name_conflict()
+                return
+
             self._stdlib_logger.setLevel(logging.INFO)
-
-            # Add ddtrace correlation filter for opportunistic field injection
-            ddtrace_filter = DDTraceCorrelationFilter()
-            self._stdlib_logger.addFilter(ddtrace_filter)
-
             # Detect stdlib handler as fallback
             handler = pre_config_handler()
             self._stdlib_logger.addHandler(handler)
@@ -382,15 +392,31 @@ class SparkLogger:
 
     def _emit_unconfigured_warning(self) -> None:
         if not self._unconfigured_warning_emitted:
-            warnings.warn_explicit(
-                message="\nLogger used before explicit configuration. \n"
-                "    To remove this warning please call `logger.configure()",
+            emit_warning(
+                message="\nWARNING: Logger used before explicit configuration.\n"
+                "  | To remove this warning please call `logger.configure()",
                 category=UnconfiguredUsageWarning,
-                filename="SparkLoggerDef.py",
-                lineno=446,
-                module="LogSpark",
+                stacklevel=4,
             )
             self._unconfigured_warning_emitted = True
+
+    def _raise_logger_name_conflict(self) -> None:
+        raise RuntimeError(
+            (
+                "\nLogSpark invariant violation detected.\n"
+                "  | A logger named '{name}' already exists in the global logging registry.\n"
+                "  | LogSpark's Singleton Instance requires exclusive ownership of its managed logger,\n"
+                "  | to guarantee single-configuration, determinism, and auditability.\n"
+                "  |\n"
+                "  | This indicates a race condition, re-entrant initialization,\n"
+                "  | or external mutation of logging state prior to LogSpark configuration.\n"
+                "  |\n"
+                "  | LogSpark cannot safely continue in this state and uphold its invariants.\n"
+                "  | Ensure logging is configured exactly once, early in process startup,\n"
+                "  | before any threads, workers, or process pools are created.\n"
+                "  | No other code may create or configure this logger name.\n"
+            ).format(name=self._logger_name)
+        )
 
 
 spark_logger = SparkLogger()
