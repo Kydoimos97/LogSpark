@@ -2,7 +2,6 @@
 #  Author: Willem van der Schans.
 #  Licensed under the MIT License (https://opensource.org/license/mit).
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -12,11 +11,9 @@ from rich.highlighter import Highlighter
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
-from ..._Internal.Func import emit_warning
 from ...Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
-
-PYTHONPATH = os.environ.get("PYTHONPATH", None)
-PYTHONPATH = PYTHONPATH.split(";")[0] if PYTHONPATH else None
+from ..._Internal.Func import emit_warning
+from ..._Internal.State import resolve_project_root
 
 
 class SparkRichHandler(RichHandler):
@@ -60,7 +57,7 @@ class SparkRichHandler(RichHandler):
         console: Console | None = None,
         *,
         # Main Settings
-        min_message_width: int = 60,
+        min_message_width: int = 40,
         markup: bool = False,
         rich_tracebacks: bool = True,
         highlighter: Highlighter | None = None,
@@ -73,6 +70,8 @@ class SparkRichHandler(RichHandler):
         level_width: int = 8,
         # Path Settings
         show_path: bool = True,
+        relative_path: bool = False,
+        enable_link_path: bool = True,
         max_path_width: int = 40,
         # Function Settings
         show_function: bool = False,
@@ -94,6 +93,7 @@ class SparkRichHandler(RichHandler):
             tracebacks_extra_lines=tracebacks_extra_lines,
             log_time_format=log_time_format,
             highlighter=highlighter,
+            enable_link_path=enable_link_path
         )
         self._c_log_render: SparkRichLogRenderer = SparkRichLogRenderer(
             show_time=show_time,
@@ -107,8 +107,12 @@ class SparkRichHandler(RichHandler):
             max_function_width=max_function_width,
             min_message_width=min_message_width,
         )
+
         self._show_path: bool = show_path
+        self._relative_path: bool = relative_path
         self._show_function: bool = show_function
+        self._project_root: Path | None = resolve_project_root()
+
 
     def render(
         self,
@@ -129,29 +133,7 @@ class SparkRichHandler(RichHandler):
             ConsoleRenderable: Renderable to display log.
         """
         # Resolve Path
-        path = Path(record.pathname)
-        log_path = None
-        if PYTHONPATH is not None:
-            try:
-                rel = path.relative_to(PYTHONPATH)
-                if len(rel.parts) > 1:
-                    log_path = Path(*rel.parts[1:]).as_posix()
-                else:
-                    log_path = rel.as_posix()
-            except ValueError:
-                pass
-
-        if log_path is None:
-            if len(path.parts) > 2:
-                log_path = Path(*path.parts[-2:]).as_posix()
-            else:
-                log_path = path.as_posix()
-
-        if not path.is_absolute() or not self.enable_link_path:
-            link_path = None
-        else:
-            link_path = Path(path).as_uri()
-
+        display_path, link_path = self._resolve_path(record)
         # Resolve Renderables
         if traceback:
             renderables = [message_renderable, traceback]
@@ -173,7 +155,7 @@ class SparkRichHandler(RichHandler):
             log_time=log_time,
             time_format=time_format,
             level=level,
-            path=str(log_path),
+            path=display_path,
             line_no=record.lineno,
             link_path=link_path,
             function_name=function_name,
@@ -207,3 +189,23 @@ class SparkRichHandler(RichHandler):
             stacklevel=4,
         )
         self._warn_width_shown = True
+
+    def _resolve_path(self, record: logging.LogRecord) -> tuple[Path, str | None]:
+        path = Path(record.pathname)
+
+        # display path
+        if self._relative_path and self._project_root:
+            try:
+                display_path = Path(path.relative_to(self._project_root).as_posix())
+            except ValueError:
+                display_path = Path(path.name)
+        else:
+            display_path = Path(path.name)
+
+        # link path
+        if self.enable_link_path and path.is_absolute():
+            link_path = path.as_uri()
+        else:
+            link_path = None
+
+        return display_path, link_path
