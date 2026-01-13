@@ -27,7 +27,9 @@ def emit_invalid_timeformat_warning() -> None:
     )
 
 
-def validate_rich_timeformat(time_format: "str | FormatTimeCallable") -> "str | FormatTimeCallable":
+def validate_rich_timeformat(time_format: "str | FormatTimeCallable | None") -> "str | FormatTimeCallable":
+    if time_format is None:
+        return _default_timeformat
     if isinstance(time_format, str):
         try:
             datetime.fromisoformat(time_format)
@@ -38,7 +40,9 @@ def validate_rich_timeformat(time_format: "str | FormatTimeCallable") -> "str | 
     return time_format
 
 
-def validate_stdlib_timeformat(time_format: str | object) -> str:
+def validate_stdlib_timeformat(time_format: str | object | None) -> str:
+    if time_format is None:
+        return _default_timeformat
     if isinstance(time_format, str):
         try:
             datetime.fromisoformat(time_format)
