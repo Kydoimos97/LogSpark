@@ -1,5 +1,6 @@
 import os
 from importlib.util import find_spec
+from pathlib import Path
 
 
 def is_silenced_mode() -> bool:
@@ -29,3 +30,18 @@ def is_rich_available() -> bool:
     except ValueError:
         # Module present but broken / partially initialized
         return False
+
+
+def resolve_project_root() -> Path | None:
+    if root := os.environ.get("PROJECT_ROOT"):
+        return Path(root)
+
+    if venv := os.environ.get("VIRTUAL_ENV"):
+        return Path(venv).parent
+
+    cur = Path.cwd().resolve()
+    for parent in (cur, *cur.parents):
+        if (parent / "pyproject.toml").exists():
+            return parent
+
+    return None
