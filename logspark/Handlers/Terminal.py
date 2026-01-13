@@ -69,17 +69,19 @@ class SparkTerminalHandler(logging.Handler):
         no_rich: bool = False,
         console: Optional["Console"] = None,
         # Main Settings
-        min_message_width: int = 60,
+        min_message_width: int = 40,
         rich_tracebacks: bool = True,
         # Time settings
         show_time: bool = True,
-        log_time_format: "str | FormatTimeCallable" = "[%H:%M:%S]",
+        log_time_format: "str | FormatTimeCallable | None" = "%H:%M:%S",
         omit_repeated_times: bool = True,
         # Level Settings
         show_level: bool = True,
         level_width: int = 8,
         # Path Settings
         show_path: bool = True,
+        relative_path: bool = False,
+        enable_link_path: bool = True,
         max_path_width: int = 40,
         # Function Settings
         show_function: bool = False,
@@ -205,6 +207,8 @@ class SparkTerminalHandler(logging.Handler):
                 level_width=level_width,
                 # Path Settings
                 show_path=show_path,
+                relative_path = relative_path,
+                enable_link_path = enable_link_path,
                 max_path_width=max_path_width,
                 # Function Settings
                 show_function=show_function,
