@@ -256,7 +256,7 @@ class SparkLogManager:
 
                     if not spark_logger.is_frozen:
                         if spark_logger._config is None:
-                            raise InvalidConfigurationError("LogSpark logger not configured")
+                            raise InvalidConfigurationError("LogSpark logger not frozen")
                         else:
                             raise UnfrozenGlobalOperationError(
                                 "LogSpark logger needs to be frozen before copying its handler"
