@@ -33,15 +33,31 @@ def is_rich_available() -> bool:
 
 
 def resolve_project_root() -> Path | None:
+    """Resolve the project root directory using explicit configuration first,
+    then environment context, and finally filesystem heuristics.
+
+    Priority order:
+    1) Explicit PROJECT_ROOT env override
+    2) Active virtual environment location
+    3) Upward search from CWD for common project markers
+
+    Returns None if no reasonable root can be inferred.
+    """
+    # Explicit user override always wins
     if root := os.environ.get("PROJECT_ROOT"):
         return Path(root)
 
+    # Common dev heuristic: venv lives directly under project root
     if venv := os.environ.get("VIRTUAL_ENV"):
         return Path(venv).parent
 
+    # Fallback: walk upward from CWD looking for project indicators
     cur = Path.cwd().resolve()
-    for parent in (cur, *cur.parents):
-        if (parent / "pyproject.toml").exists():
-            return parent
+    checks = ("pyproject.toml", ".git", "requirements.txt")
+    for c in checks:
+        for parent in (cur, *cur.parents):
+            if (parent / c).exists():
+                return parent
 
+    # No markers found; caller must handle absence explicitly
     return None
