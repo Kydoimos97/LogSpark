@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 
 from .emit_warning import emit_warning
 
-_default_timeformat = "[%H:%M:%S]"
+_default_timeformat = "%H:%M:%S"
 
 
 def emit_invalid_timeformat_warning() -> None:
@@ -17,7 +17,7 @@ def emit_invalid_timeformat_warning() -> None:
 
     msg = (
         "\nWARNING: Requested timeformat is invalid\n"
-        "  | falling back to default timeformat: [%H:%M:%S]"
+        "  | falling back to default timeformat: %H:%M:%S"
     )
 
     emit_warning(
