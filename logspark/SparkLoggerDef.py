@@ -393,8 +393,9 @@ class SparkLogger:
     def _emit_unconfigured_warning(self) -> None:
         if not self._unconfigured_warning_emitted:
             emit_warning(
-                message="\nWARNING: Logger used before explicit configuration.\n"
-                "  | To remove this warning please call `logger.configure()",
+                message="\nWARNING: Logger used before configuration.\n"
+                "  | This warning indicates a lifecycle violation;\n "
+                "  | call logger.configure() before logging",
                 category=UnconfiguredUsageWarning,
                 stacklevel=4,
             )
