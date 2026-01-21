@@ -6,7 +6,7 @@ from ...Types import TracebackOptions
 def configure_handler_traceback_policy(handler: logging.Handler, policy: TracebackOptions) -> None:
     """
     Configure handler to include traceback policy in log records.
-    
+
     Adds a filter to the handler that injects the specified traceback policy
     into all log records processed by this handler. This allows downstream
     components to determine how to render exception tracebacks.
