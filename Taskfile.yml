@@ -30,6 +30,9 @@ tasks:
           --cov-report=term \
           --cov-report=html:.coverage/html
 
+  run-demo:
+    desc: Run the demo
+    cmd: uv run python ./scripts/path_check/invoker/demo.py
 
   docs:
     desc: Start mkdocs development server
