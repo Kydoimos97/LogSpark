@@ -1,16 +1,21 @@
-import math
 from collections.abc import Iterable
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
-from typing import List
 
 from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable, RenderableType
 from rich.containers import Renderables
-from rich.pretty import Pretty
 from rich.style import Style
 from rich.table import Table
 from rich.text import Text, TextType
+
+
+class _DegradationGates(str, Enum):
+    TIME = "time"
+    PATH = "path"
+    FUNCTION = "function"
+    NONE = None
 
 
 class SparkRichLogRenderer:
@@ -47,6 +52,7 @@ class SparkRichLogRenderer:
         min_message_width: Minimum width reserved for log messages (default: 60)
     """
 
+    _degradation_gate: _DegradationGates = _DegradationGates.NONE
     _layout_degradation_flag: bool = False
     _TIME_STYLE = Style(color="white", dim=True)
     _PATH_STYLE = Style(color="cyan")
@@ -76,7 +82,7 @@ class SparkRichLogRenderer:
         time_format: str | FormatTimeCallable = "[%x %X]",
         omit_repeated_times: bool = True,
         level_width: int = 8,
-        max_path_width: int = 40,
+        max_path_width: int = 20,
         max_function_width: int = 25,
         min_message_width: int = 40,
     ) -> None:
@@ -94,7 +100,10 @@ class SparkRichLogRenderer:
 
         self._last_time: Text | None = None
         self._minimal_col_width: int = 10
-        self._right_gutter: int = 4
+        self._minimal_path_width: int = 0
+        self._gutter_width: int = 4
+        self._arrow_width: int = 3
+        self._padding: int = 1
 
     def __call__(
         self,
@@ -156,7 +165,10 @@ class SparkRichLogRenderer:
         Returns:
             A Rich Table containing exactly one rendered log row.
         """
-        table = Table.grid(padding=(0, 1), expand=False)
+        if not self._console_has_space(console):
+            self._gutter_width = 0
+
+        table = Table.grid(padding=(0, self._padding), expand=False)
         level_style = self._get_level_style(level)
         message_style = self._get_level_style(level, message=True)
         row: list[RenderableType] = []
@@ -182,49 +194,52 @@ class SparkRichLogRenderer:
             function_renderable = None
 
         # Set the Variable Widths
-        message_width, path_width, function_width, show_arrow = self._assign_variable_widths(
+        message_width, time_width, path_width, function_width = self._assign_variable_widths(
             console, time_renderable, level_renderable, path_renderable, function_renderable
         )
-
         # Create Table
         if time_renderable is not None:
-            if self._last_time is not None:
-                table.add_column(
-                    style=self._TIME_STYLE,
-                    width=max(self._last_time.cell_len, time_renderable.cell_len),
-                    justify="left",
-                )
-            else:
-                table.add_column(
-                    style=self._TIME_STYLE, width=time_renderable.cell_len, justify="left"
-                )
-            row.append(time_renderable)
+            if time_width > 0:
+                table.add_column(style=self._TIME_STYLE, width=time_width, justify="left")
+                row.append(time_renderable)
+
         if level_renderable is not None:
             table.add_column(width=self.level_width, style=level_style, justify="left")
-            row.append(level_renderable)
+            if time_width == 0 and time_renderable is not None:
+                row.append(Renderables([level_renderable, time_renderable]))
+            else:
+                row.append(level_renderable)
 
-        if show_arrow:
-            table.add_column(width=3, style=level_style, justify="left")
+        if self._console_has_space(console):
+            table.add_column(width=self._arrow_width, style=level_style, justify="left")
             row.append(Text("→"))
 
         # Message
         table.add_column(overflow="fold", justify="left", width=message_width, style=message_style)
         row.append(self._render_message(renderables))
 
-         #should treat options as one block so they can multline when needed.
+        # should treat options as one block so they can multline when needed.
         option_colomn = []
         option_width = 0
-        if path_renderable is not None:
-            path_renderable = self._render_path(path, line_no, link_path, path_width) # rebuild it since we can fold now
+        if path_renderable is not None and path_width > 0:
+            assert path is not None
+            path_renderable = self._render_path(
+                path, line_no, link_path, path_width
+            )  # rebuild it since we can fold now
             option_colomn.append(path_renderable)
             option_width += path_width
 
-        if function_renderable is not None:
+        if function_renderable is not None and function_width > 0:
             option_colomn.append(function_renderable)
             option_width += function_width
-        table.add_column(
-                style=self._PATH_STYLE, justify="right", width=path_width, overflow="fold"
-            )  # Path column
+
+        if option_width > 0:
+            table.add_column(
+                style=self._PATH_STYLE, justify="right", width=option_width, overflow="fold"
+            )
+
+        if self._gutter_width > 0:
+            table.add_column(width=self._gutter_width, style=Style.null())
         row.append(Renderables(option_colomn))
         table.add_row(*row)
         return table
@@ -236,7 +251,7 @@ class SparkRichLogRenderer:
         level_renderable: Text | None,
         path_renderable: Text | None,
         function_renderable: Text | None,
-    ) -> tuple[int, int | None, int | None, bool]:
+    ) -> tuple[int, int, int, int]:
         """
         Compute column widths using a priority-based budget allocation strategy.
 
@@ -278,7 +293,7 @@ class SparkRichLogRenderer:
 
         Returns:
             A tuple of:
-                (message_width, path_width, function_width, show_arrow)
+                (message_width, time_width, path_width, function_width)
 
             Where:
                 - message_width is always non-negative
@@ -286,131 +301,155 @@ class SparkRichLogRenderer:
                 - show_arrow indicates whether the arrow column should be rendered
         """
 
-        path_width: int | None = None
-        function_width: int | None = None
-
-        # Space Reservations
-        show_arrow: bool = False
-        arrow_width: int = 0
-        right_gutter = 0
-
-        # Determine available horizontal space from the console
         console_width = console.width
+        if console_width is None or not isinstance(console_width, int):
+            return self.min_message_width, 0, 0, 0
 
-        # 120 console width for optional injections
-        if console_width is not None and console_width >= 120:
-            right_gutter = self._right_gutter
-            arrow_width = 3
-            show_arrow = True
+        available_width = console_width - self._gutter_width - self._padding
 
-        available_width = console_width - right_gutter
-        # Fallback: unknown terminal width → user-controlled minimums
-        if available_width is None or not isinstance(available_width, int):
-            return (
-                self.min_message_width,
-                self._minimal_col_width,
-                self._minimal_col_width,
-                show_arrow,
+        raw_time_width = 0
+        if time_renderable is not None:
+            raw_time_width = (
+                max(self._last_time.cell_len, time_renderable.cell_len)
+                if self._last_time is not None
+                else time_renderable.cell_len
             )
 
-
-        assert isinstance(available_width, int)
-
-        # ── Subtract invariant columns
-
-        # Time column: dynamic width, already rendered
-        if time_renderable is not None:
-            if self._last_time is not None:
-                available_width -= max(
-                    self._last_time.cell_len,
-                    time_renderable.cell_len,
-                )
-            else:
-                available_width -= time_renderable.cell_len
-
-        # Level column: fixed width
+        raw_level_width = 0
         if level_renderable is not None:
-            available_width -= self.level_width
+            raw_level_width = self.level_width
 
-        # Arrow column: provisionally reserved (may be reclaimed later)
-        available_width -= arrow_width
+        # Invariant collapses to its largest format
+        invariant_width = max(raw_level_width, raw_time_width)
+        invariant_diff = max(raw_time_width - raw_level_width, 0)
 
-        # ── Compute optional metadata budget
+        # Message is tested given one column for invariants
+        available_width -= invariant_width
 
-        # Maximum width required by optional columns if fully expanded
-        option_width: int = 0
-        if path_renderable is not None:
-            option_width += self.max_path_width
-        if function_renderable is not None:
-            option_width += self.max_function_width
-        # ── Width allocation strategy
+        # arrow is environmental
+        has_space = self._console_has_space(console)
+        if has_space:
+            available_width -= self._arrow_width
 
-        # Case 1: Not enough space for options + minimum message width
-        if available_width < (option_width + self.min_message_width):
-            # Case 1a: Even minimum message width cannot be satisfied
-            if available_width < self.min_message_width:
-                # Reclaim arrow width to preserve message readability
-                message_width = available_width + arrow_width + self._right_gutter
-                show_arrow = False
+        if self._layout_degradation_flag and self._degradation_gate == _DegradationGates.TIME:
+            # No time means no options
+            return available_width, 0, 0, 0
 
-                # Optional metadata collapses completely
-                if path_renderable is not None:
-                    path_width = 0
-                if function_renderable is not None:
-                    function_width = 0
+        # 2. time
+        time_width = 0
+        if time_renderable is not None:
+            time_width, available_width, degraded = self._allocate_or_degrade(
+                has_space=has_space,
+                available_width=available_width,
+                desired_width=raw_time_width,
+                minimal_width=raw_time_width,  # full-or-inline rule
+                renderable=time_renderable,
+            )
 
+            if degraded and not self._layout_degradation_flag:
+                self._degradation_gate = _DegradationGates.TIME
                 self._layout_degradation_flag = True
-
-            # Case 1b: Message can be satisfied, options must shrink proportionally
+                return available_width, 0, 0, 0
             else:
-                available_width -= self.min_message_width
-                message_width = self.min_message_width
+                # if time get allocated make sure the diff is reassigned
+                available_width += invariant_diff
 
-                if path_renderable is not None:
-                    path_width = max(
-                        0,
-                        math.floor(available_width * self.max_path_width / option_width),
-                    )
-                    if path_width < self._minimal_col_width:
-                        message_width += path_width
-                        path_width = 0
-                        self._layout_degradation_flag = True
+        if self._layout_degradation_flag and self._degradation_gate == _DegradationGates.PATH:
+            # No time means no options
+            return available_width, time_width, 0, 0
 
-                if function_renderable is not None:
-                    function_width = max(
-                        0,
-                        math.floor(available_width * self.max_function_width / option_width),
-                    )
-                    if function_width < self._minimal_col_width:
-                        message_width += function_width
-                        function_width = 0
-                        self._layout_degradation_flag = True
-
-
-        # Case 2: Sufficient space for all columns
+        # 3. path
+        path_width = 0
+        if path_renderable is not None:
+            min_path_width = self._get_minimal_path_split(path_renderable)
+            if has_space:
+                min_path_width = max(path_width, self._minimal_path_width)
+                self._minimal_path_width = min_path_width
         else:
-            if path_renderable is not None:
-                path_width = min(
-                    self.max_path_width,
-                    path_renderable.cell_len,
-                )
-                available_width -= path_width
+            min_path_width = 0
 
-            if function_renderable is not None:
-                function_width = min(
-                    self.max_function_width,
-                    function_renderable.cell_len,
-                )
-                available_width -= function_width
+        path_width, available_width, degraded = self._allocate_or_degrade(
+            has_space=has_space,
+            available_width=available_width,
+            desired_width=(
+                min(self.max_path_width, path_renderable.cell_len)
+                if path_renderable is not None
+                else 0
+            ),
+            minimal_width=min_path_width,
+            renderable=path_renderable,
+        )
 
-            # Message absorbs remaining width
-            message_width = available_width
-        return message_width, path_width, function_width, show_arrow
+        if degraded and not self._layout_degradation_flag:
+            self._degradation_gate = _DegradationGates.PATH
+            self._layout_degradation_flag = True
+            return available_width, time_width, 0, 0
+
+        if self._layout_degradation_flag and self._degradation_gate == _DegradationGates.FUNCTION:
+            # No path means no function
+            return available_width, time_width, path_width, 0
+
+        function_width, available_width, degraded = self._allocate_or_degrade(
+            has_space=has_space,
+            available_width=available_width,
+            desired_width=(
+                min(self.max_function_width, function_renderable.cell_len)
+                if function_renderable is not None
+                else 0
+            ),
+            minimal_width=self._minimal_col_width,
+            renderable=function_renderable,
+        )
+
+        if degraded and not self._layout_degradation_flag:
+            self._degradation_gate = _DegradationGates.FUNCTION
+            self._layout_degradation_flag = True
+            return available_width, time_width, path_width, 0
+
+        return available_width, time_width, path_width, function_width
+
+    def _allocate_or_degrade(
+        self,
+        *,
+        has_space: bool,
+        available_width: int,
+        desired_width: int,
+        minimal_width: int | None = None,
+        renderable: RenderableType | None,
+    ) -> tuple[int, int, bool]:
+        """
+        Try to allocate width for a column.
+        If allocation is not viable, trigger degradation and return 0 width.
+
+        Returns:
+            (allocated_width, remaining_width)
+        """
+        if minimal_width is None:
+            minimal_width = self._minimal_col_width
+
+        # we shrink if we have no space else we expand
+        if desired_width < minimal_width:
+            if has_space:
+                desired_width = minimal_width
+            else:
+                minimal_width = desired_width
+
+        if renderable is None:
+            return 0, available_width, False
+
+        max_width = available_width - self.min_message_width - self._padding
+        if max_width < minimal_width:
+            return 0, available_width, True
+
+        if max_width < desired_width:
+            return minimal_width, available_width - minimal_width - self._padding, False
+
+        return desired_width, available_width - desired_width - self._padding, False
 
     def _render_message(self, renderables: Iterable[ConsoleRenderable]) -> Renderables:
         guided_renderables = []
         for renderable in renderables:
-            if hasattr(renderable, 'with_indent_guides'):
+            if hasattr(renderable, "with_indent_guides"):
                 renderable = renderable.with_indent_guides(style=self._INDENT_STYLE)
             guided_renderables.append(renderable)
         return Renderables(guided_renderables)
@@ -437,7 +476,7 @@ class SparkRichLogRenderer:
         console: Console,
         log_time: datetime | None,
         time_format: str | FormatTimeCallable | None,
-    ) -> Text:
+    ) -> Text | None:
         log_time = log_time or console.get_datetime()
         fmt = time_format or self.time_format
 
@@ -446,10 +485,11 @@ class SparkRichLogRenderer:
         else:
             time_text = Text(log_time.strftime(fmt) + " ")
 
-        if self.omit_repeated_times and time_text == self._last_time:
-            display = Text()
-        else:
-            display = time_text
+        display = time_text
+        if not self._degradation_gate == _DegradationGates.TIME:
+            if self.omit_repeated_times and time_text == self._last_time:
+                display = Text()
+
         self._last_time = time_text.copy()
         display.style = self._TIME_STYLE
         return display
@@ -461,9 +501,16 @@ class SparkRichLogRenderer:
         link_path: str | None,
         path_width: int = 10,
     ) -> Text:
+
+        if isinstance(path, str):
+            path = Path(path)
+
         text = Text(style=self._PATH_STYLE)
 
-        parts = path.parts
+        parts = path.as_posix().split("/")
+        if len(parts) == 0:
+            return text
+
         running_len = 0
 
         # render parent parts
@@ -480,6 +527,8 @@ class SparkRichLogRenderer:
         # render filename (linkable)
         filename = parts[-1]
         filename_style = f"link {link_path}" if link_path else ""
+        if len(parts) > 1 and running_len + len(filename) + 1 > path_width:
+            text.append("\n")
         text.append(filename, style=filename_style)
 
         # render line number
@@ -508,3 +557,17 @@ class SparkRichLogRenderer:
     @property
     def is_layout_degraded(self) -> bool:
         return self._layout_degradation_flag
+
+    @staticmethod
+    def _console_has_space(console: Console) -> bool:
+        if console is None:
+            return False
+        if console.width is None:
+            return False
+        if console.width < 120:
+            return False
+        return True
+
+    @staticmethod
+    def _get_minimal_path_split(path: Text) -> int:
+        return max([len(p) for p in Path(path.plain).as_posix().split("/")])
