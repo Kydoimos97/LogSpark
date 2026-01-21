@@ -207,8 +207,8 @@ class SparkTerminalHandler(logging.Handler):
                 level_width=level_width,
                 # Path Settings
                 show_path=show_path,
-                relative_path = relative_path,
-                enable_link_path = enable_link_path,
+                relative_path=relative_path,
+                enable_link_path=enable_link_path,
                 max_path_width=max_path_width,
                 # Function Settings
                 show_function=show_function,

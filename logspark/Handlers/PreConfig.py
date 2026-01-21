@@ -8,11 +8,11 @@ from .._Internal.State import is_silenced_mode
 def pre_config_handler() -> logging.Handler:
     """
     Create pre-configuration handler for early logging before SparkLogger setup.
-    
+
     Returns a StreamHandler that outputs to stdout (or devnull in silenced mode)
     with a formatted message including the "No-Config" prefix to indicate
     the logger hasn't been properly configured yet.
-    
+
     Returns:
         logging.Handler: Configured StreamHandler for pre-configuration logging.
     """
