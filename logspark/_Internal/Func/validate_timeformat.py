@@ -27,7 +27,9 @@ def emit_invalid_timeformat_warning() -> None:
     )
 
 
-def validate_rich_timeformat(time_format: "str | FormatTimeCallable | None") -> "str | FormatTimeCallable":
+def validate_rich_timeformat(
+    time_format: "str | FormatTimeCallable | None",
+) -> "str | FormatTimeCallable":
     if time_format is None:
         return _default_timeformat
     if isinstance(time_format, str):
