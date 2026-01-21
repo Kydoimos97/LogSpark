@@ -1,21 +1,14 @@
 from collections.abc import Iterable
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
 
+from ..._Internal import _DegradationGates
 from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable, RenderableType
 from rich.containers import Renderables
 from rich.style import Style
 from rich.table import Table
 from rich.text import Text, TextType
-
-
-class _DegradationGates(str, Enum):
-    TIME = "time"
-    PATH = "path"
-    FUNCTION = "function"
-    NONE = None
 
 
 class SparkRichLogRenderer:
