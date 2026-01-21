@@ -10,5 +10,5 @@ __all__ = [
     "is_silenced_mode",
     "is_fast_mode",
     "is_rich_available",
-    "resolve_project_root"
+    "resolve_project_root",
 ]
