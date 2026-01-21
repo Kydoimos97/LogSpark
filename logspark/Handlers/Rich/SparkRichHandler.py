@@ -11,9 +11,10 @@ from rich.highlighter import Highlighter
 from rich.logging import RichHandler
 from rich.traceback import Traceback
 
-from ...Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
 from ..._Internal.Func import emit_warning
 from ..._Internal.State import resolve_project_root
+from ...Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
+from ..._Internal import _DegradationGates
 
 
 class SparkRichHandler(RichHandler):
@@ -93,7 +94,7 @@ class SparkRichHandler(RichHandler):
             tracebacks_extra_lines=tracebacks_extra_lines,
             log_time_format=log_time_format,
             highlighter=highlighter,
-            enable_link_path=enable_link_path
+            enable_link_path=enable_link_path,
         )
         self._c_log_render: SparkRichLogRenderer = SparkRichLogRenderer(
             show_time=show_time,
@@ -112,7 +113,6 @@ class SparkRichHandler(RichHandler):
         self._relative_path: bool = relative_path
         self._show_function: bool = show_function
         self._project_root: Path | None = resolve_project_root()
-
 
     def render(
         self,
@@ -172,17 +172,28 @@ class SparkRichHandler(RichHandler):
             pass
 
         cols_hidden = []
-        if self._c_log_render.show_path:
+
+        if self._c_log_render.show_path and self._c_log_render._degradation_gate in (
+            _DegradationGates.TIME,
+            _DegradationGates.PATH,
+        ):
             cols_hidden.append("Path")
-        if self._c_log_render.show_function:
+        if self._c_log_render.show_function and self._c_log_render._degradation_gate in (
+            _DegradationGates.TIME,
+            _DegradationGates.PATH,
+            _DegradationGates.FUNCTION,
+        ):
             cols_hidden.append("Function")
+
         cols = ", ".join(cols_hidden)
         message = (
             "\nLogSpark layout degraded: \n"
-            "  | terminal width ({width} cols) is smaller than minimum message width (80 cols).\n"
-            "  | Optionally selected metadata columns were hidden: {cols}\n"
-            "  | Adjust column settings or increase terminal width to restore full layout."
-        ).format(width=self.console.width, cols=cols)
+            "  | terminal width ({width} cols) cannot satisfy the required message width ({message_width} cols)\n"
+            "  | lower-priority metadata columns were hidden to preserve message readability: {cols}\n"
+            "  | increase terminal width or reduce min_message_width to restore full layout."
+        ).format(
+            width=self.console.width, message_width=self._c_log_render.min_message_width, cols=cols
+        )
         emit_warning(
             message=message,
             category=ConsoleWidthWarning,
