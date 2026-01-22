@@ -1,5 +1,11 @@
-from .DDTraceCorrelationFilter import DDTraceCorrelationFilter
+# Filters pre process logging records to enhance data either before handler or formatters
+
+from .DDTraceInjection import DDTraceInjection
+from .PathNormalization import PathNormalization
+from .TracebackPolicy import TracebackPolicy
 
 __all__ = [
-    "DDTraceCorrelationFilter",
+    "DDTraceInjection",
+    "TracebackPolicy",
+    "PathNormalization",
 ]
