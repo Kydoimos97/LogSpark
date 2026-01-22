@@ -1,18 +1,17 @@
 import logging
 import sys
-from typing import TYPE_CHECKING
+from typing import Callable
 
 from .._Internal.Func import get_devnull
 from .._Internal.State import is_silenced_mode
+from ..Filters.TracebackPolicy import TracebackPolicy
 from ..Formatters import SparkJsonFormatter
 from ..Types import MissingDependencyException
-from ..Types.Protocol import SupportsWrite
-
-if TYPE_CHECKING:
-    pass
+from ..Types.Options import TracebackOptions
+from ..Types.Protocol import SupportsWrite, _SupportsFilter
 
 
-class SparkJSONHandler(logging.StreamHandler[SupportsWrite]):
+class JsonHandler(logging.StreamHandler[SupportsWrite]):
     """
     JSON structured logging handler using python-json-logger backend.
 
@@ -30,11 +29,11 @@ class SparkJSONHandler(logging.StreamHandler[SupportsWrite]):
     Example:
         ```python
         from logspark import logger
-        from logspark.handlers import SparkJSONHandler
+        from logspark.handlers import JsonHandler
 
         logger.configure(
             level=logging.INFO,
-            handler=SparkJSONHandler()
+            handler=JsonHandler()
         )
 
         logger.info("User action", extra={
@@ -46,7 +45,7 @@ class SparkJSONHandler(logging.StreamHandler[SupportsWrite]):
         ```
     """
 
-    def __init__(self, stream: SupportsWrite | None = None):
+    def __init__(self, stream: SupportsWrite | None = None) -> None:
         """
         Initialize JSON handler with python-json-logger backend.
 
@@ -91,5 +90,21 @@ class SparkJSONHandler(logging.StreamHandler[SupportsWrite]):
             # Wrap formatter to ensure single-line output and handle tracebacks
             self.setFormatter(SparkJsonFormatter(formatter))
 
+            _filter = TracebackPolicy()
+            _filter.configure(traceback_policy=TracebackOptions.COMPACT, single_line_mode=True)
+            _filter.set_injection(True)
+            self.addFilter(_filter)
+
         except ImportError as e:
             raise MissingDependencyException(["python-json-logger"]) from e
+
+    def addFilter(
+        self, filter: logging.Filter | Callable[[logging.LogRecord], bool] | _SupportsFilter
+    ) -> None:
+        if isinstance(filter, TracebackPolicy):
+            for f in self.filters:
+                if isinstance(f, TracebackPolicy):
+                    _ = self.filters.pop(self.filters.index(f))
+            filter.configure(single_line_mode=True)
+
+        super().addFilter(filter)
