@@ -32,6 +32,17 @@ def is_rich_available() -> bool:
         return False
 
 
+def is_ddtrace_available() -> bool:
+    """
+    Check if Rich library is available for import.
+    """
+    try:
+        return find_spec("ddtrace") is not None
+    except ValueError:
+        # Module present but broken / partially initialized
+        return False
+
+
 def resolve_project_root() -> Path | None:
     """Resolve the project root directory using explicit configuration first,
     then environment context, and finally filesystem heuristics.
