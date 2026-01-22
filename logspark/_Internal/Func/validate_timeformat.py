@@ -34,7 +34,7 @@ def validate_rich_timeformat(
         return _default_timeformat
     if isinstance(time_format, str):
         try:
-            datetime.fromisoformat(time_format)
+            datetime.now().strftime(time_format)
             return time_format
         except Exception:
             emit_invalid_timeformat_warning()
@@ -47,7 +47,7 @@ def validate_stdlib_timeformat(time_format: str | object | None) -> str:
         return _default_timeformat
     if isinstance(time_format, str):
         try:
-            datetime.fromisoformat(time_format)
+            datetime.now().strftime(time_format)
             return time_format
         except Exception:
             emit_invalid_timeformat_warning()
