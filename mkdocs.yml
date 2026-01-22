@@ -6,20 +6,6 @@ site_author: Willem van der Schans
 nav:
   - Home: index.md
   - Quick Start: quick-start.md
-  - Concepts:
-    - Design Overview: design-overview.md
-    - Logging Policy: logging-policy.md
-    - Incremental Adoption: incremental-adoption.md
-  - Usage:
-    - Development Workflows: development-workflows.md
-    - Production Observability: production-observability.md
-    - Global Log Control: global-log-control.md
-  - API Reference:
-    - SparkLogger: api/spark-logger.md
-    - LogManager: api/log-manager.md
-    - LogOverride: api/log-override.md
-    - Handlers: api/handlers.md
-    - Types: api/types.md
 
 
 
