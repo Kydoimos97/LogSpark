@@ -2,9 +2,9 @@ import logging
 import threading
 from typing import TYPE_CHECKING
 
-from ._Internal.Func import validate_level
-from ._Internal.State import LogManagerState, SingletonClass
-from .Types import InvalidConfigurationError, UnfrozenGlobalOperationError
+from .._Internal.Func import validate_level
+from .._Internal.State import IsSingletonClassInstance, LogManagerState, SingletonClass
+from ..Types import InvalidConfigurationError, UnfrozenGlobalOperationError
 
 if TYPE_CHECKING:
     pass
@@ -190,8 +190,8 @@ class SparkLogManager:
 
             # Reset singleton slot so a fresh instance can be created
             cls = self.__class__
-            if hasattr(cls, "_SingletonWrapper__cls_instance"):
-                cls._SingletonWrapper__cls_instance = None
+            if isinstance(cls, IsSingletonClassInstance):
+                cls._kill_instance()
 
     # -----Mutators-----
     def unify(
@@ -252,7 +252,7 @@ class SparkLogManager:
             # Get LogSpark logger configuration
             if handler is None:
                 if use_spark_handler:
-                    from .SparkLoggerDef import spark_logger
+                    from . import spark_logger
 
                     if not spark_logger.is_frozen:
                         if spark_logger._config is None:
@@ -282,7 +282,3 @@ class SparkLogManager:
                     managed_logger.setLevel(v_level)
                 if propagate is not None:
                     managed_logger.propagate = propagate
-
-
-# Singleton Pattern
-spark_log_manager = SparkLogManager()
