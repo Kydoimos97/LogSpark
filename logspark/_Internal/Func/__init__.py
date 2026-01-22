@@ -1,4 +1,3 @@
-from .configure_handler_traceback_policy import configure_handler_traceback_policy
 from .emit_warning import emit_warning
 from .generate_stdlib_format import generate_stdlib_format
 from .get_devnull import get_devnull
@@ -8,7 +7,7 @@ from .is_color_compatible_terminal import (
     is_color_compatible_terminal,
 )
 from .resolve_stacklevel import resolve_stacklevel
-from .validate_configuration_parameters import validate_configuration_parameters
+from .resolve_stream import resolve_stream
 from .validate_level import validate_level
 from .validate_timeformat import (
     emit_invalid_timeformat_warning,
@@ -18,8 +17,6 @@ from .validate_timeformat import (
 
 __all__ = [
     "resolve_stacklevel",
-    "configure_handler_traceback_policy",
-    "validate_configuration_parameters",
     "get_devnull",
     "validate_level",
     "is_color_compatible_terminal",
@@ -30,4 +27,5 @@ __all__ = [
     "emit_invalid_timeformat_warning",
     "generate_stdlib_format",
     "emit_warning",
+    "resolve_stream",
 ]
