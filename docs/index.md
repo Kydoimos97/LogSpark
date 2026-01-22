@@ -13,7 +13,7 @@ LogSpark gives you sane logging defaults that work immediately, with no decision
 from logspark import spark_logger
 import logging
 
-spark_logger.configure(level=logging.INFO, preset="terminal")
+spark_logger.configure()
 
 spark_logger.info("Application started")
 spark_logger.error("Something went wrong")
@@ -63,9 +63,9 @@ logger.addHandler(TerminalHandler(show_time=True))
 
 ```python
 # Add filters to existing loggers
-from logspark.Filters import DDTraceCorrelationFilter
+from logspark.Filters import DDTraceInjection
 
-existing_handler.addFilter(DDTraceCorrelationFilter())
+existing_handler.addFilter()
 ```
 
 ```python
@@ -82,7 +82,7 @@ You can adopt LogSpark incrementally: handlers first, then logger, then global c
 
 ```python
 # Structured JSON for log aggregation
-spark_logger.configure(level=logging.INFO, preset="json")
+spark_logger.configure()
 
 spark_logger.info("User login", extra={"user_id": 123, "ip": "192.168.1.1"})
 # Output: {"timestamp": "2024-01-01T12:00:00Z", "level": "INFO", "message": "User login", "user_id": 123, "ip": "192.168.1.1"}
