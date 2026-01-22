@@ -4,20 +4,33 @@
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import IO, TYPE_CHECKING, cast
 
 from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import Highlighter
-from rich.logging import RichHandler
+from rich.logging import RichHandler as _RichHandler
 from rich.traceback import Traceback
 
-from ..._Internal.Func import emit_warning
-from ..._Internal.State import resolve_project_root
-from ...Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
 from ..._Internal import _DegradationGates
+from ..._Internal.Func import (
+    emit_color_incompatible_rich_console_warning,
+    emit_warning,
+    is_color_compatible_terminal,
+    resolve_stream,
+)
+from ...Filters.PathNormalization import SupportsResolvedPath
+from ...Formatters.Rich.SparkRichFormatter import SparkRichFormatter
+from ...Types import InvalidConfigurationError
+from ...Types.Options import SparkRichHandlerSettings
+from ...Types.Protocol import SupportsWrite
+
+if TYPE_CHECKING:
+    from rich._log_render import FormatTimeCallable
+    from rich.console import Console
 
 
-class SparkRichHandler(RichHandler):
+class RichHandler(_RichHandler):
     """
     Enhanced Rich logging handler with customizable layout and rendering.
 
@@ -27,7 +40,7 @@ class SparkRichHandler(RichHandler):
     - Enhanced path resolution and function name display
     - Flexible time formatting and level display
 
-    This handler uses a SparkRichLogRenderer for structured, terminal-aware output
+    This handler uses a SparkRichFormatter for structured, terminal-aware output
     that adapts to available screen space while maintaining readability.
 
     Args:
@@ -56,31 +69,60 @@ class SparkRichHandler(RichHandler):
         self,
         level: int | str = logging.NOTSET,
         console: Console | None = None,
+        stream: SupportsWrite | None = None,
         *,
         # Main Settings
-        min_message_width: int = 40,
-        markup: bool = False,
-        rich_tracebacks: bool = True,
+        use_color: bool = True,
         highlighter: Highlighter | None = None,
-        # Time settings
+        # Optional settings
         show_time: bool = True,
-        log_time_format: str | FormatTimeCallable = "%H:%M:%S",
-        omit_repeated_times: bool = True,
-        # Level Settings
         show_level: bool = True,
-        level_width: int = 8,
-        # Path Settings
         show_path: bool = True,
-        relative_path: bool = False,
-        enable_link_path: bool = True,
-        max_path_width: int = 40,
-        # Function Settings
         show_function: bool = False,
-        max_function_width: int = 25,
-        # Traceback Settings
-        tracebacks_width: int | None = None,
-        tracebacks_extra_lines: int = 3,
+        level_width: int = 8,
+        log_time_format: "str | FormatTimeCallable" = "%H:%M:%S",
+        # Advanced settings
+        settings: SparkRichHandlerSettings | None = None,
     ) -> None:
+
+        if console is None:
+            from rich.console import Console
+
+            spark_stream = resolve_stream(stream)
+            spark_stream = cast(IO[str], spark_stream)
+            _compatible = is_color_compatible_terminal(spark_stream)
+            # Force Behavior when color support is detected
+            if _compatible:
+                console = Console(
+                    file=spark_stream,
+                    tab_size=4,
+                    no_color=not use_color,
+                    color_system="truecolor",
+                    force_terminal=True,
+                    legacy_windows=False,
+                )
+                # Force initial truecolor fallback then run validation as compatibility
+                color_system = console._detect_color_system()
+                if color_system is not None:
+                    console._color_system = color_system
+            else:
+                console = Console(file=spark_stream, tab_size=4, no_color=not use_color)
+        else:
+            if stream is not None:
+                raise InvalidConfigurationError(
+                    "Cannot set stream when passing in a pre-configured console."
+                )
+
+        if not is_color_compatible_terminal(console.file) and use_color:
+            emit_color_incompatible_rich_console_warning()
+
+        if not use_color:
+            from rich.highlighter import NullHighlighter
+
+            highlighter = NullHighlighter()
+
+        if settings is None:
+            settings = SparkRichHandlerSettings()
 
         super().__init__(
             level,
@@ -88,31 +130,28 @@ class SparkRichHandler(RichHandler):
             show_time=show_time,
             show_level=show_level,
             show_path=show_path,
-            markup=markup,
-            rich_tracebacks=rich_tracebacks,
-            tracebacks_width=tracebacks_width,
-            tracebacks_extra_lines=tracebacks_extra_lines,
+            markup=False,
+            rich_tracebacks=True,
+            tracebacks_width=settings.tracebacks_width,
+            tracebacks_extra_lines=settings.tracebacks_extra_lines,
             log_time_format=log_time_format,
             highlighter=highlighter,
-            enable_link_path=enable_link_path,
+            enable_link_path=settings.enable_link_path,
         )
-        self._c_log_render: SparkRichLogRenderer = SparkRichLogRenderer(
+
+        self._c_log_render: SparkRichFormatter = SparkRichFormatter(
             show_time=show_time,
             show_level=show_level,
             show_path=show_path,
             show_function=show_function,
             time_format=log_time_format,
-            omit_repeated_times=omit_repeated_times,
+            omit_repeated_times=settings.omit_repeated_times,
             level_width=level_width,
-            max_path_width=max_path_width,
-            max_function_width=max_function_width,
-            min_message_width=min_message_width,
+            max_path_width=settings.max_path_width,
+            max_function_width=settings.max_function_width,
+            min_message_width=settings.min_message_width,
+            indent_guide=settings.indent_guide,
         )
-
-        self._show_path: bool = show_path
-        self._relative_path: bool = relative_path
-        self._show_function: bool = show_function
-        self._project_root: Path | None = resolve_project_root()
 
     def render(
         self,
@@ -133,37 +172,46 @@ class SparkRichHandler(RichHandler):
             ConsoleRenderable: Renderable to display log.
         """
         # Resolve Path
-        display_path, link_path = self._resolve_path(record)
+        if isinstance(record, SupportsResolvedPath):
+            display_path = record.resolved_path.path
+            link_path = record.resolved_path.uri
+            lineno = record.resolved_path.lineno
+            func = record.resolved_path.function
+        else:
+            display_path = Path(record.pathname)
+            link_path = None
+            lineno = record.lineno
+            func = record.funcName
+
         # Resolve Renderables
+        renderables = [message_renderable]
         if traceback:
-            renderables = [message_renderable, traceback]
-        else:
-            renderables = [message_renderable]
-
+            renderables.append(traceback)
         # Resolve Time
-        if self.formatter is None:
-            time_format = None
-        else:
-            time_format = self.formatter.datefmt
+        time_format, log_time = self._resolve_time(record.created)
 
-        level = self.get_level_text(record)
-        log_time = datetime.fromtimestamp(record.created)
-        function_name = record.funcName
         log_renderable = self._c_log_render(
             console=self.console,
             renderables=renderables,
             log_time=log_time,
             time_format=time_format,
-            level=level,
+            level=self.get_level_text(record),
             path=display_path,
-            line_no=record.lineno,
+            line_no=lineno,
             link_path=link_path,
-            function_name=function_name,
+            function_name=func,
         )
 
         if self._c_log_render.is_layout_degraded and not self._warn_width_shown:
             self._emit_degradation_warning()
         return log_renderable
+
+    def _resolve_time(self, created: float) -> tuple[str | None, datetime]:
+        if self.formatter is None:
+            time_format = None
+        else:
+            time_format = self.formatter.datefmt
+        return time_format, datetime.fromtimestamp(created)
 
     def _emit_degradation_warning(self) -> None:
         class ConsoleWidthWarning(UserWarning):
@@ -200,23 +248,3 @@ class SparkRichHandler(RichHandler):
             stacklevel=4,
         )
         self._warn_width_shown = True
-
-    def _resolve_path(self, record: logging.LogRecord) -> tuple[Path, str | None]:
-        path = Path(record.pathname)
-
-        # display path
-        if self._relative_path and self._project_root:
-            try:
-                display_path = Path(path.relative_to(self._project_root).as_posix())
-            except ValueError:
-                display_path = Path(path.name)
-        else:
-            display_path = Path(path.name)
-
-        # link path
-        if self.enable_link_path and path.is_absolute():
-            link_path = path.as_uri()
-        else:
-            link_path = None
-
-        return display_path, link_path
