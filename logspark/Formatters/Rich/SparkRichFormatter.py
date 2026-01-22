@@ -1,8 +1,9 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
-from ..._Internal import _DegradationGates
 from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable, RenderableType
 from rich.containers import Renderables
@@ -10,8 +11,38 @@ from rich.style import Style
 from rich.table import Table
 from rich.text import Text, TextType
 
+from ..._Internal import _DegradationGates
 
-class SparkRichLogRenderer:
+
+@runtime_checkable
+class _SupportsIndentGuides(Protocol):
+    """Protocol for objects that support indent guides"""
+
+    def with_indent_guides(
+        self,
+        indent_size: int | None = None,
+        *,
+        character: str = "│",
+        style: "str | Style" = "dim green",
+    ) -> "Text": ...
+
+
+@runtime_checkable
+class _HasPlain(Protocol):
+    """Protocol for objects that support plain text"""
+
+    @property
+    def plain(self) -> str: ...
+
+
+@dataclass
+class PathInfo:
+    path: Path
+    uri: str | None
+    lineno: int | None
+
+
+class SparkRichFormatter:
     """
     Custom log renderer with budget-based column layout for Rich console output.
 
@@ -78,15 +109,19 @@ class SparkRichLogRenderer:
         max_path_width: int = 20,
         max_function_width: int = 25,
         min_message_width: int = 40,
+        indent_guide: str | None = "│",
     ) -> None:
         self.show_time = show_time
         self.show_level = show_level
         self.show_path = show_path
         self.show_function = show_function
+
+        self.indent_guide = indent_guide
+
         self.time_format = time_format
         self.omit_repeated_times = omit_repeated_times
-        self.level_width = level_width
 
+        self.level_width = level_width
         self.max_path_width = max_path_width
         self.max_function_width = max_function_width
         self.min_message_width = min_message_width
@@ -161,36 +196,113 @@ class SparkRichLogRenderer:
         if not self._console_has_space(console):
             self._gutter_width = 0
 
+        path_info: PathInfo | None = None
+        if path is not None:
+            path_info = PathInfo(path, link_path, line_no)
+
         table = Table.grid(padding=(0, self._padding), expand=False)
-        level_style = self._get_level_style(level)
         message_style = self._get_level_style(level, message=True)
         row: list[RenderableType] = []
 
         # Create Renderables
+        time_renderable, level_renderable, path_renderable, function_renderable, level_style = (
+            self._create_renderables(
+                console=console,
+                log_time=log_time,
+                time_format=time_format,
+                level=level,
+                path_info=path_info,
+                function_name=function_name,
+            )
+        )
+
+        if path_renderable is None:
+            path_info = None
+
+        # Set the Variable Widths
+        message_width, time_width, path_width, function_width = self._assign_variable_widths(
+            console=console,
+            time_renderable=time_renderable,
+            level_renderable=level_renderable,
+            path_renderable=path_renderable,
+            function_renderable=function_renderable,
+        )
+        # Create Table
+        table, row = self._handle_invariant_columns(
+            table=table,
+            row=row,
+            time_renderable=time_renderable,
+            level_renderable=level_renderable,
+            time_width=time_width,
+            level_style=level_style,
+        )
+
+        if self._console_has_space(console):
+            table.add_column(width=self._arrow_width, style=level_style, justify="left")
+            row.append(Text("→"))
+
+        # Message
+        table.add_column(overflow="fold", justify="left", width=message_width, style=message_style)
+        row.append(self._format_renderables(renderables))
+
+        # should treat options as one block so they can multline when needed.
+        table, row = self._handle_option_columns(
+            table=table,
+            row=row,
+            path_info=path_info,
+            function_renderable=function_renderable,
+            path_width=path_width,
+            function_width=function_width,
+        )
+
+        # Gutter
+        if self._gutter_width > 0:
+            table.add_column(width=self._gutter_width, style=Style.null())
+
+        table.add_row(*row)
+        return table
+
+    def _create_renderables(
+        self,
+        console: Console,
+        log_time: datetime | None,
+        time_format: str | FormatTimeCallable | None,
+        level: TextType,
+        path_info: PathInfo | None,
+        function_name: str | None,
+    ) -> tuple[Text | None, Text | None, Text | None, Text | None, Style]:
+        level_style = self._get_level_style(level)
         if self.show_time:
-            time_renderable = self._render_time(console, log_time, time_format)
+            time_renderable = self._format_time(console, log_time, time_format)
         else:
             time_renderable = None
         if self.show_level:
-            level_display = str(level).strip() if hasattr(level, "plain") else str(level).strip()
+            level_display = (
+                level.plain.strip() if isinstance(level, _HasPlain) else str(level).strip()
+            )
             level_renderable = Text(level_display, style=level_style)
         else:
             level_renderable = None
-        if self.show_path and path:
-            path_renderable = self._render_path(path, line_no, link_path)
+        if self.show_path and path_info:
+            path_renderable = self._format_path(path_info.path, path_info.lineno, path_info.uri)
         else:
             path_renderable = None
 
         if self.show_function and function_name:
-            function_renderable = self._render_function_(function_name, path_renderable)
+            function_renderable = self._format_function_name(function_name, path_renderable)
         else:
             function_renderable = None
+        return time_renderable, level_renderable, path_renderable, function_renderable, level_style
 
-        # Set the Variable Widths
-        message_width, time_width, path_width, function_width = self._assign_variable_widths(
-            console, time_renderable, level_renderable, path_renderable, function_renderable
-        )
-        # Create Table
+    def _handle_invariant_columns(
+        self,
+        table: Table,
+        row: list[RenderableType],
+        time_renderable: Text | None,
+        level_renderable: Text | None,
+        time_width: int,
+        level_style: Style,
+    ) -> tuple[Table, list[RenderableType]]:
         if time_renderable is not None:
             if time_width > 0:
                 table.add_column(style=self._TIME_STYLE, width=time_width, justify="left")
@@ -202,22 +314,22 @@ class SparkRichLogRenderer:
                 row.append(Renderables([level_renderable, time_renderable]))
             else:
                 row.append(level_renderable)
+        return table, row
 
-        if self._console_has_space(console):
-            table.add_column(width=self._arrow_width, style=level_style, justify="left")
-            row.append(Text("→"))
-
-        # Message
-        table.add_column(overflow="fold", justify="left", width=message_width, style=message_style)
-        row.append(self._render_message(renderables))
-
-        # should treat options as one block so they can multline when needed.
+    def _handle_option_columns(
+        self,
+        table: Table,
+        row: list[RenderableType],
+        path_info: PathInfo | None,
+        function_renderable: Text | None,
+        path_width: int,
+        function_width: int,
+    ) -> tuple[Table, list[RenderableType]]:
         option_colomn = []
         option_width = 0
-        if path_renderable is not None and path_width > 0:
-            assert path is not None
-            path_renderable = self._render_path(
-                path, line_no, link_path, path_width
+        if path_info is not None and path_width > 0:
+            path_renderable = self._format_path(
+                path_info.path, path_info.lineno, path_info.uri, path_width
             )  # rebuild it since we can fold now
             option_colomn.append(path_renderable)
             option_width += path_width
@@ -231,11 +343,8 @@ class SparkRichLogRenderer:
                 style=self._PATH_STYLE, justify="right", width=option_width, overflow="fold"
             )
 
-        if self._gutter_width > 0:
-            table.add_column(width=self._gutter_width, style=Style.null())
         row.append(Renderables(option_colomn))
-        table.add_row(*row)
-        return table
+        return table, row
 
     def _assign_variable_widths(
         self,
@@ -296,7 +405,10 @@ class SparkRichLogRenderer:
 
         console_width = console.width
         if console_width is None or not isinstance(console_width, int):
-            return self.min_message_width, 0, 0, 0
+            raise TypeError(
+                f"Console width must be an int, got {console_width!r} "
+                f"({type(console_width).__name__})"
+            )
 
         available_width = console_width - self._gutter_width - self._padding
 
@@ -439,15 +551,17 @@ class SparkRichLogRenderer:
 
         return desired_width, available_width - desired_width - self._padding, False
 
-    def _render_message(self, renderables: Iterable[ConsoleRenderable]) -> Renderables:
+    def _format_renderables(self, renderables: Iterable[ConsoleRenderable]) -> Renderables:
         guided_renderables = []
         for renderable in renderables:
-            if hasattr(renderable, "with_indent_guides"):
+            if self.indent_guide and isinstance(renderable, _SupportsIndentGuides):
                 renderable = renderable.with_indent_guides(style=self._INDENT_STYLE)
             guided_renderables.append(renderable)
         return Renderables(guided_renderables)
 
-    def _render_function_(self, function_name: str | None, path_renderable: Text | None) -> Text:
+    def _format_function_name(
+        self, function_name: str | None, path_renderable: Text | None
+    ) -> Text:
         if not function_name:
             return Text()
 
@@ -464,7 +578,7 @@ class SparkRichLogRenderer:
         function_text.append("]")
         return function_text
 
-    def _render_time(
+    def _format_time(
         self,
         console: Console,
         log_time: datetime | None,
@@ -487,7 +601,7 @@ class SparkRichLogRenderer:
         display.style = self._TIME_STYLE
         return display
 
-    def _render_path(
+    def _format_path(
         self,
         path: Path,
         line_no: int | None,
@@ -538,14 +652,6 @@ class SparkRichLogRenderer:
             name = f"MESSAGE_{name}"
 
         return self._LEVEL_STYLES.get(name, Style.null())
-
-    @staticmethod
-    def add_divider(
-        table: Table, row: list[RenderableType], level_style: Style
-    ) -> tuple[Table, list[RenderableType]]:
-        table.add_column(width=1, justify="center")
-        row.append(Text("-", style=level_style))
-        return table, row
 
     @property
     def is_layout_degraded(self) -> bool:
