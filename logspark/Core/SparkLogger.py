@@ -1,28 +1,23 @@
 import logging
-import sys
 import threading
 from typing import Any
 
-from ._Internal.Func import (
-    configure_handler_traceback_policy,
-    emit_warning,
-    resolve_stacklevel,
-    validate_configuration_parameters,
-)
-from ._Internal.State import LoggerConfig, SingletonClass, is_fast_mode
-from .Filters.DDTraceCorrelationFilter import DDTraceCorrelationFilter
-from .Handlers.PreConfig import pre_config_handler
-from .Types import (
+from .._Internal.Func import emit_warning, resolve_stacklevel, validate_level
+from .._Internal.State import LoggerConfig, SingletonClass, is_fast_mode
+from .._Internal.State.Env import is_ddtrace_available
+from ..Filters import PathNormalization, TracebackPolicy
+from ..Filters.DDTraceInjection import DDTraceInjection
+from ..Handlers import PreConfigHandler
+from ..Types import (
     FrozenConfigurationError,
     InvalidConfigurationError,
-    PresetOptions,
-    TracebackOptions,
+    UnconfiguredUsageWarning,
 )
-from .Types.Exceptions import UnconfiguredUsageWarning
+from ..Types.Options import PathResolutionSetting, PresetOptions, TracebackOptions
 
 
 @SingletonClass
-class SparkLogger:
+class SparkLogger(logging.Logger):
     """
     Singleton logger with explicit configuration and freeze semantics.
 
@@ -35,6 +30,7 @@ class SparkLogger:
     """
 
     def __init__(self) -> None:
+        super().__init__("LogSpark")
         self._lock = threading.RLock()
         self._config: LoggerConfig | None = None
         self._frozen = False
@@ -43,24 +39,7 @@ class SparkLogger:
         self._unconfigured_warning_emitted = False
         self._logger_name = "LogSpark"
 
-    # PROPERTIES
-    @property
-    def instance(self) -> logging.Logger:
-        """
-        Access the underlying standard library Logger instance.
-
-        Returns:
-            The stdlib logging.Logger instance that backs this LogSpark logger.
-
-        Note:
-            This provides direct access to the stdlib logger for advanced use cases
-            or integration with existing logging infrastructure. The returned logger
-            is fully configured and ready for use.
-        """
-        if self._stdlib_logger is None:
-            self._ensure_pre_config_setup()
-        assert self._stdlib_logger is not None
-        return self._stdlib_logger
+        self._ensure_pre_config_setup()
 
     @property
     def is_frozen(self) -> bool:
@@ -168,138 +147,142 @@ class SparkLogger:
         self._ensure_config()
         self._log_with_callsite(logging.CRITICAL, msg, *args, **kwargs)
 
+    def exception(self, msg: object, *args: object, **kwargs: Any) -> None:
+        """
+        Log a message with severity 'ERROR', including exception information.
+
+        This method should be called from within an except block.
+        It is equivalent to calling error(..., exc_info=True).
+
+        Args:
+            msg: The message to log. Can be any object that will be converted to string.
+            *args: Arguments for string formatting if msg contains format specifiers.
+            **kwargs: Additional keyword arguments passed to the underlying logging call.
+                      'exc_info' will always be set to True.
+        """
+        self._ensure_config()
+        kwargs.setdefault("exc_info", True)
+        self._log_with_callsite(logging.ERROR, msg, *args, **kwargs)
+
+    def log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
+        """
+        Log a message at an explicit numeric severity level.
+
+        This method exists for compatibility with generic logging utilities
+        and tooling that operate on numeric log levels and expect a `log()`
+        entry point, mirroring the standard library logging.Logger API.
+
+        preserves all LogSpark invariants:
+          - explicit configuration and freeze semantics
+          - deterministic callsite resolution
+          - controlled handler and traceback policy enforcement
+        """
+        self._ensure_config()
+        self._log_with_callsite(level, msg, *args, **kwargs)
+
     # PUBLIC SETTINGS API
     def configure(
         self,
         level: str | int = logging.INFO,
         *,
-        traceback: TracebackOptions | str | None = TracebackOptions.COMPACT,
-        handler: logging.Handler | None = None,
-        preset: PresetOptions | str | None = None,
+        handler: logging.Handler | PresetOptions = PresetOptions.TERMINAL,
+        traceback_policy: TracebackOptions | None = TracebackOptions.COMPACT,
+        path_resolution: PathResolutionSetting | None = PathResolutionSetting.RELATIVE,
         no_freeze: bool = False,
     ) -> None:
-        """
-        Configure the logger with handler-based configuration and automatically freeze it.
-
-        This method sets up the logger's behavior and immediately locks the configuration
-        to prevent further changes. Once called, the logger is ready for use.
-
-        Args:
-            level: Standard library logging level (e.g., logging.INFO, logging.DEBUG).
-                Controls which messages are processed based on severity.
-
-            handler: Custom stdlib Handlers instance that defines transport and formatting.
-                When provided, this handler will be used regardless of preset settings.
-                Must be a properly configured logging.Handlers subclass.
-
-            traceback: Policy for including traceback information in log records.
-                Can be a TracebackOptions enum value or a string:
-                - TracebackOptions.NONE | None: No traceback information
-                - TracebackOptions.COMPACT | "compact": Minimal traceback details
-                - TracebackOptions.FULL | "full": Complete traceback information
-                String values are case-insensitive.
-
-            preset: Quick-reference logging preset for common use cases.
-                Ignored when `handler` parameter is provided.
-
-                Available presets:
-                - PresetOptions.TERMINAL | "terminal": Human-readable terminal output with Rich formatting
-                  when available, suitable for development and interactive use.
-                - PresetOptions.JSON | "json": Structured JSON output for log aggregation and
-                  production environments.
-
-            no_freeze: If True, calling this method does not freeze the logger's configuration.
-
-        Raises:
-            FrozenConfigurationError: If configure() has already been called on this logger.
-            InvalidConfigurationError: If any parameter values are invalid.
-
-        Note:
-            After calling configure(), the logger is automatically frozen and cannot be
-            reconfigured. This ensures configuration consistency throughout the application
-            lifecycle.
-
-        Example:
-            ```python
-            from logspark import logger
-            import logging
-
-            # Basic configuration
-            logger.configure(level=logging.DEBUG)
-
-            # Production JSON logging
-            logger.configure(
-                level=logging.INFO,
-                preset=PresetOptions.JSON,
-                traceback=TracebackOptions.COMPACT
-            )
-            ```
-        """
         with self._lock:
             if self._frozen:
                 raise FrozenConfigurationError("Cannot configure logger after freeze")
 
-            # Validate parameters before creating configuration
-            v_level, v_traceback, v_preset = validate_configuration_parameters(
-                level, traceback, handler, preset, no_freeze
-            )
+            log_level = validate_level(level)
 
-            # Default to SparkTerminalHandler if none provided
-            if is_fast_mode() and handler is None:
+            # Default to TerminalHandler if none provided
+            if is_fast_mode() and isinstance(handler, PresetOptions):
                 # Fast logging with no explicit handler - use NullHandler for maximum speed
-                fmt: logging.Handler = logging.NullHandler()
-            elif handler is None and v_preset is not None:
-                # if handler is none but preset isn't we apply the preset
-                if v_preset == PresetOptions.TERMINAL:
-                    from .Handlers import SparkTerminalHandler
-
-                    fmt = SparkTerminalHandler()
-                elif v_preset == PresetOptions.JSON:
-                    from .Handlers import SparkJSONHandler
-
-                    fmt = SparkJSONHandler()
-                else:
-                    # invalid preset
-                    raise ValueError(f"Invalid preset '{preset}'")
-            elif handler is None and v_preset is None:
-                # both are none so we fall back to default
-                from .Handlers import SparkTerminalHandler
-
-                fmt = SparkTerminalHandler()
+                hdl: logging.Handler = logging.NullHandler()
+            elif isinstance(handler, PresetOptions):
+                hdl = self._get_preset_handler(handler, traceback_policy, path_resolution)
             else:
-                # handler has been passed
-                assert handler is not None
-                fmt = handler
+                hdl = handler
 
             # Create configuration
-            config = LoggerConfig(level=v_level, handler=fmt, traceback_policy=v_traceback)
+            config = LoggerConfig(
+                level=log_level,
+                handler=hdl,
+                traceback_policy=traceback_policy,
+                path_resolution=path_resolution,
+            )
 
             self._config = config
 
             # Clear existing handlers but preserve filters (including ddtrace)
-            for _handler in self.instance.handlers:
-                _handler.flush()
-                _handler.close()
-            self.instance.handlers.clear()
-            self.instance.setLevel(config.level)
+            self._eject_handlers()
 
-            # Configure handler with traceback policy
-            configure_handler_traceback_policy(config.handler, config.traceback_policy)
-            self.instance.addHandler(config.handler)
+            self.setLevel(config.level)
+            self.addHandler(config.handler)
 
             # Ensure ddtrace filter is present (idempotent)
-            # Check if filter already exists to avoid duplicates
-            has_ddtrace_filter = any(
-                isinstance(f, DDTraceCorrelationFilter) for f in self.instance.filters
-            )
-            if not has_ddtrace_filter:
-                ddtrace_filter = DDTraceCorrelationFilter()
-                self.instance.addFilter(ddtrace_filter)
+            self._add_dd_stage()
 
             # Automatically freeze configuration after successful configure
             if no_freeze:
                 return
+
             self._frozen = True
+
+    def _eject_handlers(self) -> None:
+        for _handler in self.handlers:
+            _handler.flush()
+            _handler.close()
+        self.handlers.clear()
+
+    @staticmethod
+    def _get_preset_handler(
+        preset: PresetOptions,
+        traceback: TracebackOptions | None,
+        path_resolution: PathResolutionSetting | None,
+    ) -> logging.Handler:
+        # if handler is none but handler_preset isn't we apply the handler_preset
+        _handler: logging.Handler | None = None
+        if preset == PresetOptions.TERMINAL or preset is None:
+            from .._Internal.State import is_rich_available
+
+            if is_rich_available():
+                from ..Handlers.Rich.RichHandler import RichHandler
+
+                _handler = RichHandler()
+            else:
+                from ..Handlers import TerminalHandler
+
+                _handler = TerminalHandler()
+        elif preset == PresetOptions.JSON:
+            from ..Handlers import JsonHandler
+
+            _handler = JsonHandler()
+        else:
+            # invalid handler_preset
+            raise ValueError(f"Invalid handler_preset '{preset}'")
+        assert _handler is not None
+        if traceback is not None:
+            _t_filter: TracebackPolicy = TracebackPolicy()
+            _t_filter.configure(traceback_policy=traceback)
+            # If we use our own handler we know we own the downstream so injection is safe
+            _t_filter.set_injection(True)
+            _handler.addFilter(_t_filter)
+        if path_resolution is not None:
+            _p_filter: PathNormalization = PathNormalization()
+            _p_filter.configure(path_resolution_mode=path_resolution)
+            _p_filter.set_injection(True)
+            _handler.addFilter(_p_filter)
+        return _handler
+
+    def _add_dd_stage(self) -> None:
+        # Ddtrace is global so to prevent duplication we handle it at the logger state not the handler state
+        if is_ddtrace_available():
+            has_ddtrace_filter = any(isinstance(f, DDTraceInjection) for f in self.filters)
+            if not has_ddtrace_filter:
+                log_filter = DDTraceInjection()
+                self.addFilter(log_filter)
 
     def freeze(self) -> None:
         if self._frozen:
@@ -333,18 +316,16 @@ class SparkLogger:
         """
         with self._lock:
             # Tear down stdlib logger
-            if self._stdlib_logger is not None:
-                name = self._stdlib_logger.name
-                for h in self._stdlib_logger.handlers[:]:
-                    self._stdlib_logger.removeHandler(h)
-                    h.close()
+            name = self.name
+            for h in self.handlers[:]:
+                self.removeHandler(h)
+                h.close()
 
-                logging.Logger.manager.loggerDict.pop(name, None)
+            logging.Logger.manager.loggerDict.pop(name, None)
 
             # Reset instance state
             self._config = None
             self._frozen = False
-            self._stdlib_logger = None
             self._pre_config_setup_done = False
             self._unconfigured_warning_emitted = False
 
@@ -361,11 +342,7 @@ class SparkLogger:
         resolved_stacklevel = resolve_stacklevel(user_stacklevel)
         kwargs["stacklevel"] = resolved_stacklevel
 
-        if self._config is None:
-            sys.stderr.flush()
-            sys.stdout.flush()
-
-        self.instance.log(level, msg, *args, **kwargs)
+        self.log(level, msg, *args, **kwargs)
 
     def _ensure_config(self) -> None:
         if self._config is None:
@@ -378,15 +355,14 @@ class SparkLogger:
 
         with self._lock:
             # Create stdlib logger with LogSpark defaults
-            self._stdlib_logger = logging.getLogger(self._logger_name)
-            if self._stdlib_logger.handlers:
+            if self.handlers:
                 self._raise_logger_name_conflict()
                 return
 
-            self._stdlib_logger.setLevel(logging.INFO)
+            self.setLevel(logging.INFO)
             # Detect stdlib handler as fallback
-            handler = pre_config_handler()
-            self._stdlib_logger.addHandler(handler)
+            handler = PreConfigHandler()
+            self.addHandler(handler)
 
             self._pre_config_setup_done = True
 
@@ -418,6 +394,3 @@ class SparkLogger:
                 "  | No other code may create or configure this logger name.\n"
             ).format(name=self._logger_name)
         )
-
-
-spark_logger = SparkLogger()
