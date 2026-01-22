@@ -1,5 +1,7 @@
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+from .._Internal import SparkFilterModule
 
 if TYPE_CHECKING:
     from ddtrace.trace import Tracer
@@ -14,13 +16,16 @@ except ImportError:  # pragma: no cover
     _dd_tracer = None  # pragma: no cover
 
 
-class DDTraceCorrelationFilter(logging.Filter):
+class DDTraceInjection(SparkFilterModule):
     """
-    Filter that opportunistically injects ddtrace correlation fields
+    Stage that opportunistically injects ddtrace correlation fields
 
-    This filter enriches LogRecord instances with ddtrace correlation data
+    This Stage enriches LogRecord instances with ddtrace correlation data
     when ddtrace is active. It never forces JSON output or mutates handlers.
     """
+
+    def configure(self, **kwargs: Any) -> None:
+        pass
 
     def filter(self, record: logging.LogRecord) -> bool:
         """
