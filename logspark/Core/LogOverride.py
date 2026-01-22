@@ -3,10 +3,10 @@ from functools import wraps
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
-from ._Internal.Func import validate_level
+from .._Internal.Func import validate_level
 
 if TYPE_CHECKING:
-    from . import SparkLogger
+    from .SparkLogger import SparkLogger
 
 
 class LogOverride:
@@ -46,7 +46,7 @@ class LogOverride:
         remains immutable.
     """
 
-    def __init__(self, level: str | int):
+    def __init__(self, level: str | int) -> None:
         """
         Initialize LogOverride with the target logging level.
 
@@ -73,16 +73,16 @@ class LogOverride:
     def __enter__(self) -> "LogOverride":
         """Enter the override context - adjust logger's effective level"""
         # Get the global logger singleton
-        from . import SparkLogger
+        from .SparkLogger import SparkLogger
 
         self.logger_instance = SparkLogger()
 
         # Store original level for restoration
-        self.original_level = self.logger_instance.instance.level
+        self.original_level = self.logger_instance.level
 
         # Apply temporary level override
         # This only affects the stdlib logger's effective level, not the configuration
-        self.logger_instance.instance.setLevel(self.target_level)
+        self.logger_instance.setLevel(self.target_level)
 
         return self
 
@@ -95,7 +95,7 @@ class LogOverride:
         """Exit the override context - restore original level"""
         if self.logger_instance is not None and self.original_level is not None:
             # Restore original level
-            self.logger_instance.instance.setLevel(self.original_level)
+            self.logger_instance.setLevel(self.original_level)
 
         # Clear references
         self.logger_instance = None
