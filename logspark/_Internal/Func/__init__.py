@@ -14,6 +14,7 @@ from .validate_timeformat import (
     validate_rich_timeformat,
     validate_stdlib_timeformat,
 )
+from .get_handler_by_preset import get_handler_by_preset
 
 __all__ = [
     "resolve_stacklevel",
@@ -28,4 +29,5 @@ __all__ = [
     "generate_stdlib_format",
     "emit_warning",
     "resolve_stream",
+    "get_handler_by_preset",
 ]
