@@ -1,0 +1,28 @@
+site_name: LogSpark
+site_description: A configuration and integration layer over Python's standard logging module.
+
+nav:
+  - Home: index.md
+  - Concepts: concepts.md
+  - Glossary: glossary.md
+  - Quickstart: quickstart.md
+  - Lifecycle: lifecycle.md
+  - Output Modes: output-modes.md
+  - Environment Variables: environment.md
+  - Advanced Usage: advanced.md
+  - Component Reference: reference.md
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - toc.integrate
+  palette:
+    scheme: slate
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code

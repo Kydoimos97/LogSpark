@@ -2,106 +2,56 @@
 <img alt="Logo.png" src="assets/Logo.png" width="250" height="250"/>
 </div>
 
+LogSpark is a configuration and integration layer over Python's standard `logging` module.
 
-**Drop-in logging foundation** for Python projects.
+It does not replace stdlib logging. It does not introduce a new logging API. If you know stdlib, you already know how to use LogSpark's components. What LogSpark adds is lifecycle enforcement, environment-aware policy, and a corrected set of defaults that stdlib leaves to the user.
 
-LogSpark gives you sane logging defaults that work immediately, with no decisions required. It composes battle-tested systems (stdlib logging, Rich, python-json-logger) instead of replacing them.
+---
 
-## Get Started in 30 Seconds
+## What problem does it solve?
 
-```python
-from logspark import spark_logger
-import logging
+Python's `logging` module is reliable and well-designed, but it leaves too many operational decisions implicit:
 
-spark_logger.configure()
+- Logging works before anyone has configured it, silently
+- Any module anywhere can mutate the root logger
+- Configuration order matters and is never enforced
+- Traceback verbosity, output format, and stream selection are all left to you
 
-spark_logger.info("Application started")
-spark_logger.error("Something went wrong")
-```
+The result is logging that works fine in development and breaks or disappears in production.
 
-You now have:
+LogSpark fixes the operational layer, not the logging layer. The stdlib dispatch, record semantics, and handler mechanics are untouched.
 
-- Terminal output with colors and structure
-- Automatic Rich formatting when available
-- Immutable configuration that prevents drift
-- Full compatibility with existing stdlib logging code
+---
 
-## Why This Exists
+## What it is not
 
-Most Python projects copy-paste logging setup across modules, leading to:
+- Not a structured logging framework (though it supports JSON output)
+- Not a drop-in replacement for `loguru`, `structlog`, or similar
+- Not a wrapper that intercepts or proxies log calls
+- Not a new API: handlers, filters, and formatters are plain stdlib objects
 
-```python
-# Module A
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+---
 
-# Module B  
-logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
-# Different format, order-dependent setup, configuration drift
-```
+## Core features
 
-LogSpark eliminates this by providing:
+| Feature | What it gives you |
+|---|---|
+| Lifecycle enforcement | `configure -> freeze -> use`: configuration happens once, explicitly |
+| Output modes | Terminal (color, Rich layout) or JSON, switchable via environment variable |
+| Traceback control | Hide, compact, or full tracebacks per-logger |
+| Scoped debugging | Temporarily lower the log level for a function or block without changing config |
+| Dependency management | Suppress or unify noisy third-party loggers without touching their code |
+| stdlib compatibility | Every component works standalone with any `logging.Logger` |
 
-- **One configuration point** that works everywhere
-- **Immutable behavior** after setup (no drift)
-- **Stable identity** in deep stacks (tests, frameworks, dependencies)
-- **Hardened integrations** with Rich, JSON logging, and distributed tracing
+---
 
-## No Lock-In by Design
+## Navigation
 
-Every component works independently:
-
-```python
-# Use handlers without the singleton
-import logging
-from logspark.Handlers import TerminalHandler
-
-logger = logging.getLogger("myapp")
-logger.addHandler(TerminalHandler(show_time=True))
-```
-
-```python
-# Add filters to existing loggers
-from logspark.Filters import DDTraceInjection
-
-existing_handler.addFilter()
-```
-
-```python
-# Global control when you need it
-from logspark import spark_log_manager
-
-spark_log_manager.adopt_all()  # Snapshot existing loggers
-spark_log_manager.unify(use_spark_handler=True)  # Apply consistent formatting
-```
-
-You can adopt LogSpark incrementally: handlers first, then logger, then global control. Or use any piece independently.
-
-## Production Ready
-
-```python
-# Structured JSON for log aggregation
-spark_logger.configure()
-
-spark_logger.info("User login", extra={"user_id": 123, "ip": "192.168.1.1"})
-# Output: {"timestamp": "2024-01-01T12:00:00Z", "level": "INFO", "message": "User login", "user_id": 123, "ip": "192.168.1.1"}
-```
-
-**Guarantees**:
-
-- Single-line JSON output (tracebacks compacted)
-- Automatic correlation fields when ddtrace is active
-- No ANSI codes or formatting artifacts
-- Consistent schema across all services
-
-## Install
-
-```bash
-pip install logspark
-
-# Optional features
-pip install logspark[json]    # JSON structured logging  
-pip install logspark[color]   # Rich terminal colors
-pip install logspark[trace]   # DDTrace integration
-```
+- [Concepts](concepts.md): How to think about the pipeline and where LogSpark fits.
+- [Glossary](glossary.md): Definitions for every component and term. Use as reference.
+- [Quickstart](quickstart.md): Working logger in five lines.
+- [Lifecycle](lifecycle.md): The configure -> freeze -> use model in depth.
+- [Output Modes](output-modes.md): Terminal vs JSON, traceback policy, path resolution.
+- [Environment Variables](environment.md): Operational control without code changes.
+- [Advanced Usage](advanced.md): Scoped log levels, managing third-party loggers.
+- [Component Reference](reference.md): Full API for all handlers, filters, and formatters.
