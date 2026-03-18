@@ -2,5 +2,6 @@
 
 from .SparkColorFormatter import SparkColorFormatter
 from .SparkJsonFormatter import SparkJsonFormatter
+from .SparkBaseFormatter import SparkBaseFormatter
 
-__all__ = ["SparkJsonFormatter", "SparkColorFormatter"]
+__all__ = ["SparkJsonFormatter", "SparkColorFormatter", "SparkBaseFormatter"]

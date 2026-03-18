@@ -11,6 +11,7 @@ from rich.style import Style
 from rich.table import Table
 from rich.text import Text, TextType
 
+from ..SparkBaseFormatter import SparkBaseFormatMixin
 from ..._Internal import _DegradationGates
 
 
@@ -27,6 +28,7 @@ class _SupportsIndentGuides(Protocol):
     ) -> "Text": ...
 
 
+# noinspection PyUnusedFunction
 @runtime_checkable
 class _HasPlain(Protocol):
     """Protocol for objects that support plain text"""
