@@ -8,3 +8,7 @@ scripts/
 /.coverage/
 /assets/
 /todo.md
+/resources/
+/.claude
+/.cov
+/*.patch
