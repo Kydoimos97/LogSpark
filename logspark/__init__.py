@@ -1,5 +1,6 @@
-from .Core import log_override, spark_log_manager, spark_logger
+from .Core import TempLogLevel, spark_log_manager, spark_logger
 
 logger = spark_logger
 
-__all__ = ["logger", "spark_logger", "spark_log_manager", "log_override"]
+__all__ = ["logger", "spark_logger", "spark_log_manager",
+           "TempLogLevel"]
