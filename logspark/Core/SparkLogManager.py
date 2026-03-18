@@ -198,9 +198,10 @@ class SparkLogManager:
         self,
         /,
         level: int | str | None = None,
-        handler: logging.Handler | None = None,
+        handlers: list[logging.Handler] = None,
+        filters: list[logging.Filter] = None,
         propagate: bool | None = None,
-        use_spark_handler: bool = False,
+        copy_spark_logger_config: bool = False,
     ) -> None:
         """
         Apply standard logging mutations to all managed loggers.
@@ -226,12 +227,12 @@ class SparkLogManager:
 
             use_spark_handler:
                 When True and ``handler`` is None, copies the handler from the
-                frozen LogSpark logger. This requires LogSpark to be configured
+                frozen LogSpark logger. This requires LogSpark to be is_configured
                 and frozen.
 
         Raises:
             InvalidConfigurationError:
-                If ``use_spark_handler`` is True but LogSpark is not configured.
+                If ``use_spark_handler`` is True but LogSpark is not is_configured.
 
             UnfrozenGlobalOperationError:
                 If LogSpark exists but is not frozen when attempting to copy
@@ -250,22 +251,21 @@ class SparkLogManager:
         """
         with self._lock:
             # Get LogSpark logger configuration
-            if handler is None:
-                if use_spark_handler:
-                    from . import spark_logger
+            if copy_spark_logger_config:
+                from . import spark_logger
 
-                    if not spark_logger.is_frozen:
-                        if spark_logger._config is None:
-                            raise InvalidConfigurationError("LogSpark logger not configured")
-                        else:
-                            raise UnfrozenGlobalOperationError(
-                                "LogSpark logger needs to be frozen before copying its handler"
-                            )
-                    # You cannot freeze without a config
-                    assert spark_logger._config is not None
-                    handler = spark_logger._config.handler
-            elif not isinstance(handler, logging.Handler):
-                raise ValueError("Handler must be a logging.Handler instance")
+                if not spark_logger.frozen:
+                    if not spark_logger.is_configured:
+                        raise InvalidConfigurationError("LogSpark logger not is_configured")
+                    else:
+                        raise UnfrozenGlobalOperationError(
+                            "LogSpark logger needs to be frozen before copying its handlers"
+                        )
+                if not handlers:
+                    handlers = spark_logger.handlers
+                if not filters:
+                    filters = spark_logger.filters
+
 
             if level is not None:
                 v_level = validate_level(level)
@@ -275,10 +275,19 @@ class SparkLogManager:
             # Apply configuration to all managed loggers
             for managed_logger in self._state.managed_loggers.values():
                 # Clear existing handlers
-                if handler is not None:
+                if handlers:
                     managed_logger.handlers.clear()
-                    managed_logger.addHandler(handler)
+
+                    for h in handlers:
+                        if v_level is not None:
+                            h.setLevel(v_level)
+                        managed_logger.addHandler(h)
+                if filters:
+                    managed_logger.filters.clear()
+                    for f in filters:
+                        managed_logger.addFilter(f)
                 if v_level is not None:
                     managed_logger.setLevel(v_level)
                 if propagate is not None:
                     managed_logger.propagate = propagate
+

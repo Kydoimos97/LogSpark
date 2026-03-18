@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .SparkLogger import SparkLogger
 
 
-class LogOverride:
+class TempLogLevel:
     """
     Context manager and decorator for temporary logging level adjustments.
 
@@ -27,7 +27,7 @@ class LogOverride:
 
         logger.configure(level=logging.INFO)
 
-        with LogOverride(level=logging.DEBUG):
+        with ScopedLogLevel(level=logging.DEBUG):
             logger.debug("This debug message is now visible")
         # Debug level is automatically restored to INFO
         ```
@@ -70,7 +70,7 @@ class LogOverride:
         self.original_level: int | None = None
         self.logger_instance: "SparkLogger | None" = None
 
-    def __enter__(self) -> "LogOverride":
+    def __enter__(self) -> "TempLogLevel":
         """Enter the override context - adjust logger's effective level"""
         # Get the global logger singleton
         from .SparkLogger import SparkLogger

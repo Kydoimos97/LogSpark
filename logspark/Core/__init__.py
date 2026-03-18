@@ -1,4 +1,4 @@
-from .LogOverride import LogOverride
+from .TempLogLevel import TempLogLevel
 from .SparkLogger import SparkLogger
 from .SparkLogManager import SparkLogManager
 
@@ -6,7 +6,6 @@ from .SparkLogManager import SparkLogManager
 spark_log_manager = SparkLogManager()
 spark_logger = SparkLogger()
 
-# Aliases
-log_override = LogOverride
+__all__ = ["spark_log_manager", "spark_logger",
+           "TempLogLevel"]
 
-__all__ = ["spark_log_manager", "spark_logger", "log_override"]
