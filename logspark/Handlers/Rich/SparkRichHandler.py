@@ -1,40 +1,35 @@
 #  Copyright (c) 2025.
 #  Author: Willem van der Schans.
 #  Licensed under the MIT License (https://opensource.org/license/mit).
-import logging
 from datetime import datetime
+from logging import LogRecord, NOTSET
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, cast
+from typing import IO, cast
 
 from rich._log_render import FormatTimeCallable
+from rich._null_file import NullFile
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import Highlighter
 from rich.logging import RichHandler as _RichHandler
 from rich.traceback import Traceback
 
-from ..._Internal import _DegradationGates
-from ..._Internal.Func import (
-    emit_color_incompatible_rich_console_warning,
-    emit_warning,
-    is_color_compatible_terminal,
-    resolve_stream,
-)
-from ...Filters.PathNormalization import SupportsResolvedPath
+from ...Formatters.SparkBaseFormatter import SparkBaseFormatMixin
+from ...Types.Options import TracebackOptions
+from ...Types.SparkRecordAttrs import HasSparkAttributes
 from ...Formatters.Rich.SparkRichFormatter import SparkRichFormatter
 from ...Types import InvalidConfigurationError
 from ...Types.Options import SparkRichHandlerSettings
 from ...Types.Protocol import SupportsWrite
+from ..._Internal import _DegradationGates
+from ..._Internal.Func import (
+    emit_color_incompatible_rich_console_warning, emit_warning, is_color_compatible_terminal, resolve_stream, )
 
-if TYPE_CHECKING:
-    from rich._log_render import FormatTimeCallable
-    from rich.console import Console
 
-
-class RichHandler(_RichHandler):
+class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
     """
     Enhanced Rich logging handler with customizable layout and rendering.
 
-    Extends Rich's RichHandler with LogSpark-specific features including:
+    Extends Rich's SparkRichHandler with LogSpark-specific features including:
     - Configurable column widths and display options
     - Custom log rendering with budget-based layout
     - Enhanced path resolution and function name display
@@ -42,38 +37,20 @@ class RichHandler(_RichHandler):
 
     This handler uses a SparkRichFormatter for structured, terminal-aware output
     that adapts to available screen space while maintaining readability.
-
-    Args:
-        level: Minimum log level to handle
-        console: Optional Rich Console instance for output
-        min_message_width: Minimum width reserved for log messages (default: 60)
-        markup: Whether to enable Rich markup in log messages (default: False)
-        rich_tracebacks: Whether to use Rich's enhanced traceback formatting (default: True)
-        highlighter: Optional Rich Highlighter for syntax highlighting
-        show_time: Whether to display timestamps (default: True)
-        log_time_format: Time format string or callable (default: "%H:%M:%S")
-        omit_repeated_times: Whether to hide repeated timestamps (default: True)
-        show_level: Whether to display log levels (default: True)
-        level_width: Fixed width for level column (default: 8)
-        show_path: Whether to display source file paths (default: True)
-        max_path_width: Maximum width for path column (default: 40)
-        show_function: Whether to display function names (default: False)
-        max_function_width: Maximum width for function column (default: 25)
-        tracebacks_width: Optional width limit for tracebacks
-        tracebacks_extra_lines: Extra context lines in tracebacks (default: 3)
     """
 
     _warn_width_shown: bool = False
 
     def __init__(
         self,
-        level: int | str = logging.NOTSET,
-        console: Console | None = None,
+        level: int | str = NOTSET,
+        console: "Console | None" = None,
         stream: SupportsWrite | None = None,
         *,
         # Main Settings
         use_color: bool = True,
         highlighter: Highlighter | None = None,
+        traceback_policy: "TracebackOptions | None" = TracebackOptions.COMPACT,
         # Optional settings
         show_time: bool = True,
         show_level: bool = True,
@@ -110,7 +87,7 @@ class RichHandler(_RichHandler):
         else:
             if stream is not None:
                 raise InvalidConfigurationError(
-                    "Cannot set stream when passing in a pre-configured console."
+                    "Cannot set stream when passing in a pre-is_configured console."
                 )
 
         if not is_color_compatible_terminal(console.file) and use_color:
@@ -139,7 +116,9 @@ class RichHandler(_RichHandler):
             enable_link_path=settings.enable_link_path,
         )
 
-        self._c_log_render: SparkRichFormatter = SparkRichFormatter(
+        self._tb_policy = traceback_policy
+        self._multiline = True
+        self._spark_formatter: SparkRichFormatter = SparkRichFormatter(
             show_time=show_time,
             show_level=show_level,
             show_path=show_path,
@@ -153,11 +132,40 @@ class RichHandler(_RichHandler):
             indent_guide=settings.indent_guide,
         )
 
+    def emit(self, record: LogRecord) -> None:
+        """Invoked by logging. rich has a poor seperation of concerns it formats in the handler and then uses a renderer which is technically a formatter but not a logging.formatter.
+        for now we can follow the paradigm but its poor and all the formatting should be done in the renderer/formatter"""
+        record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
+        message = self.format(record)
+
+        if getattr(record, "exc_text", None):
+            traceback = record.exc_text # Text is a console renderable
+        elif self.rich_tracebacks and record.exc_info and record.exc_info != (None, None, None):
+            traceback = self._apply_trace_formatting(record)
+        else:
+            traceback = None
+
+        if traceback is not None:
+            message = self._apply_time_formatting(record)
+
+        message_renderable = self.render_message(record, message)
+
+        log_renderable = self.render(
+            record=record, traceback=traceback, message_renderable=message_renderable
+        )
+        if isinstance(self.console.file, NullFile):
+            self.handleError(record)
+        else:
+            try:
+                self.console.print(log_renderable)
+            except Exception:
+                self.handleError(record)
+
     def render(
         self,
         *,
-        record: logging.LogRecord,
-        traceback: Traceback | None,
+        record: LogRecord,
+        traceback: "Traceback | None | ConsoleRenderable",
         message_renderable: "ConsoleRenderable",
     ) -> "ConsoleRenderable":
         """Render log for display.
@@ -172,11 +180,11 @@ class RichHandler(_RichHandler):
             ConsoleRenderable: Renderable to display log.
         """
         # Resolve Path
-        if isinstance(record, SupportsResolvedPath):
-            display_path = record.resolved_path.path
-            link_path = record.resolved_path.uri
-            lineno = record.resolved_path.lineno
-            func = record.resolved_path.function
+        if isinstance(record, HasSparkAttributes):
+            display_path = record.spark.filepath
+            link_path = record.spark.uri
+            lineno = record.spark.lineno
+            func = record.spark.function
         else:
             display_path = Path(record.pathname)
             link_path = None
@@ -188,9 +196,9 @@ class RichHandler(_RichHandler):
         if traceback:
             renderables.append(traceback)
         # Resolve Time
-        time_format, log_time = self._resolve_time(record.created)
+        time_format, log_time = self._resolve_time_format(record.created)
 
-        log_renderable = self._c_log_render(
+        log_renderable = self._spark_formatter(
             console=self.console,
             renderables=renderables,
             log_time=log_time,
@@ -202,11 +210,11 @@ class RichHandler(_RichHandler):
             function_name=func,
         )
 
-        if self._c_log_render.is_layout_degraded and not self._warn_width_shown:
+        if self._spark_formatter.is_layout_degraded and not self._warn_width_shown:
             self._emit_degradation_warning()
         return log_renderable
 
-    def _resolve_time(self, created: float) -> tuple[str | None, datetime]:
+    def _resolve_time_format(self, created: float) -> tuple[str | None, datetime]:
         if self.formatter is None:
             time_format = None
         else:
@@ -221,12 +229,12 @@ class RichHandler(_RichHandler):
 
         cols_hidden = []
 
-        if self._c_log_render.show_path and self._c_log_render._degradation_gate in (
+        if self._spark_formatter.show_path and self._spark_formatter._degradation_gate in (
             _DegradationGates.TIME,
             _DegradationGates.PATH,
         ):
             cols_hidden.append("Path")
-        if self._c_log_render.show_function and self._c_log_render._degradation_gate in (
+        if self._spark_formatter.show_function and self._spark_formatter._degradation_gate in (
             _DegradationGates.TIME,
             _DegradationGates.PATH,
             _DegradationGates.FUNCTION,
@@ -240,7 +248,7 @@ class RichHandler(_RichHandler):
             "  | lower-priority metadata columns were hidden to preserve message readability: {cols}\n"
             "  | increase terminal width or reduce min_message_width to restore full layout."
         ).format(
-            width=self.console.width, message_width=self._c_log_render.min_message_width, cols=cols
+            width=self.console.width, message_width=self._spark_formatter.min_message_width, cols=cols
         )
         emit_warning(
             message=message,
@@ -248,3 +256,35 @@ class RichHandler(_RichHandler):
             stacklevel=4,
         )
         self._warn_width_shown = True
+
+    def _apply_time_formatting(self, record: LogRecord) -> str:
+        message = record.getMessage()
+        if self.formatter:
+            record.message = record.getMessage()
+            formatter = self.formatter
+            if hasattr(formatter, "usesTime") and formatter.usesTime():
+                record.asctime = formatter.formatTime(record, formatter.datefmt)
+            message = formatter.formatMessage(record)
+        return message
+
+    def _apply_trace_formatting(self, record: LogRecord) -> "Traceback":
+        exc_type, exc_value, exc_traceback = record.exc_info
+        assert exc_type is not None
+        assert exc_value is not None
+        traceback = Traceback.from_exception(
+            exc_type,
+            exc_value,
+            exc_traceback,
+            width=self.tracebacks_width,
+            code_width=self.tracebacks_code_width,
+            extra_lines=self.tracebacks_extra_lines,
+            theme=self.tracebacks_theme,
+            word_wrap=self.tracebacks_word_wrap,
+            show_locals=self.tracebacks_show_locals,
+            locals_max_length=self.locals_max_length,
+            locals_max_string=self.locals_max_string,
+            suppress=self.tracebacks_suppress,
+            max_frames=self.tracebacks_max_frames,
+        )
+
+        return traceback

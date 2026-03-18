@@ -6,7 +6,7 @@ from .._Internal.State import is_silenced_mode
 from ..Types.Protocol import SupportsWrite
 
 
-class PreConfigHandler(logging.StreamHandler[SupportsWrite]):
+class SparkPreConfigHandler(logging.StreamHandler[SupportsWrite]):
     def __init__(self, stream: SupportsWrite = sys.stdout) -> None:
         stream = stream or sys.stdout
         if is_silenced_mode():

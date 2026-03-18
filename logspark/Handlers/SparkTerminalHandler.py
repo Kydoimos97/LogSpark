@@ -1,6 +1,7 @@
 import logging
 from typing import TYPE_CHECKING
 
+
 from .._Internal.Func import (
     emit_color_incompatible_console_warning,
     generate_stdlib_format,
@@ -12,9 +13,10 @@ from ..Types.Protocol import SupportsWrite
 
 if TYPE_CHECKING:
     from rich._log_render import FormatTimeCallable
+    from ..Types.Options import TracebackOptions
 
 
-class TerminalHandler(logging.StreamHandler[SupportsWrite]):
+class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
     """
     Human-readable terminal logging handler with optional Rich rendering.
 
@@ -40,7 +42,7 @@ class TerminalHandler(logging.StreamHandler[SupportsWrite]):
         compacted, or fully rendered by Rich.
 
     Console configuration:
-        A pre-configured Rich ``Console`` may be supplied directly. When a
+        A pre-is_configured Rich ``Console`` may be supplied directly. When a
         console is provided, the ``stream`` argument must not be set.
 
     Intended use:
@@ -59,6 +61,8 @@ class TerminalHandler(logging.StreamHandler[SupportsWrite]):
         show_level: bool = True,
         show_path: bool = True,
         show_function: bool = False,
+        traceback_policy: "TracebackOptions | None" = None,
+        multiline: bool = True,
         level_width: int = 8,
         log_time_format: "str | FormatTimeCallable | None" = "%H:%M:%S",
     ) -> None:
@@ -87,14 +91,19 @@ class TerminalHandler(logging.StreamHandler[SupportsWrite]):
                 fmt = SparkColorFormatter(
                     fmt=fmt_string,
                     datefmt=std_lib_time_format,
+                    tb_policy=traceback_policy,
+                    multiline=multiline
                 )
             else:
                 emit_color_incompatible_console_warning()
 
         if fmt is None:
-            fmt = logging.Formatter(
+            from ..Formatters.SparkBaseFormatter import SparkBaseFormatter
+            fmt = SparkBaseFormatter(
                 fmt=fmt_string,
                 datefmt=std_lib_time_format,
+                traceback_policy=traceback_policy,
+                multiline=multiline
             )
 
         super().__init__(stream=spark_stream)
