@@ -7,7 +7,10 @@ class SupportsWrite(Protocol):
     def write(self, s: str) -> int | None: ...
 
 
+# noinspection PyUnusedFunction
 class _SupportsFilter(Protocol):
     """Protocol for objects that support filtering LogRecords"""
 
     def filter(self, record: logging.LogRecord) -> bool: ...
+
+

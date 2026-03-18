@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from enum import Enum
 
+from typing_extensions import TypeVar
+
+E = TypeVar("E", bound=Enum)
 
 class PresetOptions(str, Enum):
     TERMINAL = "terminal"
@@ -31,3 +34,11 @@ class PathResolutionSetting(Enum):
     ABSOLUTE = "absolute"
     RELATIVE = "relative"
     FILE = "file"
+
+def safe_coerce_enum(value: str, enum: type[E], default: E) -> E:
+    try:
+        val = enum(value)
+        return val
+    except ValueError:
+        return default
+

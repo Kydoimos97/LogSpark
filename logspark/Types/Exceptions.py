@@ -4,7 +4,7 @@ class LogSparkError(Exception):
     pass
 
 
-class FrozenConfigurationError(LogSparkError):
+class FrozenClassException(LogSparkError):
     """Raised when attempting to modify frozen configuration"""
 
     pass
@@ -21,10 +21,26 @@ class InvalidConfigurationError(LogSparkError):
 
     pass
 
+class LogSparkWarning(Warning):
+    """Base warning for LogSpark logging warnings"""
 
-class UnconfiguredUsageWarning(UserWarning):
+
+
+class SparkLoggerUnconfiguredUsageWarning(LogSparkWarning):
     """Warning for logging before explicit configuration"""
 
+    pass
+
+class SparkLoggerDuplicatedElementWarning(LogSparkWarning):
+    """Warning for duplicated log records"""
+
+class SparkLoggerDuplicatedHandlerWarning(SparkLoggerDuplicatedElementWarning):
+    """Warning for duplicated handlers"""
+
+    pass
+
+class SparkLoggerDuplicatedFilterWarning(SparkLoggerDuplicatedElementWarning):
+    """Warning for duplicated filters"""
     pass
 
 
