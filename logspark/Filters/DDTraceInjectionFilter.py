@@ -8,24 +8,20 @@ if TYPE_CHECKING:
 
 _dd_tracer: Optional["Tracer"] = None
 
-try:
-    from ddtrace.trace import tracer
 
-    _dd_tracer = tracer
+try:
+    from ddtrace.trace import tracer as _dd_tracer
 except ImportError:  # pragma: no cover
     _dd_tracer = None  # pragma: no cover
 
 
-class DDTraceInjection(SparkFilterModule):
+class DDTraceInjectionFilter(logging.Filter):
     """
     Stage that opportunistically injects ddtrace correlation fields
 
     This Stage enriches LogRecord instances with ddtrace correlation data
     when ddtrace is active. It never forces JSON output or mutates handlers.
     """
-
-    def configure(self, **kwargs: Any) -> None:
-        pass
 
     def filter(self, record: logging.LogRecord) -> bool:
         """
