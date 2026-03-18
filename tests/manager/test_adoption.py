@@ -422,7 +422,7 @@ class TestStdlibAPICompliance:
                         pytest.fail(f"Stdlib API call failed for logger {logger_name}: {e}")
 
                 # Verify no custom LogSpark methods are exposed
-                LogSpark_methods = ["configure", "freeze", "is_frozen"]
+                LogSpark_methods = ["configure", "freeze", "frozen"]
                 for method_name in LogSpark_methods:
                     assert not hasattr(managed_logger, method_name), (
                         f"Managed logger should not have LogSpark-specific method {method_name}"

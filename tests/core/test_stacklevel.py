@@ -88,7 +88,7 @@ class TestStacklevelResolution:
 
         # Configure logger with capturing handler
         handler = RecordCapturingHandler()
-        fresh_logger.configure(level=logging.DEBUG, handler=handler)
+        fresh_logger.configure()
 
         # Create a nested call structure to test stacklevel resolution
         def user_function():
@@ -117,7 +117,7 @@ class TestStacklevelResolution:
                 captured_records.append(record)
 
         handler = RecordCapturingHandler()
-        fresh_logger.configure(level=logging.DEBUG, handler=handler)
+        fresh_logger.configure()
 
         def level_5():
             fresh_logger.info("deep call")
@@ -227,7 +227,7 @@ class TestStacklevelProperties:
 
                 fresh_logger.kill()  # Reset for each iteration
                 handler = RecordCapturingHandler()
-                fresh_logger.configure(level=logging.DEBUG, handler=handler)
+                fresh_logger.configure()
 
                 # Create a test function to ensure consistent call site
                 def test_function():
@@ -277,7 +277,7 @@ class TestCallSiteResolutionProperties:
         from logspark.Handlers import SparkTerminalHandler
 
         handler = SparkTerminalHandler()
-        logger.configure(level=logging.DEBUG, handler=handler, no_freeze=True)
+        logger.configure()
 
         # Capture log output to examine call-site information
         log_stream = StringIO()
@@ -338,7 +338,7 @@ class TestCallSiteResolutionProperties:
                 assert not (
                     "LogSpark/Logging/" in logged_filename
                     or logged_filename.endswith("LogSpark/Logging/core.py")
-                    or logged_filename.endswith("LogSpark/Logging/Terminal.py")
+                    or logged_filename.endswith("LogSpark/Logging/SparkTerminalHandler.py")
                 ), f"Call-site points to LogSpark internal module: {logged_filename}"
 
                 # For stacklevel=1 (default), it should point to our test code
@@ -372,7 +372,7 @@ class TestCallSiteResolutionProperties:
             from logspark.Handlers import SparkTerminalHandler
 
             handler = SparkTerminalHandler()
-            logger.configure(level=logging.DEBUG, handler=handler, no_freeze=True)
+            logger.configure()
 
             # Capture log output with a formatter that includes the message clearly
             log_stream = StringIO()

@@ -2,8 +2,8 @@
 Test SparkRichHandler component for Rich-based logging.
 
 Tests validate:
-- Proper inheritance from RichHandler
-- SparkRichLogRenderer integration
+- Proper inheritance from SparkRichHandler
+- SparkRichFormatter integration
 - Path resolution and formatting
 - Log record rendering with all features
 - Console and stream handling
@@ -37,16 +37,16 @@ class TestSparkRichHandlerInitialization:
         """Test SparkRichHandler with default parameters"""
         handler = SparkRichHandler()
 
-        # Should inherit from RichHandler
+        # Should inherit from SparkRichHandler
         from rich.logging import RichHandler
 
         assert isinstance(handler, RichHandler)
 
-        # Should have SparkRichLogRenderer instance
+        # Should have SparkRichFormatter instance
         assert hasattr(handler, "_c_log_render")
-        from logspark.Formatters.Rich.SparkRichLogRenderer import SparkRichLogRenderer
+        from logspark.Formatters.Rich.SparkRichFormatter import SparkRichFormatter
 
-        assert isinstance(handler._c_log_render, SparkRichLogRenderer)
+        assert isinstance(handler._c_log_render, SparkRichFormatter)
 
         # Check default configuration
         assert handler._c_log_render.show_time is True
@@ -78,12 +78,12 @@ class TestSparkRichHandlerInitialization:
         # Check console setting
         assert handler.console is console
 
-        # Check SparkRichLogRenderer configuration
-        assert handler._c_log_render.show_time is False
-        assert handler._c_log_render.show_level is False
-        assert handler._c_log_render.show_path is False
-        assert handler._c_log_render.show_function is True
-        assert handler._c_log_render.time_format == "%H:%M:%S"
+        # Check SparkRichFormatter configuration
+        assert handler._spark_formatter.show_time is False
+        assert handler._spark_formatter.show_level is False
+        assert handler._spark_formatter.show_path is False
+        assert handler._spark_formatter.show_function is True
+        assert handler._spark_formatter.time_format == "%H:%M:%S"
 
     def test_initialization_with_all_parameters(self):
         """Test SparkRichHandler with all possible parameters"""
@@ -109,8 +109,8 @@ class TestSparkRichHandlerInitialization:
 
         assert handler.level == logging.DEBUG
         assert handler.console is console
-        assert handler._c_log_render.show_function is True
-        assert handler._c_log_render.time_format == "[%H:%M:%S]"
+        assert handler._spark_formatter.show_function is True
+        assert handler._spark_formatter.time_format == "[%H:%M:%S]"
 
 
 class TestSparkRichHandlerLayoutDegradation:
@@ -267,7 +267,7 @@ class TestSparkRichHandlerPathResolution:
                 record=record, traceback=None, message_renderable=message_renderable
             )
 
-            # Should return a renderable (Table from SparkRichLogRenderer)
+            # Should return a renderable (Table from SparkRichFormatter)
             from rich.table import Table
             assert isinstance(result, Table)
 
@@ -431,7 +431,7 @@ class TestSparkRichHandlerRendering:
             record=record, traceback=None, message_renderable=message_renderable
         )
 
-        # Should return a Table from SparkRichLogRenderer
+        # Should return a Table from SparkRichFormatter
         from rich.table import Table
 
         assert isinstance(result, Table)
@@ -847,7 +847,7 @@ class TestSparkRichHandlerProperties:
     ):
         """
 
-        For any configuration, the handler should consistently apply settings to SparkRichLogRenderer
+        For any configuration, the handler should consistently apply settings to SparkRichFormatter
 
         """
         handler = SparkRichHandler(
@@ -858,11 +858,11 @@ class TestSparkRichHandlerProperties:
         )
         handler.enable_link_path = False  # Disable link path to avoid URI issues
 
-        # Verify configuration was applied to SparkRichLogRenderer
-        assert handler._c_log_render.show_time == show_time
-        assert handler._c_log_render.show_level == show_level
-        assert handler._c_log_render.show_path == show_path
-        assert handler._c_log_render.show_function == show_function
+        # Verify configuration was applied to SparkRichFormatter
+        assert handler._spark_formatter.show_time == show_time
+        assert handler._spark_formatter.show_level == show_level
+        assert handler._spark_formatter.show_path == show_path
+        assert handler._spark_formatter.show_function == show_function
 
         # Test that rendering works with this configuration
         record = logging.LogRecord(
@@ -932,14 +932,14 @@ class TestSparkRichHandlerProperties:
     def test_property_time_format_handling(self, time_format, message):
         """
 
-        For any time format, the handler should pass it correctly to SparkRichLogRenderer
+        For any time format, the handler should pass it correctly to SparkRichFormatter
 
         """
         handler = SparkRichHandler(show_time=True, log_time_format=time_format)
         handler.enable_link_path = False  # Disable link path to avoid URI issues
 
         # Verify time format was set
-        assert handler._c_log_render.time_format == time_format
+        assert handler._spark_formatter.time_format == time_format
 
         # Test rendering with this time format
         record = logging.LogRecord(

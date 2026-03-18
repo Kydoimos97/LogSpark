@@ -13,13 +13,13 @@ from io import StringIO
 
 import pytest
 
-from logspark.Handlers import SparkJSONHandler, SparkTerminalHandler
-from logspark.Types import TracebackOptions
+from logspark.Handlers import SparkJsonHandler, SparkTerminalHandler
+from logspark.Types.Options import TracebackOptions
 
 
 def _debug_print(request, capsys, *args, **kwargs):
     """Print debug information only if capture is explicitly disabled"""
-    if request.config.getoption("capture") == "no":
+    if request.is_configured.getoption("capture") == "no":
         print(*args, **kwargs)
 
 
@@ -41,9 +41,7 @@ class TestDeepCallStackPerformance:
                 logging.Formatter("%(name)s:%(filename)s:%(lineno)d - %(message)s")
             )
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Test with various call stack depths
@@ -77,9 +75,7 @@ class TestDeepCallStackPerformance:
 
                 # Test with default mode (accurate call-site resolution)
                 os.environ.pop("LOGSPARK_MODE", None)
-                fresh_logger.configure(
-                    level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-                )
+                fresh_logger.configure()
                 fresh_logger.freeze()
 
                 start_time = time.perf_counter()
@@ -88,16 +84,14 @@ class TestDeepCallStackPerformance:
                 slow_time = time.perf_counter() - start_time
 
                 # Reset logger for fast mode test
-                fresh_logger._config = None
+                fresh_logger._configured = None
                 fresh_logger._frozen = False
                 if fresh_logger._stdlib_logger:
                     fresh_logger._stdlib_logger.handlers.clear()
 
                 # Test with fast mode (performance optimized)
                 os.environ["LOGSPARK_MODE"] = "fast"
-                fresh_logger.configure(
-                    level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-                )
+                fresh_logger.configure()
                 fresh_logger.freeze()
 
                 start_time = time.perf_counter()
@@ -129,9 +123,7 @@ class TestHighVolumeLoggingPerformance:
             handler = logging.StreamHandler(devnull)
             handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Test with 10,000 log calls
@@ -159,9 +151,7 @@ class TestHighVolumeLoggingPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.ERROR, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             num_calls = 10000
@@ -193,23 +183,23 @@ class TestHighVolumeLoggingPerformance:
 
     @pytest.mark.silenced
     def test_pre_config_warning_performance(self, fresh_logger, request, capsys):
-        """Test that pre-config warnings don't significantly degrade performance"""
+        """Test that pre-is_configured warnings don't significantly degrade performance"""
         num_calls = 1000
         start_time = time.perf_counter()
 
         # These should emit warnings but still be fast
         for i in range(num_calls):
-            fresh_logger.info(f"Pre-config message {i}")
+            fresh_logger.info(f"Pre-is_configured message {i}")
 
         end_time = time.perf_counter()
         elapsed = end_time - start_time
         throughput = num_calls / elapsed
 
-        _debug_print(request, capsys, f"Pre-config logging: {num_calls} calls in {elapsed:.4f}s")
-        _debug_print(request, capsys, f"Pre-config throughput: {throughput:.0f} calls/second")
+        _debug_print(request, capsys, f"Pre-is_configured logging: {num_calls} calls in {elapsed:.4f}s")
+        _debug_print(request, capsys, f"Pre-is_configured throughput: {throughput:.0f} calls/second")
 
         # Should still be reasonably fast despite warnings
-        assert throughput >= 500, f"Pre-config throughput too low: {throughput:.0f} calls/second"
+        assert throughput >= 500, f"Pre-is_configured throughput too low: {throughput:.0f} calls/second"
 
 
 class TestLargePayloadPerformance:
@@ -220,9 +210,7 @@ class TestLargePayloadPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Test with various message sizes
@@ -248,9 +236,7 @@ class TestLargePayloadPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Create large structured data
@@ -282,11 +268,9 @@ class TestJSONFormattingPerformance:
     def test_json_formatting_throughput(self, fresh_logger, request, capsys):
         """Test JSON formatting performance"""
         with StringIO() as devnull:
-            json_handler = SparkJSONHandler(devnull)
+            json_handler = SparkJsonHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=json_handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             num_calls = 1000
@@ -307,19 +291,19 @@ class TestJSONFormattingPerformance:
 
     def test_traceback_serialization_performance(self, fresh_logger, request, capsys):
         """Test performance of traceback serialization in JSON"""
-        policies = [TracebackOptions.NONE, TracebackOptions.COMPACT, TracebackOptions.FULL]
+        policies = [TracebackOptions.HIDE, TracebackOptions.COMPACT, TracebackOptions.FULL]
 
         for policy in policies:
             with StringIO() as devnull:
-                json_handler = SparkJSONHandler(devnull)
+                json_handler = SparkJsonHandler(devnull)
 
                 # Reset logger
-                fresh_logger._config = None
+                fresh_logger._configured = None
                 fresh_logger._frozen = False
                 if fresh_logger._stdlib_logger:
                     fresh_logger._stdlib_logger.handlers.clear()
 
-                fresh_logger.configure(level=logging.ERROR, traceback=policy, handler=json_handler)
+                fresh_logger.configure()
                 fresh_logger.freeze()
 
                 num_exceptions = 100
@@ -394,9 +378,7 @@ class TestManagerUnificationPerformance:
         fresh_log_manager.adopt_all()
 
         # Configure and freeze the main logger
-        fresh_logger.configure(
-            level=logging.INFO, traceback=TracebackOptions.COMPACT, handler=SparkTerminalHandler()
-        )
+        fresh_logger.configure()
         fresh_logger.freeze()
 
         # Measure unify_format() performance
@@ -439,12 +421,12 @@ class TestManagerUnificationPerformance:
             adopt_times.append(adopt_time)
 
             # Configure and freeze logger for unify test
-            fresh_logger._config = None
+            fresh_logger._configured = None
             fresh_logger._frozen = False
             if fresh_logger._stdlib_logger:
                 fresh_logger._stdlib_logger.handlers.clear()
 
-            fresh_logger.configure(level=logging.INFO)
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Measure unify_format time
@@ -486,9 +468,7 @@ class TestMemoryPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Force garbage collection and measure initial memory
@@ -521,9 +501,7 @@ class TestMemoryPerformance:
         with StringIO() as devnull:
             handler = logging.StreamHandler(devnull)
 
-            fresh_logger.configure(
-                level=logging.INFO, traceback=TracebackOptions.NONE, handler=handler
-            )
+            fresh_logger.configure()
             fresh_logger.freeze()
 
             # Create a large message

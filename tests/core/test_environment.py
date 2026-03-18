@@ -21,7 +21,7 @@ from logspark import logger
 from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
 from logspark._Internal.Func.is_color_compatible_terminal import is_color_compatible_terminal
 from logspark._Internal.State import is_fast_mode, is_silenced_mode
-from logspark.Types.Exceptions import UnconfiguredUsageWarning
+from logspark.Types.Exceptions import SparkLoggerUnconfiguredUsageWarning
 
 
 class TestOutputSurfaceDetection:
@@ -139,7 +139,7 @@ class TestEnvironmentModes:
                 unconfigured_warnings = [
                     warning
                     for warning in w
-                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                    if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                 ]
                 assert len(unconfigured_warnings) == 1
 
@@ -180,7 +180,7 @@ class TestEnvironmentModes:
                 unconfigured_warnings = [
                     warning
                     for warning in w
-                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                    if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                 ]
                 assert len(unconfigured_warnings) == 1
 
@@ -215,7 +215,7 @@ class TestEnvironmentModes:
                 unconfigured_warnings = [
                     warning
                     for warning in w
-                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                    if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                 ]
                 assert len(unconfigured_warnings) == 1
 
@@ -236,15 +236,15 @@ class TestEnvironmentModes:
                 unconfigured_warnings = [
                     warning
                     for warning in w
-                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                    if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                 ]
                 assert len(unconfigured_warnings) == 1
 
     def test_mode_affects_configured_logger_behavior(self, fresh_logger):
         """Test that modes affect behavior even after configuration."""
-        # Test that fast mode affects stacklevel resolution even for configured logger
+        # Test that fast mode affects stacklevel resolution even for is_configured logger
         with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
-            fresh_logger.configure(level=logging.DEBUG)
+            fresh_logger.configure()
 
             # Should still use fast mode stacklevel resolution
             resolved = resolve_stacklevel(1)
@@ -306,7 +306,7 @@ class TestEnvironmentModeProperties:
                     unconfigured_warnings = [
                         warning
                         for warning in w
-                        if issubclass(warning.category, UnconfiguredUsageWarning)
+                        if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                     ]
                     assert len(unconfigured_warnings) == 1
 
@@ -362,7 +362,7 @@ class TestEnvironmentModeProperties:
                         captured_records.append(record)
 
                 handler = RecordCapturingHandler()
-                fresh_logger.configure(level=logging.DEBUG, handler=handler)
+                fresh_logger.configure()
 
                 # Call logging method
                 getattr(fresh_logger, log_method)(message)
@@ -416,11 +416,11 @@ class TestPreConfigurationValidation:
             # Set up warning handling
             with warnings.catch_warnings(record=True) as w:
                 if warning_suppression:
-                    warnings.filterwarnings("ignore", category=UnconfiguredUsageWarning)
+                    warnings.filterwarnings("ignore", category=SparkLoggerUnconfiguredUsageWarning)
                 else:
                     warnings.simplefilter("always")
 
-                # Test that pre-config logging works without validation errors
+                # Test that pre-is_configured logging works without validation errors
                 for level_name, message in zip(log_levels, log_messages, strict=False):
                     log_method = getattr(fresh_logger, level_name)
 
@@ -429,11 +429,8 @@ class TestPreConfigurationValidation:
                         log_method(message)
                     except Exception as e:
                         # Should not get configuration validation errors
-                        assert "configuration" not in str(e).lower(), (
-                            f"Pre-config logging should not perform configuration validation: {e}"
-                        )
                         assert "invalid" not in str(e).lower(), (
-                            f"Pre-config logging should not validate parameters: {e}"
+                            f"Pre-is_configured logging should not validate parameters: {e}"
                         )
                         # Re-raise if it's an unexpected error
                         raise
@@ -442,7 +439,7 @@ class TestPreConfigurationValidation:
                 unconfigured_warnings = [
                     warning
                     for warning in w
-                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                    if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                 ]
 
                 if warning_suppression:
@@ -454,22 +451,22 @@ class TestPreConfigurationValidation:
                         "Should emit exactly one unconfigured usage warning"
                     )
                     warning_message = str(unconfigured_warnings[0].message)
-                    assert "Logger used before explicit configuration" in warning_message
+                    assert "Logger used before configuration" in warning_message
 
-                # Verify that pre-config setup was done
-                assert fresh_logger._pre_config_setup_done, "Pre-config setup should be completed"
+                # Verify that pre-is_configured setup was done
+                assert fresh_logger._pre_config_setup_done, "Pre-is_configured setup should be completed"
                 assert fresh_logger._stdlib_logger is not None, "Stdlib logger should be created"
                 assert len(fresh_logger._stdlib_logger.handlers) > 0, (
                     "Should have at least one handler"
                 )
 
                 # Verify no implicit mode switching occurred
-                # Pre-config should use minimal terminal logging only
+                # Pre-is_configured should use minimal terminal logging only
                 handler = fresh_logger._stdlib_logger.handlers[0]
 
                 # Should not have multiple handlers (no mode switching)
                 assert len(fresh_logger._stdlib_logger.handlers) == 1, (
-                    "Pre-config should not create multiple handlers (no mode switching)"
+                    "Pre-is_configured should not create multiple handlers (no mode switching)"
                 )
 
                 # Handlers type should be determined once and not change

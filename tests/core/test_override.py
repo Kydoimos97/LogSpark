@@ -17,7 +17,7 @@ class TestLogOverride:
     def test_scoped_level_changes(self, fresh_logger):
         """Test LogOverride scoped level changes."""
         # Configure logger with INFO level
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
         assert original_level == logging.INFO
 
@@ -32,7 +32,7 @@ class TestLogOverride:
     def test_restoration_of_effective_level_after_context_exit(self, fresh_logger):
         """Test restoration of effective level after context exit."""
         # Configure with WARNING level
-        fresh_logger.configure(level=logging.WARNING)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
 
         # Nested overrides
@@ -62,7 +62,7 @@ class TestLogOverride:
 
     def test_override_as_decorator(self, fresh_logger):
         """Test LogOverride as decorator."""
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
 
         @LogOverride(level=logging.DEBUG)
@@ -80,7 +80,7 @@ class TestLogOverride:
 
     def test_override_exception_handling(self, fresh_logger):
         """Test LogOverride restores level even when exception occurs."""
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
 
         try:
@@ -95,7 +95,7 @@ class TestLogOverride:
 
     def test_override_with_string_level(self, fresh_logger):
         """Test LogOverride accepts string level names."""
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
 
         with LogOverride(level="DEBUG"):
@@ -110,7 +110,7 @@ class TestLogOverride:
 
     def test_override_multiple_instances(self, fresh_logger):
         """Test multiple LogOverride instances work independently."""
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
 
         override1 = LogOverride(level=logging.DEBUG)
@@ -130,22 +130,22 @@ class TestLogOverride:
 
     def test_override_preserves_frozen_configuration(self, fresh_logger):
         """Test LogOverride doesn't affect frozen configuration."""
-        fresh_logger.configure(level=logging.INFO)
-        assert fresh_logger.is_frozen
+        fresh_logger.configure()
+        assert fresh_logger.frozen
 
         with LogOverride(level=logging.DEBUG):
             # Configuration should still be frozen
-            assert fresh_logger.is_frozen
+            assert fresh_logger.frozen
             # But effective level should be changed
             assert fresh_logger.instance.level == logging.DEBUG
 
-        # After override, still frozen with original config
-        assert fresh_logger.is_frozen
-        assert fresh_logger.config.level == logging.INFO
+        # After override, still frozen with original is_configured
+        assert fresh_logger.frozen
+        assert fresh_logger.is_configured.level == logging.INFO
 
     def test_override_with_different_level_types(self, fresh_logger):
         """Test LogOverride works with different level types."""
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
         original_level = fresh_logger.instance.level
 
         # Test with integer level

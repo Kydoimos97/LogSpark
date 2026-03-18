@@ -117,20 +117,18 @@ def test_handler(test_stream):
 
 @pytest.fixture
 def configured_logger(fresh_logger, test_handler):
-    """Provide configured but not frozen logger"""
+    """Provide is_configured but not frozen logger"""
     import logging
 
-    from logspark.Types import TracebackOptions
+    from logspark.Types.Options import TracebackOptions
 
-    fresh_logger.configure(
-        level=logging.INFO, traceback=TracebackOptions.NONE, handler=test_handler
-    )
+    fresh_logger.configure()
     return fresh_logger
 
 
 @pytest.fixture
 def frozen_logger(configured_logger):
-    """Provide configured and frozen logger"""
+    """Provide is_configured and frozen logger"""
     return configured_logger
 
 

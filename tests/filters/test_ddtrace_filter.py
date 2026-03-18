@@ -1,7 +1,7 @@
 """
 Test DDTrace correlation filter behavior.
 
-This module tests the DDTraceCorrelationFilter to ensure it correctly
+This module tests the DDTraceInjection to ensure it correctly
 injects correlation fields when DDTrace is present, handles absence gracefully,
 and maintains failure resilience.
 """
@@ -9,7 +9,7 @@ and maintains failure resilience.
 import logging
 from unittest.mock import MagicMock, patch
 
-from logspark.Filters.DDTraceCorrelationFilter import DDTraceCorrelationFilter
+from logspark.Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 
 
 class TestDDTraceCorrelationPresent:
@@ -26,8 +26,8 @@ class TestDDTraceCorrelationPresent:
         mock_tracer.current_span.return_value = mock_span
 
         # Patch the module-level tracer
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name="test.logger",
@@ -54,8 +54,8 @@ class TestDDTraceCorrelationPresent:
         mock_tracer = MagicMock()
         mock_tracer.current_span.return_value = None
 
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name="test.logger",
@@ -84,8 +84,8 @@ class TestDDTraceCorrelationPresent:
         mock_tracer = MagicMock()
         mock_tracer.current_span.return_value = mock_span
 
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name="test.logger",
@@ -126,8 +126,8 @@ class TestDDTraceCorrelationAbsent:
     def test_normal_logging_when_ddtrace_absent(self):
         """Test that logging proceeds normally when DDTrace is not available"""
         # Patch to simulate DDTrace not being available
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", None):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", None):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name="test.logger",
@@ -153,8 +153,8 @@ class TestDDTraceCorrelationAbsent:
 
     def test_multiple_records_without_ddtrace(self):
         """Test that multiple records are processed correctly without DDTrace"""
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", None):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", None):
+            filter_obj = DDTraceInjectionFilter()
 
             records = [
                 logging.LogRecord("logger1", logging.DEBUG, "test1.py", 1, "debug", (), None),
@@ -177,8 +177,8 @@ class TestDDTraceFailureResilience:
         mock_tracer = MagicMock()
         mock_tracer.current_span.side_effect = Exception("DDTrace error")
 
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name="test.logger",
@@ -218,8 +218,8 @@ class TestDDTraceFailureResilience:
         mock_tracer = MagicMock()
         mock_tracer.current_span.return_value = FailingSpan()
 
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name="test.logger",
@@ -255,8 +255,8 @@ class TestDDTraceFailureResilience:
             if setup and tracer:
                 setup(tracer)
 
-            with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", tracer):
-                filter_obj = DDTraceCorrelationFilter()
+            with patch("logspark.Filters.DDTraceInjection._dd_tracer", tracer):
+                filter_obj = DDTraceInjectionFilter()
 
                 record = logging.LogRecord(
                     name="test.logger",
@@ -318,8 +318,8 @@ class TestDDTraceCorrelationProperties:
         mock_tracer = MagicMock()
         mock_tracer.current_span.return_value = mock_span
 
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name=logger_name,
@@ -378,8 +378,8 @@ class TestDDTraceCorrelationProperties:
 
         """
         # Simulate DDTrace not being available
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", None):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", None):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name=logger_name,
@@ -442,8 +442,8 @@ class TestDDTraceCorrelationProperties:
         mock_tracer = MagicMock()
         mock_tracer.current_span.side_effect = error_type("Simulated DDTrace error")
 
-        with patch("logspark.Filters.DDTraceCorrelationFilter._dd_tracer", mock_tracer):
-            filter_obj = DDTraceCorrelationFilter()
+        with patch("logspark.Filters.DDTraceInjection._dd_tracer", mock_tracer):
+            filter_obj = DDTraceInjectionFilter()
 
             record = logging.LogRecord(
                 name=logger_name,

@@ -107,18 +107,18 @@ class TestUnify:
         assert logger.propagate is False
 
     def test_unify_use_spark_handler_not_configured(self, fresh_log_manager):
-        """Test that unify() with use_spark_handler=True raises error when LogSpark not configured."""
+        """Test that unify() with use_spark_handler=True raises error when LogSpark not is_configured."""
         # Create and adopt logger
         logger = logging.getLogger("test.spark.error")
         fresh_log_manager.adopt(logger)
 
-        # Ensure LogSpark is not configured
+        # Ensure LogSpark is not is_configured
         from logspark import logger as spark_logger
 
         spark_logger.kill()
 
         # Verify error is raised
-        with pytest.raises(InvalidConfigurationError, match="LogSpark logger not configured"):
+        with pytest.raises(InvalidConfigurationError, match="LogSpark logger not is_configured"):
             fresh_log_manager.unify(use_spark_handler=True)
 
     def test_unify_use_spark_handler_not_frozen(self, fresh_log_manager, test_handler):
@@ -129,12 +129,12 @@ class TestUnify:
 
         # Configure LogSpark but don't freeze using no_freeze=True
         from logspark import logger as spark_logger
-        from logspark.Types import TracebackOptions
+        from logspark.Types.Options import TracebackOptions
 
         spark_logger.kill()
         spark_logger.configure(
             level=logging.INFO,
-            traceback=TracebackOptions.NONE,
+            traceback=TracebackOptions.HIDE,
             handler=test_handler,
             no_freeze=True,
         )
@@ -153,11 +153,11 @@ class TestUnify:
 
         # Configure and freeze LogSpark
         from logspark import logger as spark_logger
-        from logspark.Types import TracebackOptions
+        from logspark.Types.Options import TracebackOptions
 
         spark_logger.kill()
         spark_logger.configure(
-            level=logging.INFO, traceback=TracebackOptions.NONE, handler=test_handler
+            level=logging.INFO, traceback=TracebackOptions.HIDE, handler=test_handler
         )
         # configure() auto-freezes
 

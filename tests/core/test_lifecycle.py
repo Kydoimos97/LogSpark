@@ -17,8 +17,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from logspark import SparkLogger, logger
-from logspark.Types import FrozenConfigurationError, InvalidConfigurationError
-from logspark.Types.Exceptions import UnconfiguredUsageWarning
+from logspark.Types import FrozenClassException, InvalidConfigurationError
+from logspark.Types.Exceptions import SparkLoggerUnconfiguredUsageWarning
 
 
 class TestLifecycleWorkflow:
@@ -27,60 +27,60 @@ class TestLifecycleWorkflow:
     def test_configure_auto_freeze_behavior(self, fresh_logger):
         """Test that configure() automatically freezes configuration."""
         # Initially not frozen
-        assert not fresh_logger.is_frozen
+        assert not fresh_logger.frozen
 
         # Configure should auto-freeze
-        fresh_logger.configure(level=logging.DEBUG)
+        fresh_logger.configure()
 
         # Should now be frozen
-        assert fresh_logger.is_frozen
+        assert fresh_logger.frozen
 
     def test_frozen_configuration_immutability(self, fresh_logger):
         """Test that frozen configuration cannot be changed."""
         # Configure and freeze
-        fresh_logger.configure(level=logging.INFO)
-        assert fresh_logger.is_frozen
+        fresh_logger.configure()
+        assert fresh_logger.frozen
 
         # Attempting to configure again should raise error
-        with pytest.raises(FrozenConfigurationError, match="Cannot configure logger after freeze"):
-            fresh_logger.configure(level=logging.DEBUG)
+        with pytest.raises(FrozenClassException, match="Cannot configure logger after freeze"):
+            fresh_logger.configure()
 
     def test_configure_ddtrace_filter_duplicate_prevention(self, fresh_logger):
         """Test that DDTrace filter is not duplicated (lines 287-288)."""
-        from logspark.Filters.DDTraceCorrelationFilter import DDTraceCorrelationFilter
+        from logspark.Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 
         # Configure logger first time
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
 
         # Count DDTrace filters
         ddtrace_filters = [
-            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceCorrelationFilter)
+            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceInjectionFilter)
         ]
         assert len(ddtrace_filters) == 1
 
         # Manually add another DDTrace filter to test duplicate prevention
-        fresh_logger.instance.addFilter(DDTraceCorrelationFilter())
+        fresh_logger.instance.addFilter()
 
         # Verify we now have 2 filters
         ddtrace_filters = [
-            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceCorrelationFilter)
+            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceInjectionFilter)
         ]
         assert len(ddtrace_filters) == 2
 
         # Kill and reconfigure - this should reset everything
         fresh_logger.kill()
-        fresh_logger.configure(level=logging.INFO)
+        fresh_logger.configure()
 
         # Should only have one DDTrace filter after reconfigure
         ddtrace_filters = [
-            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceCorrelationFilter)
+            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceInjectionFilter)
         ]
         assert len(ddtrace_filters) == 1
 
     def test_configure_fast_mode_null_handler(self, fresh_logger):
         """Test that fast mode with no handler uses NullHandler."""
         with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
-            fresh_logger.configure(level=logging.INFO)
+            fresh_logger.configure()
 
             # Should use NullHandler for maximum speed in fast mode
             assert len(fresh_logger.instance.handlers) == 1
@@ -89,18 +89,18 @@ class TestLifecycleWorkflow:
     def test_kill_reset_behavior(self, fresh_logger):
         """Test that kill() resets logger to unconfigured state."""
         # Configure and verify frozen state
-        fresh_logger.configure(level=logging.INFO)
-        assert fresh_logger.is_frozen
+        fresh_logger.configure()
+        assert fresh_logger.frozen
 
         # Kill should reset everything
         fresh_logger.kill()
 
         # Should be back to unconfigured state
-        assert not fresh_logger.is_frozen
+        assert not fresh_logger.frozen
 
         # Should be able to configure again
-        fresh_logger.configure(level=logging.DEBUG)
-        assert fresh_logger.is_frozen
+        fresh_logger.configure()
+        assert fresh_logger.frozen
 
     def test_unconfigured_usage_warnings(self, fresh_logger):
         """Test that unconfigured usage emits warnings unless silenced."""
@@ -110,10 +110,10 @@ class TestLifecycleWorkflow:
 
             fresh_logger.info("test message")
 
-            # Should have emitted UnconfiguredUsageWarning
+            # Should have emitted SparkLoggerUnconfiguredUsageWarning
             assert len(w) == 1
-            assert issubclass(w[0].category, UnconfiguredUsageWarning)
-            assert "Logger used before explicit configuration" in str(w[0].message)
+            assert issubclass(w[0].category, SparkLoggerUnconfiguredUsageWarning)
+            assert "Logger used before configuration" in str(w[0].message)
 
     def test_unconfigured_usage_warnings_silenced_mode(self, fresh_logger):
         """Test that unconfigured usage warnings are still emitted in silenced mode."""
@@ -127,45 +127,45 @@ class TestLifecycleWorkflow:
                 unconfigured_warnings = [
                     warning
                     for warning in w
-                    if issubclass(warning.category, UnconfiguredUsageWarning)
+                    if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                 ]
                 assert len(unconfigured_warnings) == 1
 
     def test_configure_no_freeze_option(self, fresh_logger):
         """Test that no_freeze=True prevents automatic freezing."""
         # Configure with no_freeze=True
-        fresh_logger.configure(level=logging.INFO, no_freeze=True)
+        fresh_logger.configure()
 
         # Should not be frozen
-        assert not fresh_logger.is_frozen
+        assert not fresh_logger.frozen
 
         # Should be able to configure again
-        fresh_logger.configure(level=logging.DEBUG, no_freeze=True)
-        assert not fresh_logger.is_frozen
+        fresh_logger.configure()
+        assert not fresh_logger.frozen
 
         # Manual freeze should work
         fresh_logger.freeze()
-        assert fresh_logger.is_frozen
+        assert fresh_logger.frozen
 
     def test_freeze_without_configuration_error(self, fresh_logger):
         """Test that freeze() without configuration raises error."""
         # Attempting to freeze without configuration should raise error
         with pytest.raises(
-            InvalidConfigurationError, match="The logger has to be configured by calling configure"
+            InvalidConfigurationError, match="The logger has to be is_configured by calling configure"
         ):
             fresh_logger.freeze()
 
     def test_config_property_access_before_configuration(self, fresh_logger):
-        """Test that accessing config property before configuration raises error."""
-        with pytest.raises(InvalidConfigurationError, match="LogSpark logger not configured"):
-            _ = fresh_logger.config
+        """Test that accessing is_configured property before configuration raises error."""
+        with pytest.raises(InvalidConfigurationError, match="LogSpark logger not is_configured"):
+            _ = fresh_logger.is_configured
 
     def test_config_property_access_after_configuration(self, fresh_logger):
-        """Test that config property is accessible after configuration."""
-        fresh_logger.configure(level=logging.INFO)
+        """Test that is_configured property is accessible after configuration."""
+        fresh_logger.configure()
 
-        # Should be able to access config
-        config = fresh_logger.config
+        # Should be able to access is_configured
+        config = fresh_logger.is_configured
         assert config.level == logging.INFO
 
     def test_instance_property_creates_stdlib_logger(self, fresh_logger):
@@ -180,18 +180,18 @@ class TestLifecycleWorkflow:
         """Test that kill() properly clears singleton state."""
         # Get initial logger instance
         logger1 = SparkLogger()
-        logger1.configure(level=logging.INFO)
+        logger1.configure()
 
         # Kill should reset singleton
         logger1.kill()
 
         # New instance should be fresh
         logger2 = SparkLogger()
-        assert not logger2.is_frozen
+        assert not logger2.frozen
 
         # Should be able to configure new instance
-        logger2.configure(level=logging.DEBUG)
-        assert logger2.is_frozen
+        logger2.configure()
+        assert logger2.frozen
 
         # Clean up
         logger2.kill()
@@ -209,7 +209,7 @@ class TestLifecycleProperties:
         from hypothesis import given
         from hypothesis import strategies as st
 
-        from logspark.Types import TracebackOptions
+        from logspark.Types.Options import TracebackOptions
 
         @given(
             level=st.sampled_from([
@@ -220,7 +220,7 @@ class TestLifecycleProperties:
                 logging.CRITICAL,
             ]),
             traceback_policy=st.sampled_from([
-                TracebackOptions.NONE,
+                TracebackOptions.HIDE,
                 TracebackOptions.COMPACT,
                 TracebackOptions.FULL,
             ]),
@@ -230,20 +230,20 @@ class TestLifecycleProperties:
             fresh_logger.kill()  # Reset for each iteration
 
             # Configure with random parameters
-            fresh_logger.configure(level=level, traceback=traceback_policy, no_freeze=no_freeze)
+            fresh_logger.configure()
 
             # Should be frozen unless no_freeze=True
             if no_freeze:
-                assert not fresh_logger.is_frozen
+                assert not fresh_logger.frozen
             else:
-                assert fresh_logger.is_frozen
+                assert fresh_logger.frozen
 
         property_test()
 
     def test_property_frozen_configuration_immutability(self, fresh_logger):
         """
 
-        For any frozen logger, attempting to configure should raise FrozenConfigurationError.
+        For any frozen logger, attempting to configure should raise FrozenClassException.
 
         """
         from hypothesis import given
@@ -257,19 +257,19 @@ class TestLifecycleProperties:
             fresh_logger.kill()  # Reset for each iteration
 
             # Configure and freeze
-            fresh_logger.configure(level=initial_level)
-            assert fresh_logger.is_frozen
+            fresh_logger.configure()
+            assert fresh_logger.frozen
 
             # Any attempt to reconfigure should fail
-            with pytest.raises(FrozenConfigurationError):
-                fresh_logger.configure(level=second_level)
+            with pytest.raises(FrozenClassException):
+                fresh_logger.configure()
 
         property_test()
 
     def test_property_unconfigured_usage_warning(self, fresh_logger):
         """
 
-        For any logging call on unconfigured logger, UnconfiguredUsageWarning should be emitted regardless of mode.
+        For any logging call on unconfigured logger, SparkLoggerUnconfiguredUsageWarning should be emitted regardless of mode.
 
         """
         from hypothesis import given
@@ -296,7 +296,7 @@ class TestLifecycleProperties:
                     unconfigured_warnings = [
                         warning
                         for warning in w
-                        if issubclass(warning.category, UnconfiguredUsageWarning)
+                        if issubclass(warning.category, SparkLoggerUnconfiguredUsageWarning)
                     ]
 
                     # Warnings should be emitted regardless of silenced mode
@@ -307,7 +307,7 @@ class TestLifecycleProperties:
     def test_property_kill_reset_behavior(self, fresh_logger):
         """
 
-        For any configured logger, kill() should reset to unconfigured state allowing reconfiguration.
+        For any is_configured logger, kill() should reset to unconfigured state allowing reconfiguration.
 
         """
         from hypothesis import given
@@ -321,17 +321,17 @@ class TestLifecycleProperties:
             fresh_logger.kill()  # Reset for each iteration
 
             # Configure initially
-            fresh_logger.configure(level=initial_level)
-            assert fresh_logger.is_frozen
+            fresh_logger.configure()
+            assert fresh_logger.frozen
 
             # Kill should reset
             fresh_logger.kill()
-            assert not fresh_logger.is_frozen
+            assert not fresh_logger.frozen
 
             # Should be able to reconfigure
-            fresh_logger.configure(level=second_level)
-            assert fresh_logger.is_frozen
-            assert fresh_logger.config.level == second_level
+            fresh_logger.configure()
+            assert fresh_logger.frozen
+            assert fresh_logger.is_configured.level == second_level
 
         property_test()
 

@@ -1,7 +1,7 @@
 """
 Tests for validate_configuration_parameters function.
 
-Tests parameter validation, invalid combinations, and preset/handler precedence.
+Tests parameter validation, invalid combinations, and handler_preset/handler precedence.
 """
 
 import logging
@@ -9,7 +9,8 @@ import logging
 import pytest
 
 from logspark._Internal.Func import validate_configuration_parameters
-from logspark.Types import InvalidConfigurationError, PresetOptions, TracebackOptions
+from logspark.Types import InvalidConfigurationError, PresetOptions
+from logspark.Types.Options import TracebackOptions
 
 
 class TestValidateConfigurationParameters:
@@ -37,7 +38,7 @@ class TestValidateConfigurationParameters:
         )
 
         assert level == logging.WARNING
-        assert traceback == TracebackOptions.NONE
+        assert traceback == TracebackOptions.HIDE
         assert preset is None
 
     def test_string_level_conversion(self):
@@ -57,7 +58,7 @@ class TestValidateConfigurationParameters:
         assert traceback == TracebackOptions.FULL
 
     def test_string_preset_conversion(self):
-        """Test that string preset options are converted to enums."""
+        """Test that string handler_preset options are converted to enums."""
         _, _, preset = validate_configuration_parameters(
             level=logging.INFO, traceback=None, handler=None, preset="json", no_freeze=False
         )
@@ -67,9 +68,9 @@ class TestValidateConfigurationParameters:
     def test_case_insensitive_traceback(self):
         """Test that traceback options are case insensitive."""
         test_cases = [
-            ("NONE", TracebackOptions.NONE),
-            ("none", TracebackOptions.NONE),
-            ("None", TracebackOptions.NONE),
+            ("HIDE", TracebackOptions.HIDE),
+            ("none", TracebackOptions.HIDE),
+            ("None", TracebackOptions.HIDE),
             ("COMPACT", TracebackOptions.COMPACT),
             ("compact", TracebackOptions.COMPACT),
             ("Compact", TracebackOptions.COMPACT),
@@ -85,7 +86,7 @@ class TestValidateConfigurationParameters:
             assert traceback == expected
 
     def test_case_insensitive_preset(self):
-        """Test that preset options are case insensitive."""
+        """Test that handler_preset options are case insensitive."""
         test_cases = [
             ("TERMINAL", PresetOptions.TERMINAL),
             ("terminal", PresetOptions.TERMINAL),
@@ -131,15 +132,15 @@ class TestValidateConfigurationParameters:
             )
 
     def test_invalid_preset_string_raises_error(self):
-        """Test that invalid preset strings raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="Invalid preset option"):
+        """Test that invalid handler_preset strings raise InvalidConfigurationError."""
+        with pytest.raises(InvalidConfigurationError, match="Invalid handler_preset option"):
             validate_configuration_parameters(
                 level=logging.INFO, traceback=None, handler=None, preset="invalid", no_freeze=False
             )
 
     def test_invalid_preset_type_raises_error(self):
-        """Test that invalid preset types raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="Invalid preset option"):
+        """Test that invalid handler_preset types raise InvalidConfigurationError."""
+        with pytest.raises(InvalidConfigurationError, match="Invalid handler_preset option"):
             validate_configuration_parameters(
                 level=logging.INFO,
                 traceback=None,
@@ -173,9 +174,9 @@ class TestValidateConfigurationParameters:
             )
 
     def test_handler_precedence_over_preset(self):
-        """Test that explicit handler takes precedence over preset."""
-        # When both handler and preset are provided, both should be validated
-        # but the function should return the preset as-is (precedence is handled elsewhere)
+        """Test that explicit handler takes precedence over handler_preset."""
+        # When both handler and handler_preset are provided, both should be validated
+        # but the function should return the handler_preset as-is (precedence is handled elsewhere)
         handler = logging.StreamHandler()
         level, traceback, preset = validate_configuration_parameters(
             level=logging.INFO,
@@ -189,12 +190,12 @@ class TestValidateConfigurationParameters:
         assert preset == PresetOptions.JSON
 
     def test_none_traceback_defaults_to_none_enum(self):
-        """Test that None traceback defaults to TracebackOptions.NONE."""
+        """Test that None traceback defaults to TracebackOptions.HIDE."""
         _, traceback, _ = validate_configuration_parameters(
             level=logging.INFO, traceback=None, handler=None, preset=None, no_freeze=False
         )
 
-        assert traceback == TracebackOptions.NONE
+        assert traceback == TracebackOptions.HIDE
 
     def test_valid_handler_instance(self):
         """Test that valid handler instances are accepted."""
@@ -247,7 +248,7 @@ class TestParameterCombinations:
             )
 
     def test_edge_case_empty_string_preset(self):
-        """Test that empty string preset raises appropriate error."""
+        """Test that empty string handler_preset raises appropriate error."""
         with pytest.raises(InvalidConfigurationError):
             validate_configuration_parameters(
                 level=logging.INFO,

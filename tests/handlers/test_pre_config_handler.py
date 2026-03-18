@@ -10,15 +10,15 @@ from unittest.mock import patch
 
 import pytest
 
-from logspark.Handlers.PreConfig import pre_config_handler
+from logspark.Handlers import SparkPreConfigHandler
 
 
 class TestPreConfigHandlerStdoutUsage:
-    """Test pre-config handler stdout usage behavior"""
+    """Test pre-is_configured handler stdout usage behavior"""
 
     def test_default_uses_stdout(self):
-        """Test that pre-config handler uses stdout by default"""
-        handler = pre_config_handler()
+        """Test that pre-is_configured handler uses stdout by default"""
+        handler = SparkPreConfigHandler()
 
         # Should be StreamHandler with stdout
         assert isinstance(handler, logging.StreamHandler)
@@ -27,7 +27,7 @@ class TestPreConfigHandlerStdoutUsage:
     def test_silenced_mode_uses_devnull(self):
         """Test that silenced mode redirects to devnull instead of stdout"""
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
-            handler = pre_config_handler()
+            handler = SparkPreConfigHandler()
 
             # Should not use stdout in silenced mode
             assert handler.stream is not sys.stdout
@@ -39,14 +39,14 @@ class TestPreConfigHandlerStdoutUsage:
             if "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
-            handler = pre_config_handler()
+            handler = SparkPreConfigHandler()
 
             # Should use stdout in normal mode
             assert handler.stream is sys.stdout
 
     def test_handler_has_formatter(self):
-        """Test that pre-config handler has proper formatter"""
-        handler = pre_config_handler()
+        """Test that pre-is_configured handler has proper formatter"""
+        handler = SparkPreConfigHandler()
 
         # Should have a formatter
         assert handler.formatter is not None
@@ -77,7 +77,7 @@ class TestPreConfigHandlerWarningEmission:
         """Test that handler emits logs to stdout"""
         # Capture stdout
         with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
-            handler = pre_config_handler()
+            handler = SparkPreConfigHandler()
 
             # Create and emit a log record
             record = logging.LogRecord(
@@ -96,14 +96,14 @@ class TestPreConfigHandlerWarningEmission:
             stdout_output = mock_stdout.getvalue()
             assert "Test warning" in stdout_output
             assert "WARNING" in stdout_output
-            assert "No-Config |" in stdout_output
+            assert "(PreConfig)" in stdout_output
 
     def test_silenced_mode_no_stdout_output(self):
         """Test that silenced mode doesn't output to stdout"""
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
             # Capture stdout
             with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
-                handler = pre_config_handler()
+                handler = SparkPreConfigHandler()
 
                 # Create and emit a log record
                 record = logging.LogRecord(
@@ -123,9 +123,9 @@ class TestPreConfigHandlerWarningEmission:
                 assert stdout_output == ""
 
     def test_multiple_handlers_independent(self):
-        """Test that multiple pre-config handlers are independent"""
-        handler1 = pre_config_handler()
-        handler2 = pre_config_handler()
+        """Test that multiple pre-is_configured handlers are independent"""
+        handler1 = SparkPreConfigHandler()
+        handler2 = SparkPreConfigHandler()
 
         # Should be different instances
         assert handler1 is not handler2
@@ -140,8 +140,8 @@ class TestPreConfigHandlerInstallation:
     """Test handler installation behavior"""
 
     def test_handler_creation_returns_streamhandler(self):
-        """Test that pre_config_handler returns a StreamHandler instance"""
-        handler = pre_config_handler()
+        """Test that SparkPreConfigHandler returns a StreamHandler instance"""
+        handler = SparkPreConfigHandler()
 
         assert isinstance(handler, logging.StreamHandler)
         assert hasattr(handler, "stream")
@@ -149,14 +149,14 @@ class TestPreConfigHandlerInstallation:
 
     def test_handler_level_default(self):
         """Test that handler has appropriate default level"""
-        handler = pre_config_handler()
+        handler = SparkPreConfigHandler()
 
         # Should have default level (NOTSET allows all levels through)
         assert handler.level == logging.NOTSET
 
     def test_handler_can_be_added_to_logger(self):
         """Test that handler can be properly added to a logger"""
-        handler = pre_config_handler()
+        handler = SparkPreConfigHandler()
         logger = logging.getLogger("test_preconfig")
 
         # Should be able to add handler
@@ -170,7 +170,7 @@ class TestPreConfigHandlerInstallation:
 
     def test_handler_formatting_consistency(self):
         """Test that handler formatting is consistent"""
-        handler = pre_config_handler()
+        handler = SparkPreConfigHandler()
 
         # Create test records
         records = [
@@ -206,11 +206,11 @@ class TestPreConfigHandlerInstallation:
 
 
 class TestPreConfigHandlerIntegration:
-    """Integration tests for pre-config handler"""
+    """Integration tests for pre-is_configured handler"""
 
     def test_handler_works_with_different_levels(self):
         """Test that handler works with different log levels"""
-        handler = pre_config_handler()
+        handler = SparkPreConfigHandler()
 
         levels = [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]
 
@@ -233,7 +233,7 @@ class TestPreConfigHandlerIntegration:
 
     def test_handler_with_exception_info(self):
         """Test that handler handles exception information"""
-        handler = pre_config_handler()
+        handler = SparkPreConfigHandler()
 
         # Create record with exception
         record = logging.LogRecord(
@@ -265,12 +265,12 @@ class TestPreConfigHandlerIntegration:
             if "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
-            handler_normal = pre_config_handler()
+            handler_normal = SparkPreConfigHandler()
             assert handler_normal.stream is sys.stdout
 
         # Test silenced mode
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
-            handler_silenced = pre_config_handler()
+            handler_silenced = SparkPreConfigHandler()
             assert handler_silenced.stream is not sys.stdout
 
 
@@ -280,7 +280,7 @@ from hypothesis import strategies as st
 
 
 class TestPreConfigHandlerProperties:
-    """Property-based tests for pre-config handler behavior"""
+    """Property-based tests for pre-is_configured handler behavior"""
 
     @given(
         message=st.text(min_size=1, max_size=500),
@@ -302,19 +302,19 @@ class TestPreConfigHandlerProperties:
     )
     def test_property_preconfig_stdout_usage(self, message, level, logger_name, lineno):
         """
-        For any log message, pre-config handler should emit to stdout unless silenced
+        For any log message, pre-is_configured handler should emit to stdout unless silenced
         """
         # Test normal mode (should use stdout)
         with patch.dict("os.environ", {}, clear=False):
             if "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
-            handler = pre_config_handler()
+            handler = SparkPreConfigHandler()
             assert handler.stream is sys.stdout, "Handler should use stdout in normal mode"
 
         # Test silenced mode (should not use stdout)
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
-            handler_silenced = pre_config_handler()
+            handler_silenced = SparkPreConfigHandler()
             assert handler_silenced.stream is not sys.stdout, (
                 "Handler should not use stdout in silenced mode"
             )
@@ -345,8 +345,8 @@ class TestPreConfigHandlerProperties:
         For any sequence of messages, each handler instance should emit warnings independently
         """
         # Create multiple handler instances
-        handler1 = pre_config_handler()
-        handler2 = pre_config_handler()
+        handler1 = SparkPreConfigHandler()
+        handler2 = SparkPreConfigHandler()
 
         # Handlers should be independent instances
         assert handler1 is not handler2, "Each call should create a new handler instance"
@@ -396,7 +396,7 @@ class TestPreConfigHandlerProperties:
     )
     def test_property_preconfig_handler_installation(self, logger_names, message):
         """
-        For any set of logger names, pre-config handlers should install correctly on each logger
+        For any set of logger names, pre-is_configured handlers should install correctly on each logger
         """
         loggers = []
         handlers = []
@@ -405,7 +405,7 @@ class TestPreConfigHandlerProperties:
             # Create handlers and install on loggers
             for logger_name in logger_names:
                 logger = logging.getLogger(logger_name)
-                handler = pre_config_handler()
+                handler = SparkPreConfigHandler()
 
                 # Handler should install without error
                 logger.addHandler(handler)
@@ -455,7 +455,7 @@ class TestPreConfigHandlerProperties:
             if not silenced and "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
-            handler = pre_config_handler()
+            handler = SparkPreConfigHandler()
 
             # Verify stream selection based on mode
             if silenced:
@@ -486,7 +486,7 @@ class TestPreConfigHandlerProperties:
         For any sequence of messages, formatter should produce consistent output structure
 
         """
-        handler = pre_config_handler()
+        handler = SparkPreConfigHandler()
         formatter = handler.formatter
 
         assert formatter is not None, "Handler should have a formatter"

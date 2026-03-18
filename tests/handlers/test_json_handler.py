@@ -11,20 +11,21 @@ from unittest.mock import patch
 
 import pytest
 
-from logspark.Types import MissingDependencyException, TracebackOptions
+from logspark.Types import MissingDependencyException
+from logspark.Types.Options import TracebackOptions
 
 
 class TestJSONHandlerDependencyHandling:
     """Test JSON handler dependency management"""
 
     def test_json_handler_requires_dependency(self):
-        """Test that SparkJSONHandler raises MissingDependencyException when python-json-logger is unavailable"""
+        """Test that SparkJsonHandler raises MissingDependencyException when python-json-logger is unavailable"""
         # Mock missing dependency
         with patch.dict("sys.modules", {"pythonjsonlogger": None, "pythonjsonlogger.json": None}):
             with pytest.raises(MissingDependencyException) as exc_info:
-                from logspark.Handlers.Json import SparkJSONHandler
+                from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
-                SparkJSONHandler()
+                SparkJsonHandler()
 
             assert "python-json-logger" in str(exc_info.value)
 
@@ -33,11 +34,11 @@ class TestJSONHandlerDependencyHandling:
         reason="python-json-logger required for this test",
     )
     def test_json_handler_works_with_dependency(self):
-        """Test that SparkJSONHandler works correctly when python-json-logger is available"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        """Test that SparkJsonHandler works correctly when python-json-logger is available"""
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Should create handler without error
         assert handler is not None
@@ -61,11 +62,11 @@ class TestJSONHandlerDependencyHandling:
         with patch.dict("sys.modules", {"pythonjsonlogger": None, "pythonjsonlogger.json": None}):
             # Should raise explicit exception
             with pytest.raises(MissingDependencyException):
-                from logspark.Handlers.Json import SparkJSONHandler
-                SparkJSONHandler()
+                from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
+                SparkJsonHandler()
 
         # Other handlers should still work
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
         terminal_handler = SparkTerminalHandler()
         assert terminal_handler is not None
@@ -80,10 +81,10 @@ class TestJSONHandlerSingleLineOutput:
 
     def test_single_line_output_simple_message(self):
         """Test that simple messages produce single-line JSON"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create simple log record
         record = logging.LogRecord(
@@ -110,10 +111,10 @@ class TestJSONHandlerSingleLineOutput:
 
     def test_single_line_output_multiline_message(self):
         """Test that multiline messages are serialized to single line"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create multiline message
         multiline_message = "Line 1\nLine 2\nLine 3"
@@ -141,10 +142,10 @@ class TestJSONHandlerSingleLineOutput:
 
     def test_single_line_output_with_exception(self):
         """Test that exceptions are serialized to single line"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with exception
         record = logging.LogRecord(
@@ -188,10 +189,10 @@ class TestJSONHandlerStructuredFields:
 
     def test_standard_fields_present(self):
         """Test that standard logging fields are present in JSON output"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create log record
         record = logging.LogRecord(
@@ -230,10 +231,10 @@ class TestJSONHandlerStructuredFields:
 
     def test_extra_fields_included(self):
         """Test that extra fields are included in JSON output"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create log record with extra fields
         record = logging.LogRecord(
@@ -272,11 +273,11 @@ class TestJSONHandlerTracebackSerialization:
     """Test traceback serialization to single-line format"""
 
     def test_traceback_policy_none_excludes_exception(self):
-        """Test that NONE policy excludes exception information"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        """Test that HIDE policy excludes exception information"""
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with exception
         record = logging.LogRecord(
@@ -295,8 +296,8 @@ class TestJSONHandlerTracebackSerialization:
         except ValueError:
             record.exc_info = sys.exc_info()
 
-        # Set traceback policy to NONE
-        record.traceback_policy = TracebackOptions.NONE
+        # Set traceback policy to HIDE
+        record.traceback_policy = TracebackOptions.HIDE
 
         # Emit record
         handler.emit(record)
@@ -311,10 +312,10 @@ class TestJSONHandlerTracebackSerialization:
 
     def test_traceback_policy_compact_single_line(self):
         """Test that COMPACT policy produces single-line traceback"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with exception
         record = logging.LogRecord(
@@ -361,10 +362,10 @@ class TestJSONHandlerTracebackSerialization:
 
     def test_traceback_policy_full_single_line(self):
         """Test that FULL policy produces single-line traceback"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with exception
         record = logging.LogRecord(
@@ -420,10 +421,10 @@ class TestJSONHandlerSilencedMode:
 
     def test_silenced_mode_uses_devnull(self):
         """Test that silenced mode redirects output to devnull"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         with patch.dict("os.environ", {"LOGSPARK_MODE": "silenced"}):
-            handler = SparkJSONHandler()
+            handler = SparkJsonHandler()
 
             # In silenced mode, should not write to stdout/stderr
             # The exact stream used is implementation detail, but should not be stdout/stderr
@@ -432,13 +433,13 @@ class TestJSONHandlerSilencedMode:
 
     def test_normal_mode_uses_stdout(self):
         """Test that normal mode uses stdout by default"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         with patch.dict("os.environ", {}, clear=False):
             if "LOGSPARK_MODE" in os.environ:
                 del os.environ["LOGSPARK_MODE"]
 
-            handler = SparkJSONHandler()
+            handler = SparkJsonHandler()
 
             # Should use stdout by default
             assert handler.stream is sys.stdout
@@ -479,10 +480,10 @@ class TestJSONHandlerProperties:
         JSON Single-Line Output
         For any log message, level, logger name, and line number, JSON output should be single-line
         """
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create log record
         record = logging.LogRecord(
@@ -519,7 +520,7 @@ class TestJSONHandlerProperties:
         message=st.text(min_size=1, max_size=500),
         exception_message=st.text(min_size=1, max_size=200),
         traceback_policy=st.sampled_from([
-            TracebackOptions.NONE,
+            TracebackOptions.HIDE,
             TracebackOptions.COMPACT,
             TracebackOptions.FULL,
         ]),
@@ -530,10 +531,10 @@ class TestJSONHandlerProperties:
         """
         For any message and exception, traceback should be serialized to single-line format
         """
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with exception
         record = logging.LogRecord(
@@ -572,7 +573,7 @@ class TestJSONHandlerProperties:
         assert isinstance(parsed, dict), "Output should be a JSON object"
 
         # Verify traceback policy was applied
-        if traceback_policy == TracebackOptions.NONE:
+        if traceback_policy == TracebackOptions.HIDE:
             # Should not have exception information
             assert parsed.get("exc_text") is None or parsed.get("exc_text") == ""
         else:
@@ -642,10 +643,10 @@ class TestJSONHandlerProperties:
         """
         For any message and extra fields, all fields should be present in JSON output
         """
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create log record
         record = logging.LogRecord(
@@ -697,9 +698,9 @@ class TestJSONHandlerProperties:
 
         if dependency_available:
             # Should work when dependency is available
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
-            handler = SparkJSONHandler()
+            handler = SparkJsonHandler()
             assert handler is not None
             
             # Should actually be able to format records
@@ -715,9 +716,9 @@ class TestJSONHandlerProperties:
         # Test with dependency absent (mocked)
         with patch.dict("sys.modules", {"pythonjsonlogger": None, "pythonjsonlogger.json": None}):
             with pytest.raises(MissingDependencyException) as exc_info:
-                from logspark.Handlers.Json import SparkJSONHandler
+                from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
-                SparkJSONHandler()
+                SparkJsonHandler()
 
             # Verify the exception mentions the missing dependency
             assert "python-json-logger" in str(exc_info.value)
@@ -732,10 +733,10 @@ class TestJSONSingleLineConsistency:
 
     def test_json_single_line_with_nested_exception(self):
         """Test JSON output is single line with nested exceptions"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with nested exception
         record = logging.LogRecord(
@@ -781,10 +782,10 @@ class TestJSONSingleLineConsistency:
 
     def test_json_single_line_with_multiline_message(self):
         """Test JSON output is single line even with multiline log messages"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         # Create record with multiline message
         multiline_message = "Line 1\nLine 2\nLine 3"
@@ -799,7 +800,7 @@ class TestJSONSingleLineConsistency:
         )
 
         # Set traceback policy
-        record.traceback_policy = TracebackOptions.NONE
+        record.traceback_policy = TracebackOptions.HIDE
 
         # Emit record
         handler.emit(record)
@@ -816,10 +817,10 @@ class TestJSONSingleLineConsistency:
 
     def test_json_multiple_messages_single_line(self):
         """Test that multiple JSON messages each produce single lines"""
-        from logspark.Handlers.Json import SparkJSONHandler
+        from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
         test_stream = io.StringIO()
-        handler = SparkJSONHandler(stream=test_stream)
+        handler = SparkJsonHandler(stream=test_stream)
 
         messages = ["Message 1", "Message 2", "Message 3"]
 
@@ -833,7 +834,7 @@ class TestJSONSingleLineConsistency:
                 args=(),
                 exc_info=None,
             )
-            record.traceback_policy = TracebackOptions.NONE
+            record.traceback_policy = TracebackOptions.HIDE
             handler.emit(record)
 
         output = test_stream.getvalue()

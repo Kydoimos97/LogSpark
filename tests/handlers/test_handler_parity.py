@@ -11,8 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
-from logspark.Handlers.Terminal import SparkTerminalHandler
-from logspark.Types import TracebackOptions
+from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
+from logspark.Types.Options import TracebackOptions
 
 
 def normalize_terminal_output(output: str) -> dict:
@@ -71,27 +71,25 @@ class TestHandlerSemanticEquivalence:
 
         # Terminal handler output
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(
-            stream=terminal_stream, no_rich=True
-        )  # Force stdlib for consistency
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)  # Force stdlib for consistency
 
         # JSON handler output (if available)
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
             json_available = True
         except ImportError:
             json_available = False
 
         # PreConfig handler output
         preconfig_stream = io.StringIO()
-        from logspark.Handlers.PreConfig import pre_config_handler
+        from logspark.Handlers import SparkPreConfigHandler
 
-        preconfig_handler = pre_config_handler()
+        preconfig_handler = SparkPreConfigHandler()
         # Replace stdout with our test stream
         preconfig_handler.stream = preconfig_stream
 
@@ -156,14 +154,14 @@ class TestHandlerSemanticEquivalence:
 
         # Create handlers
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         preconfig_stream = io.StringIO()
-        from logspark.Handlers.PreConfig import pre_config_handler
+        from logspark.Handlers import SparkPreConfigHandler
 
-        preconfig_handler = pre_config_handler()
+        preconfig_handler = SparkPreConfigHandler()
         preconfig_handler.stream = preconfig_stream
 
         # Test with exception
@@ -211,21 +209,21 @@ class TestHandlerTracebackPolicyConsistency:
     """Test cross-handler consistency with same traceback policies"""
 
     def test_traceback_policy_none_consistency(self):
-        """Test that NONE policy is applied consistently across handlers"""
+        """Test that HIDE policy is applied consistently across handlers"""
         message = "Error with no traceback"
 
         # Create handlers
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         json_available = True
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
         except ImportError:
             json_available = False
 
@@ -235,7 +233,7 @@ class TestHandlerTracebackPolicyConsistency:
         except ValueError:
             exc_info = sys.exc_info()
 
-        # Create records with NONE policy
+        # Create records with HIDE policy
         record_terminal = logging.LogRecord(
             name="test",
             level=logging.ERROR,
@@ -245,7 +243,7 @@ class TestHandlerTracebackPolicyConsistency:
             args=(),
             exc_info=exc_info,
         )
-        record_terminal.traceback_policy = TracebackOptions.NONE
+        record_terminal.traceback_policy = TracebackOptions.HIDE
 
         if json_available:
             record_json = logging.LogRecord(
@@ -257,14 +255,14 @@ class TestHandlerTracebackPolicyConsistency:
                 args=(),
                 exc_info=exc_info,
             )
-            record_json.traceback_policy = TracebackOptions.NONE
+            record_json.traceback_policy = TracebackOptions.HIDE
 
         # Emit records
         terminal_handler.emit(record_terminal)
         if json_available:
             json_handler.emit(record_json)
 
-        # Verify NONE policy was applied
+        # Verify HIDE policy was applied
         assert record_terminal.exc_info is None
         assert record_terminal.exc_text is None
 
@@ -278,16 +276,16 @@ class TestHandlerTracebackPolicyConsistency:
 
         # Create handlers
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         json_available = True
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
         except ImportError:
             json_available = False
 
@@ -342,16 +340,16 @@ class TestHandlerTracebackPolicyConsistency:
 
         # Create handlers
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         json_available = True
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
         except ImportError:
             json_available = False
 
@@ -425,18 +423,18 @@ class TestHandlerEnvironmentConsistency:
 
             # JSON handler
             try:
-                from logspark.Handlers.Json import SparkJSONHandler
+                from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
-                json_handler = SparkJSONHandler()
+                json_handler = SparkJsonHandler()
                 # Should not use stdout in silenced mode
                 assert json_handler.stream is not sys.stdout
             except ImportError:
                 pass  # Skip if not available
 
             # PreConfig handler
-            from logspark.Handlers.PreConfig import pre_config_handler
+            from logspark.Handlers import SparkPreConfigHandler
 
-            preconfig_handler = pre_config_handler()
+            preconfig_handler = SparkPreConfigHandler()
             # Should not use stdout in silenced mode
             assert preconfig_handler.stream is not sys.stdout
 
@@ -455,17 +453,17 @@ class TestHandlerEnvironmentConsistency:
 
             # JSON handler should default to stdout
             try:
-                from logspark.Handlers.Json import SparkJSONHandler
+                from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
-                json_handler = SparkJSONHandler()
+                json_handler = SparkJsonHandler()
                 assert json_handler.stream is sys.stdout
             except ImportError:
                 pass  # Skip if not available
 
             # PreConfig handler should use stdout
-            from logspark.Handlers.PreConfig import pre_config_handler
+            from logspark.Handlers import SparkPreConfigHandler
 
-            preconfig_handler = pre_config_handler()
+            preconfig_handler = SparkPreConfigHandler()
             assert preconfig_handler.stream is sys.stdout
 
 
@@ -516,9 +514,9 @@ class TestHandlerParityProperties:
 
         # Test Terminal handler
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         record_terminal = logging.LogRecord(
             name=logger_name,
@@ -562,10 +560,10 @@ class TestHandlerParityProperties:
 
         # Test JSON handler (if available)
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
 
             # Create fresh exception info for JSON handler
             try:
@@ -660,9 +658,9 @@ class TestHandlerParityProperties:
 
         # Test Terminal handler
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         record_terminal = logging.LogRecord(
             name=logger_name,
@@ -688,10 +686,10 @@ class TestHandlerParityProperties:
 
         # Test JSON handler (if available)
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
 
             # Create fresh exception info for JSON handler
             try:
@@ -776,9 +774,9 @@ class TestHandlerParityProperties:
 
             # Test JSON handler (if available)
             try:
-                from logspark.Handlers.Json import SparkJSONHandler
+                from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
-                json_handler = SparkJSONHandler()
+                json_handler = SparkJsonHandler()
 
                 if silenced:
                     assert json_handler.stream is not sys.stdout, (
@@ -792,9 +790,9 @@ class TestHandlerParityProperties:
                 pass  # Skip if not available
 
             # Test PreConfig handler
-            from logspark.Handlers.PreConfig import pre_config_handler
+            from logspark.Handlers import SparkPreConfigHandler
 
-            preconfig_handler = pre_config_handler()
+            preconfig_handler = SparkPreConfigHandler()
 
             if silenced:
                 assert preconfig_handler.stream is not sys.stdout, (
@@ -839,22 +837,22 @@ class TestHandlerParityProperties:
         """
         # Create handlers with test streams
         terminal_stream = io.StringIO()
-        from logspark.Handlers.Terminal import SparkTerminalHandler
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 
-        terminal_handler = SparkTerminalHandler(stream=terminal_stream, no_rich=True)
+        terminal_handler = SparkTerminalHandler(stream=terminal_stream)
 
         preconfig_stream = io.StringIO()
-        from logspark.Handlers.PreConfig import pre_config_handler
+        from logspark.Handlers import SparkPreConfigHandler
 
-        preconfig_handler = pre_config_handler()
+        preconfig_handler = SparkPreConfigHandler()
         preconfig_handler.stream = preconfig_stream
 
         json_available = True
         try:
-            from logspark.Handlers.Json import SparkJSONHandler
+            from logspark.Handlers.SparkJsonHandler import SparkJsonHandler
 
             json_stream = io.StringIO()
-            json_handler = SparkJSONHandler(stream=json_stream)
+            json_handler = SparkJsonHandler(stream=json_stream)
         except ImportError:
             json_available = False
 

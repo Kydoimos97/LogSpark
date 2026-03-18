@@ -1,7 +1,7 @@
 """
 Test traceback policy behavior across different handlers.
 
-This module tests the NONE, COMPACT, and FULL traceback policies to ensure
+This module tests the HIDE, COMPACT, and FULL traceback policies to ensure
 they behave consistently and correctly modify log records as expected.
 """
 
@@ -16,17 +16,17 @@ from logspark.Types.Options import TracebackOptions
 
 
 class TestTracebackPolicyNone:
-    """Test NONE policy excludes exception information"""
+    """Test HIDE policy excludes exception information"""
 
     def test_none_policy_excludes_exception_info(self):
-        """Test that NONE policy excludes exception information from records"""
+        """Test that HIDE policy excludes exception information from records"""
         # Create a basic handler
         handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.NONE)
+        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
 
         # Create a record with exception info
         try:
-            raise ValueError("Test exception for NONE policy")
+            raise ValueError("Test exception for HIDE policy")
         except ValueError:
             record = logging.LogRecord(
                 name="test.logger",
@@ -44,16 +44,16 @@ class TestTracebackPolicyNone:
 
         # Verify traceback policy was set
         assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.NONE
+        assert record.traceback_policy == TracebackOptions.HIDE
 
         # The record should still have exc_info at this point
         # (handlers are responsible for processing the policy)
         assert record.exc_info is not None
 
     def test_none_policy_with_no_exception(self):
-        """Test that NONE policy works correctly with records that have no exception"""
+        """Test that HIDE policy works correctly with records that have no exception"""
         handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.NONE)
+        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
 
         record = logging.LogRecord(
             name="test.logger",
@@ -71,7 +71,7 @@ class TestTracebackPolicyNone:
 
         # Verify traceback policy was set
         assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.NONE
+        assert record.traceback_policy == TracebackOptions.HIDE
         assert record.exc_info is None
 
 
@@ -255,7 +255,7 @@ class TestRecordMutationGuarantees:
     def test_filter_always_returns_true(self):
         """Test that traceback policy filter always allows records to pass through"""
         handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.NONE)
+        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
 
         # Test with various record types
         records = [
@@ -271,7 +271,7 @@ class TestRecordMutationGuarantees:
                 result = filter_obj.filter(record)
                 assert result is True, f"Filter should always return True for {record.levelname}"
                 assert hasattr(record, "traceback_policy")
-                assert record.traceback_policy == TracebackOptions.NONE
+                assert record.traceback_policy == TracebackOptions.HIDE
 
 
 # Property-based tests
@@ -306,11 +306,11 @@ class TestTracebackPolicyProperties:
     ):
         """
 
-        For any log record, when traceback policy is NONE, the policy should be set correctly
+        For any log record, when traceback policy is HIDE, the policy should be set correctly
 
         """
         handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.NONE)
+        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
 
         # Create record with or without exception
         try:
@@ -333,9 +333,9 @@ class TestTracebackPolicyProperties:
             result = filter_obj.filter(record)
             assert result is True
 
-        # Verify NONE policy was applied
+        # Verify HIDE policy was applied
         assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.NONE
+        assert record.traceback_policy == TracebackOptions.HIDE
         # Original record data should be preserved
         assert record.name == logger_name
         assert record.msg == message
@@ -478,7 +478,7 @@ class TestTracebackPolicyProperties:
         ]),
         lineno=st.integers(min_value=1, max_value=10000),
         policy=st.sampled_from([
-            TracebackOptions.NONE,
+            TracebackOptions.HIDE,
             TracebackOptions.COMPACT,
             TracebackOptions.FULL,
         ]),
