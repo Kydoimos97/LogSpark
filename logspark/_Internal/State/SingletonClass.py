@@ -43,6 +43,7 @@ def SingletonClass(cls: type[TAny]) -> type[T]:  # noqa: N802
                 super().__init__(*args, **kwargs)
                 self.__singleton_initialized__ = True
 
+        # noinspection PyUnusedFunction
         @classmethod
         def _kill_instance(cls_: type[T]) -> None:
             cls_._cls_instance = None

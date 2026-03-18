@@ -14,6 +14,7 @@ class SparkFilterModule(ABC, logging.Filter):
 
     def _ext_init(self) -> None: ...
 
+    # noinspection PyUnusedFunction
     @property
     def inject(self) -> bool:
         return self._inject
