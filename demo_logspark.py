@@ -63,30 +63,33 @@ logger.info(
 # ---------------------------------------------------------------------------
 # 4. Exception logging -- traceback policies
 #
-# Traceback policy is applied by formatters that call process_spark_log_record:
-#   - SparkColorFormatter (color-compatible terminals) -- terminal handler
-#   - SparkJsonFormatter (SparkJsonHandler) -- JSON handler
-#   - SparkRichHandler (Rich) -- Rich handler
-#
-# SparkBaseFormatter does not apply policy; it falls through to stdlib.
-# These demos use SparkRichHandler and SparkJsonHandler where the policy
-# is guaranteed to be visible regardless of terminal color support.
+# Policy is applied by formatters that call process_spark_log_record:
+#   SparkColorFormatter, SparkRichHandler, SparkJsonFormatter.
+# SparkBaseFormatter passes through to stdlib (no policy applied).
+# Rich is used here so policy rendering is clear at any terminal width.
 # ---------------------------------------------------------------------------
+try:
+    from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler as _RH
+    from logspark.Types.Options import SparkRichHandlerSettings as _RHS
+    _RICH_AVAILABLE = True
+except ImportError:
+    _RICH_AVAILABLE = False
+
+_COMPACT_SETTINGS = _RHS(min_message_width=25, max_path_width=20) if _RICH_AVAILABLE else None
+
 _section("4a. TracebackOptions.COMPACT -- type + message + single frame location")
 
 logger.kill()
 
-try:
-    from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler as _RH
-
-    logger.configure(handler=_RH(traceback_policy=TracebackOptions.COMPACT))
+if _RICH_AVAILABLE:
+    logger.configure(
+        handler=_RH(traceback_policy=TracebackOptions.COMPACT, settings=_COMPACT_SETTINGS)
+    )
     try:
         _ = 1 / 0
     except ZeroDivisionError:
         logger.exception("Division failed")
-
-except ImportError:
-    # Fallback: JSON output where compact policy is also applied
+else:
     buf = io.StringIO()
     logger.configure(handler=SparkJsonHandler(stream=buf))
     try:
@@ -95,80 +98,87 @@ except ImportError:
         logger.exception("Division failed")
     print(buf.getvalue().strip())
 
-_section("4b. TracebackOptions.FULL -- complete traceback, all frames")
+_section("4b. TracebackOptions.FULL -- all frames, stdlib passthrough")
 
+# SparkBaseFormatter (use_color=False) does not call process_spark_log_record,
+# so exc_info is left intact and the stdlib full traceback renders normally.
+# SparkColorFormatter clears exc_info for FULL mode, so color is disabled here.
 logger.kill()
-
-buf = io.StringIO()
+logger.configure(
+    traceback_policy=TracebackOptions.FULL,
+    handler=SparkTerminalHandler(use_color=False),
+)
 try:
-    logger.configure(handler=SparkJsonHandler(stream=buf))
-    # In JSON single-line mode, FULL is formatted by SparkJsonFormatter.
-    # (SparkJsonHandler default tb_policy is None which maps to compact-like)
-    # Demonstrate by configuring the formatter directly with FULL policy:
-    from logspark.Formatters import SparkJsonFormatter as _SJF
-    from logspark.Handlers import SparkJsonHandler as _SJH
-
-    logger.kill()
-    buf2 = io.StringIO()
-    _h = _SJH(stream=buf2)
-    _h.setFormatter(_SJF(tb_policy=TracebackOptions.FULL, datefmt="%H:%M:%S"))
-    logger.configure(handler=_h)
-
-    try:
-        raise ValueError("something went wrong")
-    except ValueError:
-        logger.exception("Full traceback -- all frames collapsed to one JSON line")
-    print(buf2.getvalue().strip())
-except Exception:
-    logger.kill()
-    logger.configure()
-    try:
-        raise ValueError("something went wrong")
-    except ValueError:
-        logger.exception("Full traceback")
+    raise ValueError("something went wrong deeply")
+except ValueError:
+    logger.exception("Full traceback -- all frames")
 
 _section("4c. TracebackOptions.HIDE -- exception type and message only")
 
 logger.kill()
 
-try:
-    from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler as _RH2
-
-    logger.configure(handler=_RH2(traceback_policy=TracebackOptions.HIDE))
+if _RICH_AVAILABLE:
+    logger.configure(
+        handler=_RH(traceback_policy=TracebackOptions.HIDE, settings=_COMPACT_SETTINGS)
+    )
     try:
         raise RuntimeError("internal detail suppressed")
     except RuntimeError:
-        logger.exception("No traceback location shown")
-
-except ImportError:
+        logger.exception("No location shown")
+else:
     buf = io.StringIO()
     logger.configure(handler=SparkJsonHandler(stream=buf))
     try:
         raise RuntimeError("internal detail suppressed")
     except RuntimeError:
-        logger.exception("No traceback location shown")
+        logger.exception("No location shown")
     print(buf.getvalue().strip())
 
 # ---------------------------------------------------------------------------
 # 5. Path resolution settings
+#
+# SparkTerminalHandler uses %(filename)s in its format string so the path
+# column always shows just the filename regardless of setting.
+# SparkRichHandler reads record.spark.filepath (set by PathNormalizationFilter)
+# so the three modes produce visually distinct output.
 # ---------------------------------------------------------------------------
+_PATH_SETTINGS = _RHS(min_message_width=20, max_path_width=55) if _RICH_AVAILABLE else None
+
 _section("5a. PathResolutionSetting.FILE -- filename only")
 
 logger.kill()
-logger.configure(path_resolution=PathResolutionSetting.FILE)
-logger.info("Only the filename is shown in this line")
+if _RICH_AVAILABLE:
+    logger.configure(
+        path_resolution=PathResolutionSetting.FILE,
+        handler=_RH(show_path=True, settings=_PATH_SETTINGS),
+    )
+else:
+    logger.configure(path_resolution=PathResolutionSetting.FILE)
+logger.info("Path column: filename only")
 
-_section("5b. PathResolutionSetting.ABSOLUTE -- full path")
+_section("5b. PathResolutionSetting.ABSOLUTE -- full absolute path")
 
 logger.kill()
-logger.configure(path_resolution=PathResolutionSetting.ABSOLUTE)
-logger.info("Full absolute path shown")
+if _RICH_AVAILABLE:
+    logger.configure(
+        path_resolution=PathResolutionSetting.ABSOLUTE,
+        handler=_RH(show_path=True, settings=_PATH_SETTINGS),
+    )
+else:
+    logger.configure(path_resolution=PathResolutionSetting.ABSOLUTE)
+logger.info("Path column: full absolute path")
 
-_section("5c. PathResolutionSetting.RELATIVE -- project-relative (default)")
+_section("5c. PathResolutionSetting.RELATIVE -- relative to project root (default)")
 
 logger.kill()
-logger.configure(path_resolution=PathResolutionSetting.RELATIVE)
-logger.info("Path relative to project root")
+if _RICH_AVAILABLE:
+    logger.configure(
+        path_resolution=PathResolutionSetting.RELATIVE,
+        handler=_RH(show_path=True, settings=_PATH_SETTINGS),
+    )
+else:
+    logger.configure(path_resolution=PathResolutionSetting.RELATIVE)
+logger.info("Path column: project-relative path")
 
 # ---------------------------------------------------------------------------
 # 6. SparkTerminalHandler -- explicit configuration
@@ -220,8 +230,8 @@ try:
     from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
     from logspark.Types.Options import SparkRichHandlerSettings
 
-    settings = SparkRichHandlerSettings(min_message_width=60, omit_repeated_times=False)
-    rich_handler = SparkRichHandler(show_function=True, settings=settings)
+    settings = SparkRichHandlerSettings(min_message_width=40, max_path_width=23, omit_repeated_times=False)
+    rich_handler = SparkRichHandler(settings=settings)
     logger.configure(handler=rich_handler)
 
     logger.info("Rich handler active -- structured column layout")

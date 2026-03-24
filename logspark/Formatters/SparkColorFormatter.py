@@ -23,6 +23,4 @@ class SparkColorFormatter(SparkBaseFormatter):
         color = self.LEVEL_COLORS.get(record.levelno)
         if not color:
             return msg  # INFO (and others) remain unstyled
-        fmt = "%{c_color}s%{message}s%{c_reset}s"
-        fmt_msg = fmt.format(c_color=color, message=msg, c_reset=self.RESET)
-        return fmt_msg
+        return f"{color}{msg}{self.RESET}"
