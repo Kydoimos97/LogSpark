@@ -1,7 +1,5 @@
 import logging
 from typing import Mapping, Literal, Any
-
-from pythonjsonlogger.json import JsonFormatter
 from ..Formatters.SparkBaseFormatter import SparkBaseFormatter
 from ..Types.Options import TracebackOptions
 
@@ -33,19 +31,46 @@ class SparkJsonFormatter(SparkBaseFormatter):
         super().__init__(
             fmt, datefmt, style, validate, defaults=defaults, tb_policy=tb_policy, multiline=False
         )
+
+        from pythonjsonlogger.json import JsonFormatter
         self._json_formatter = JsonFormatter(
             fmt=fmt, datefmt=datefmt, style=style, validate=validate, defaults=defaults, **kwargs
         )
+
+
 
     def format(self, record: logging.LogRecord) -> str:
         """
         Format record ensuring single-line JSON output.
         """
         record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
-        # jsonformatter checks:
-        # if record.exc_info and not message_dict['exc_info']
-        # if not message_dict['exc_info'] and record.exc_text <- targeted so setting exc info to None
+
+        # Enforce single-line invariant on exc field values.
+        # process_spark_log_record handles SparkRecordAttrs records and clears exc_info.
+        # For plain records, read traceback_policy from the record (if set) then collapse
+        # or suppress so that no embedded newlines appear in JSON field values.
+        tb_policy = getattr(record, "traceback_policy", self._tb_policy)
+        if record.exc_info:
+            if tb_policy == TracebackOptions.HIDE:
+                record.exc_info = None
+                record.exc_text = None
+            else:
+                if not record.exc_text:
+                    record.exc_text = self.formatException(record.exc_info)
+                record.exc_text = record.exc_text.replace("\n", " ").replace("\r", " ").strip()
+                record.exc_info = None
+        elif record.exc_text:
+            if tb_policy == TracebackOptions.HIDE:
+                record.exc_text = None
+            else:
+                record.exc_text = record.exc_text.replace("\n", " ").replace("\r", " ").strip()
+
+        # Remove Spark-internal attributes before JSON serialization.
+        # SparkRecordAttrs contains TracebackType which is not JSON-serializable,
+        # and _spark_exc is an internal protocol flag not intended for output.
+        record.__dict__.pop("spark", None)
+        record.__dict__.pop("_spark_exc", None)
         formatted: str = self._json_formatter.format(record)
 
-        # Physical single-line invariant only (JSON-safe)
+        # Physical single-line invariant (JSON-safe newlines in raw output).
         return formatted.replace("\n", " ").replace("\r", " ").strip()

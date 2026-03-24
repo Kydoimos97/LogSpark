@@ -68,11 +68,7 @@ class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
 
         # Import and configure python-json-logger backend
         try:
-            # Create formatter that produces structured JSON output
-            # Include standard fields and any extra fields from LogRecord
-            from pythonjsonlogger.json import JsonFormatter
-
-            formatter = JsonFormatter(
+            self.setFormatter(SparkJsonFormatter(
                 fmt=(
                     "%(name)s "
                     "%(asctime)s "
@@ -82,10 +78,7 @@ class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
                     "%(funcName)s "
                 ),
                 datefmt="%Y-%m-%d %H:%M:%S",
-            )
-
-            # Wrap formatter to ensure single-line output and handle tracebacks
-            self.setFormatter(SparkJsonFormatter(formatter))
+            ))
 
         except ImportError as e:
             raise MissingDependencyException(["python-json-logger"]) from e
