@@ -1,6 +1,7 @@
 """Tests for DDTrace filter handling in SparkLoggerDef (lines 291-292)."""
 
 import logging
+from unittest.mock import patch
 
 from logspark.Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 
@@ -10,61 +11,58 @@ class TestDDTraceFilterHandling:
 
     def test_ddtrace_filter_added_when_missing(self, fresh_logger):
         """Test that DDTrace filter is added when not present (lines 291-292)."""
-        # Configure logger without any existing filters
-        fresh_logger.configure()
-        
-        # Should have DDTrace filter
-        ddtrace_filters = [
-            f for f in fresh_logger.instance.filters 
-            if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(ddtrace_filters) == 1
+        with patch("logspark.Core.SparkLogger.is_ddtrace_available", return_value=True):
+            fresh_logger.configure()
+
+            ddtrace_filters = [
+                f for f in fresh_logger.filters
+                if isinstance(f, DDTraceInjectionFilter)
+            ]
+            assert len(ddtrace_filters) == 1
 
     def test_ddtrace_filter_not_duplicated_when_present(self, fresh_logger):
         """Test that DDTrace filter is not duplicated when already present."""
-        # Manually add DDTrace filter first
-        existing_filter = DDTraceInjectionFilter()
-        fresh_logger.instance.addFilter()
-        
-        # Should have exactly one DDTrace filter
-        initial_ddtrace_filters = [
-            f for f in fresh_logger.instance.filters 
-            if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(initial_ddtrace_filters) == 1
-        assert initial_ddtrace_filters[0] is existing_filter
-        
-        # Configure logger
-        fresh_logger.configure()
-        
-        # Should still have only one DDTrace filter (no duplicates)
-        final_ddtrace_filters = [
-            f for f in fresh_logger.instance.filters 
-            if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(final_ddtrace_filters) == 1
-        assert final_ddtrace_filters[0] is existing_filter  # Same instance preserved
+        with patch("logspark.Core.SparkLogger.is_ddtrace_available", return_value=True):
+            existing_filter = DDTraceInjectionFilter()
+            fresh_logger.addFilter(existing_filter)
+
+            initial_ddtrace_filters = [
+                f for f in fresh_logger.filters
+                if isinstance(f, DDTraceInjectionFilter)
+            ]
+            assert len(initial_ddtrace_filters) == 1
+            assert initial_ddtrace_filters[0] is existing_filter
+
+            fresh_logger.configure()
+
+            final_ddtrace_filters = [
+                f for f in fresh_logger.filters
+                if isinstance(f, DDTraceInjectionFilter)
+            ]
+            assert len(final_ddtrace_filters) == 1
+            assert final_ddtrace_filters[0] is existing_filter
 
     def test_ddtrace_filter_preserved_across_reconfigurations(self, fresh_logger):
-        """Test that DDTrace filter is preserved when reconfiguring."""
-        # First configuration
-        fresh_logger.configure()
-        
-        # Get the DDTrace filter
-        original_ddtrace_filters = [
-            f for f in fresh_logger.instance.filters 
-            if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(original_ddtrace_filters) == 1
-        original_filter = original_ddtrace_filters[0]
-        
-        # Reconfigure
-        fresh_logger.configure()
-        
-        # Should still have the same DDTrace filter
-        new_ddtrace_filters = [
-            f for f in fresh_logger.instance.filters 
-            if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(new_ddtrace_filters) == 1
-        assert new_ddtrace_filters[0] is original_filter  # Same instance preserved
+        """Test that DDTrace filter instance is preserved across reconfiguration.
+
+        _apply_config clears handlers but not filters. Using no_freeze=True allows
+        reconfiguration while keeping existing filters intact.
+        """
+        with patch("logspark.Core.SparkLogger.is_ddtrace_available", return_value=True):
+            fresh_logger.configure(no_freeze=True)
+
+            original_ddtrace_filters = [
+                f for f in fresh_logger.filters
+                if isinstance(f, DDTraceInjectionFilter)
+            ]
+            assert len(original_ddtrace_filters) == 1
+            original_filter = original_ddtrace_filters[0]
+
+            fresh_logger.configure(no_freeze=True)
+
+            new_ddtrace_filters = [
+                f for f in fresh_logger.filters
+                if isinstance(f, DDTraceInjectionFilter)
+            ]
+            assert len(new_ddtrace_filters) == 1
+            assert new_ddtrace_filters[0] is original_filter

@@ -1,68 +1,52 @@
 """
-Test LoggerConfig functionality.
+Test logger configure state.
+
+Tests that configure() correctly establishes logger state including handler
+attachment, level, and freeze behavior.
 """
 
 import logging
 
 import pytest
 
-from logspark._Internal.State.LoggerConfig import LoggerConfig
+from logspark.Types import FrozenClassException
 from logspark.Types.Options import TracebackOptions
 
 
-class TestLoggerConfig:
-    """Test LoggerConfig dataclass"""
+class TestLoggerConfigureState:
+    """Test logger state after configure()."""
 
-    def test_valid_configuration(self):
-        """Test LoggerConfig with valid parameters"""
-        handler = logging.StreamHandler()
-        config = LoggerConfig(
-            level=logging.INFO,
-            handler=handler,
-            traceback_policy=TracebackOptions.COMPACT
-        )
-        assert config.level == logging.INFO
-        assert config.handler == handler
-        assert config.traceback_policy == TracebackOptions.COMPACT
+    def test_configure_sets_is_configured(self, fresh_logger):
+        """Test that configure() sets is_configured to True."""
+        assert not fresh_logger.is_configured
+        fresh_logger.configure()
+        assert fresh_logger.is_configured
 
-    def test_invalid_level_type(self):
-        """Test LoggerConfig with invalid level type"""
-        handler = logging.StreamHandler()
-        with pytest.raises(ValueError, match="level must be a stdlib logging level integer"):
-            LoggerConfig(
-                level="INFO",  # String instead of int
-                handler=handler,
-                traceback_policy=TracebackOptions.COMPACT
-            )
+    def test_configure_sets_frozen(self, fresh_logger):
+        """Test that configure() freezes the logger by default."""
+        assert not fresh_logger.frozen
+        fresh_logger.configure()
+        assert fresh_logger.frozen
 
-    def test_invalid_handler_type(self):
-        """Test LoggerConfig with invalid handler type"""
-        with pytest.raises(ValueError, match="handler must be a stdlib logging.Handlers instance"):
-            LoggerConfig(
-                level=logging.INFO,
-                handler="not_a_handler",  # String instead of Handler
-                traceback_policy=TracebackOptions.COMPACT
-            )
+    def test_configure_attaches_handler(self, fresh_logger, test_handler):
+        """Test that configure() attaches the provided handler."""
+        fresh_logger.configure(handler=test_handler)
+        assert test_handler in fresh_logger.handlers
 
-    def test_invalid_traceback_policy_type(self):
-        """Test LoggerConfig with invalid traceback policy type"""
-        handler = logging.StreamHandler()
-        with pytest.raises(ValueError, match="traceback_policy must be a TracebackOptions enum value"):
-            LoggerConfig(
-                level=logging.INFO,
-                handler=handler,
-                traceback_policy="COMPACT"  # String instead of enum
-            )
+    def test_configure_sets_level(self, fresh_logger):
+        """Test that configure() sets the log level."""
+        fresh_logger.configure(level=logging.DEBUG)
+        assert fresh_logger.level == logging.DEBUG
 
-    def test_frozen_dataclass(self):
-        """Test that LoggerConfig is frozen (immutable)"""
-        handler = logging.StreamHandler()
-        config = LoggerConfig(
-            level=logging.INFO,
-            handler=handler,
-            traceback_policy=TracebackOptions.COMPACT
-        )
-        
-        # Should not be able to modify frozen dataclass
-        with pytest.raises(AttributeError):
-            config.level = logging.DEBUG
+    def test_configure_no_freeze_defers_freeze(self, fresh_logger):
+        """Test that no_freeze=True allows further configuration."""
+        fresh_logger.configure(no_freeze=True)
+        assert fresh_logger.is_configured
+        assert not fresh_logger.frozen
+
+    def test_frozen_logger_rejects_further_handlers(self, fresh_logger):
+        """Test that a frozen logger rejects addHandler calls."""
+        fresh_logger.configure()
+        assert fresh_logger.frozen
+        with pytest.raises(FrozenClassException):
+            fresh_logger.addHandler(logging.NullHandler())

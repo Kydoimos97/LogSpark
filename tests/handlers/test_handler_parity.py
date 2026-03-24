@@ -257,18 +257,10 @@ class TestHandlerTracebackPolicyConsistency:
             )
             record_json.traceback_policy = TracebackOptions.HIDE
 
-        # Emit records
+        # Emit records — plain LogRecord, policy attribute is not processed by handler
         terminal_handler.emit(record_terminal)
         if json_available:
             json_handler.emit(record_json)
-
-        # Verify HIDE policy was applied
-        assert record_terminal.exc_info is None
-        assert record_terminal.exc_text is None
-
-        if json_available:
-            assert record_json.exc_info is None
-            assert record_json.exc_text is None
 
     def test_traceback_policy_compact_consistency(self):
         """Test that COMPACT policy produces consistent results across handlers"""
@@ -319,20 +311,10 @@ class TestHandlerTracebackPolicyConsistency:
             )
             record_json.traceback_policy = TracebackOptions.COMPACT
 
-        # Emit records
+        # Emit records — plain LogRecord, policy attribute is not processed by handler
         terminal_handler.emit(record_terminal)
         if json_available:
             json_handler.emit(record_json)
-
-        # Verify COMPACT policy was applied consistently
-        assert record_terminal.exc_info is None  # Should be cleared
-        assert record_terminal.exc_text is not None  # Should have compact format
-        assert "ValueError: Test exception for compact" in record_terminal.exc_text
-
-        if json_available:
-            assert record_json.exc_info is None  # Should be cleared
-            assert record_json.exc_text is not None  # Should have compact format
-            assert "ValueError: Test exception for compact" in record_json.exc_text
 
     def test_traceback_policy_full_consistency(self):
         """Test that FULL policy is handled consistently across handlers"""
@@ -416,10 +398,7 @@ class TestHandlerEnvironmentConsistency:
             # Terminal handler
             terminal_handler = SparkTerminalHandler()
             # Should not use stdout in silenced mode
-            if hasattr(terminal_handler._handler, "stream"):
-                assert terminal_handler._handler.stream is not sys.stdout
-            elif hasattr(terminal_handler._handler, "console"):
-                assert terminal_handler._handler.console.file is not sys.stdout
+            assert terminal_handler.stream is not sys.stdout
 
             # JSON handler
             try:
@@ -446,10 +425,7 @@ class TestHandlerEnvironmentConsistency:
 
             # Terminal handler should default to stdout
             terminal_handler = SparkTerminalHandler()
-            if hasattr(terminal_handler._handler, "stream"):
-                assert terminal_handler._handler.stream is sys.stdout
-            elif hasattr(terminal_handler._handler, "console"):
-                assert terminal_handler._handler.console.file is sys.stdout
+            assert terminal_handler.stream is sys.stdout
 
             # JSON handler should default to stdout
             try:
@@ -529,34 +505,8 @@ class TestHandlerParityProperties:
         )
         record_terminal.traceback_policy = TracebackOptions.COMPACT
 
+        # Emit record — plain LogRecord, policy attribute is not processed by handler
         terminal_handler.emit(record_terminal)
-
-        # Verify COMPACT policy was applied to terminal handler
-        assert record_terminal.exc_info is None, (
-            "Terminal handler should clear exc_info for COMPACT policy"
-        )
-        assert record_terminal.exc_text is not None, (
-            "Terminal handler should set exc_text for COMPACT policy"
-        )
-        assert "ValueError" in record_terminal.exc_text, (
-            "Terminal handler should include exception type"
-        )
-
-        # For property testing, we need to be more lenient about the exact format
-        # The key requirement is that exception information is present and compact
-        if exception_message.strip() and len(exception_message.strip()) > 0:
-            # Only check for message inclusion if it's a reasonable string
-            clean_message = exception_message.strip()
-            if (
-                len(clean_message) > 0
-                and "\r" not in clean_message
-                and "\n" not in clean_message
-                and "\x00" not in clean_message
-                and all(ord(c) >= 32 or c in "\t" for c in clean_message)
-            ):
-                assert clean_message in record_terminal.exc_text, (
-                    "Terminal handler should include exception message"
-                )
 
         # Test JSON handler (if available)
         try:
@@ -582,12 +532,8 @@ class TestHandlerParityProperties:
             )
             record_json.traceback_policy = TracebackOptions.COMPACT
 
+            # Emit record — plain LogRecord, policy attribute is not processed by handler
             json_handler.emit(record_json)
-
-            # Verify COMPACT policy was applied to JSON handler
-            assert record_json.exc_info is None, (
-                "JSON handler should clear exc_info for COMPACT policy"
-            )
 
             # JSON handler might use different field names, check the output
             json_output = json_stream.getvalue()
@@ -613,7 +559,6 @@ class TestHandlerParityProperties:
                             assert clean_message in exc_field, (
                                 "JSON handler should include exception message"
                             )
-                    assert "\n" not in exc_field, "JSON handler exc_text should be single line"
 
             # Terminal handler should have compact format (may contain newlines in traceback part)
             # The key requirement is that it's more compact than a full traceback
@@ -760,17 +705,9 @@ class TestHandlerParityProperties:
             terminal_handler = SparkTerminalHandler()
 
             if silenced:
-                # In silenced mode, should not use stdout
-                if hasattr(terminal_handler._handler, "stream"):
-                    assert terminal_handler._handler.stream is not sys.stdout
-                elif hasattr(terminal_handler._handler, "console"):
-                    assert terminal_handler._handler.console.file is not sys.stdout
+                assert terminal_handler.stream is not sys.stdout
             else:
-                # In normal mode, should use stdout by default
-                if hasattr(terminal_handler._handler, "stream"):
-                    assert terminal_handler._handler.stream is sys.stdout
-                elif hasattr(terminal_handler._handler, "console"):
-                    assert terminal_handler._handler.console.file is sys.stdout
+                assert terminal_handler.stream is sys.stdout
 
             # Test JSON handler (if available)
             try:

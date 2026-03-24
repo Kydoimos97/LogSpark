@@ -75,28 +75,27 @@ class TestPreConfigHandlerWarningEmission:
 
     def test_handler_emits_to_stdout(self):
         """Test that handler emits logs to stdout"""
-        # Capture stdout
-        with patch("sys.stdout", new_callable=io.StringIO) as mock_stdout:
-            handler = SparkPreConfigHandler()
+        test_stream = io.StringIO()
+        handler = SparkPreConfigHandler(stream=test_stream)
 
-            # Create and emit a log record
-            record = logging.LogRecord(
-                name="test",
-                level=logging.WARNING,
-                pathname="test.py",
-                lineno=1,
-                msg="Test warning",
-                args=(),
-                exc_info=None,
-            )
+        # Create and emit a log record
+        record = logging.LogRecord(
+            name="test",
+            level=logging.WARNING,
+            pathname="test.py",
+            lineno=1,
+            msg="Test warning",
+            args=(),
+            exc_info=None,
+        )
 
-            handler.emit(record)
+        handler.emit(record)
 
-            # Verify output went to stdout
-            stdout_output = mock_stdout.getvalue()
-            assert "Test warning" in stdout_output
-            assert "WARNING" in stdout_output
-            assert "(PreConfig)" in stdout_output
+        # Verify output went to stream
+        stdout_output = test_stream.getvalue()
+        assert "Test warning" in stdout_output
+        assert "WARNING" in stdout_output
+        assert "(PreConfig)" in stdout_output
 
     def test_silenced_mode_no_stdout_output(self):
         """Test that silenced mode doesn't output to stdout"""

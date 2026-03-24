@@ -362,7 +362,7 @@ class TestEnvironmentModeProperties:
                         captured_records.append(record)
 
                 handler = RecordCapturingHandler()
-                fresh_logger.configure()
+                fresh_logger.configure(handler=handler, level=logging.DEBUG)
 
                 # Call logging method
                 getattr(fresh_logger, log_method)(message)
@@ -406,7 +406,7 @@ class TestPreConfigurationValidation:
         beyond emitting unconfigured-usage warnings and should not include implicit mode switching
         """
         # Create fresh logger instance for this test
-        from logspark import SparkLogger
+        from logspark.Core.SparkLogger import SparkLogger
 
         fresh_logger = logger
         fresh_logger.kill()
@@ -455,17 +455,14 @@ class TestPreConfigurationValidation:
 
                 # Verify that pre-is_configured setup was done
                 assert fresh_logger._pre_config_setup_done, "Pre-is_configured setup should be completed"
-                assert fresh_logger._stdlib_logger is not None, "Stdlib logger should be created"
-                assert len(fresh_logger._stdlib_logger.handlers) > 0, (
-                    "Should have at least one handler"
-                )
+                assert len(fresh_logger.handlers) > 0, "Should have at least one handler"
 
                 # Verify no implicit mode switching occurred
                 # Pre-is_configured should use minimal terminal logging only
-                handler = fresh_logger._stdlib_logger.handlers[0]
+                handler = fresh_logger.handlers[0]
 
                 # Should not have multiple handlers (no mode switching)
-                assert len(fresh_logger._stdlib_logger.handlers) == 1, (
+                assert len(fresh_logger.handlers) == 1, (
                     "Pre-is_configured should not create multiple handlers (no mode switching)"
                 )
 
@@ -480,10 +477,10 @@ class TestPreConfigurationValidation:
                     log_method(f"Additional {message}")
 
                 # Verify handler setup remained stable (no implicit switching)
-                assert len(fresh_logger._stdlib_logger.handlers) == 1, (
+                assert len(fresh_logger.handlers) == 1, (
                     "Handlers count should remain stable"
                 )
-                assert type(fresh_logger._stdlib_logger.handlers[0]) is original_handler_type, (
+                assert type(fresh_logger.handlers[0]) is original_handler_type, (
                     "Handlers type should not change (no implicit mode switching)"
                 )
 

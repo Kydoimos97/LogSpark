@@ -197,7 +197,7 @@ class TestRelease:
         fresh_log_manager.adopt(logger2)
 
         # Apply unify configuration
-        fresh_log_manager.unify(handler=test_handler, level=logging.WARNING)
+        fresh_log_manager.unify(handlers=[test_handler], level=logging.WARNING)
 
         # Verify configuration was applied
         assert logger1.handlers[0] is test_handler

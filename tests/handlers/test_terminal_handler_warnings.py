@@ -106,43 +106,32 @@ class TestSparkTerminalHandlerTimeFormatValidation:
             ]
             assert len(time_warnings) >= 1
 
-    def test_callable_time_format_rich_only(self):
-        """Test that callable time formats work only with Rich"""
-        pytest.importorskip("rich")
+    def test_callable_time_format_rejected(self):
+        """Test that callable time formats are rejected with a warning and fall back to default"""
 
         def custom_time_format(dt):
             return f"Custom: {dt.strftime('%H:%M:%S')}"
 
-        # Should work with Rich
-        handler_rich = SparkTerminalHandler(log_time_format=custom_time_format)
-        assert callable(handler_rich._handler._spark_formatter.time_format)
-
-        # Should be rejected for stdlib and fall back to default with warning
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
 
-            handler_stdlib = SparkTerminalHandler(log_time_format=custom_time_format)
+            handler = SparkTerminalHandler(log_time_format=custom_time_format)
 
-            # Should emit warning about invalid time format (callable not supported for stdlib)
             time_warnings = [
                 warning for warning in w
                 if "timeformat" in str(warning.message).lower()
             ]
             assert len(time_warnings) >= 1
 
-            # Should fall back to default string format
-            formatter = handler_stdlib._handler.formatter
+            formatter = handler.formatter
             assert formatter is not None
 
-            # Verify it uses default time format by checking a formatted record
-            import logging
             record = logging.LogRecord(
                 name="test", level=logging.INFO, pathname="test.py", lineno=1,
                 msg="Test message", args=(), exc_info=None
             )
             formatted = formatter.format(record)
             assert isinstance(formatted, str)
-            # Should contain default time format pattern (not custom format)
             assert "Custom:" not in formatted
 
 
@@ -150,38 +139,31 @@ class TestSparkTerminalHandlerBranchingBehavior:
     """Test Rich vs stdlib branching behavior"""
 
     def test_rich_branch_selection(self):
-        """Test that Rich branch is selected when available and not disabled"""
-        pytest.importorskip("rich")
-
+        """Test that SparkTerminalHandler is a StreamHandler with a formatter set"""
         handler = SparkTerminalHandler()
 
-        # Should use Rich handler
-        from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
-        assert isinstance(handler._handler, SparkRichHandler)
+        assert isinstance(handler, logging.StreamHandler)
+        assert handler.formatter is not None
 
     def test_stdlib_branch_selection(self):
-        """Test that stdlib branch is selected when Rich is disabled"""
+        """Test that SparkTerminalHandler is always a StreamHandler"""
         handler = SparkTerminalHandler()
 
-        # Should use stdlib StreamHandler
-        assert isinstance(handler._handler, logging.StreamHandler)
-        assert not hasattr(handler._handler, "_c_log_render")
+        assert isinstance(handler, logging.StreamHandler)
+        assert not hasattr(handler, "_spark_formatter")
 
     def test_rich_disabled_forces_stdlib(self):
-        """Test that no_rich=True forces stdlib even if Rich is available"""
-        pytest.importorskip("rich")
-
+        """Test that SparkTerminalHandler is always stdlib-based"""
         handler = SparkTerminalHandler()
 
-        # Should use stdlib handler despite Rich being available
-        assert isinstance(handler._handler, logging.StreamHandler)
+        assert isinstance(handler, logging.StreamHandler)
 
     def test_stdlib_format_generation(self):
         """Test stdlib format string generation with different options"""
         handler = SparkTerminalHandler(show_time=True, show_level=True, show_path=True, show_function=True, level_width=10)
 
         # Should have formatter with expected format
-        formatter = handler._handler.formatter
+        formatter = handler.formatter
         assert formatter is not None
 
         # Test that it can format a record
@@ -214,7 +196,7 @@ class TestSparkTerminalHandlerColorFormatter:
 
                 # Should use SparkColorFormatter when FORCE_COLOR is set
                 from logspark.Formatters import SparkColorFormatter
-                assert isinstance(handler._handler.formatter, SparkColorFormatter)
+                assert isinstance(handler.formatter, SparkColorFormatter)
 
     def test_plain_formatter_when_not_viable(self):
         """Test that plain formatter is used when output surface is not viable"""
@@ -222,16 +204,16 @@ class TestSparkTerminalHandlerColorFormatter:
             handler = SparkTerminalHandler(use_color=True)
 
             # Should use plain Formatter
-            assert isinstance(handler._handler.formatter, logging.Formatter)
+            assert isinstance(handler.formatter, logging.Formatter)
             from logspark.Formatters import SparkColorFormatter
-            assert not isinstance(handler._handler.formatter, SparkColorFormatter)
+            assert not isinstance(handler.formatter, SparkColorFormatter)
 
     def test_color_formatter_level_colors(self):
         """Test that SparkColorFormatter applies correct colors"""
         with patch("logspark._Internal.Func.is_color_compatible_terminal.is_color_compatible_terminal", return_value=True):
             handler = SparkTerminalHandler(use_color=True)
 
-            formatter = handler._handler.formatter
+            formatter = handler.formatter
             from logspark.Formatters import SparkColorFormatter
 
             if isinstance(formatter, SparkColorFormatter):

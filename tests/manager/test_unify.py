@@ -34,7 +34,7 @@ class TestUnify:
         fresh_log_manager.adopt(logger2)
 
         # Unify with new handler
-        fresh_log_manager.unify(handler=test_handler)
+        fresh_log_manager.unify(handlers=[test_handler])
 
         # Verify handlers were replaced
         assert len(logger1.handlers) == 1
@@ -98,7 +98,7 @@ class TestUnify:
         fresh_log_manager.adopt(logger)
 
         # Unify with all parameters
-        fresh_log_manager.unify(handler=test_handler, level=logging.ERROR, propagate=False)
+        fresh_log_manager.unify(handlers=[test_handler], level=logging.ERROR, propagate=False)
 
         # Verify all settings were applied
         assert len(logger.handlers) == 1
@@ -119,7 +119,7 @@ class TestUnify:
 
         # Verify error is raised
         with pytest.raises(InvalidConfigurationError, match="LogSpark logger not is_configured"):
-            fresh_log_manager.unify(use_spark_handler=True)
+            fresh_log_manager.unify(copy_spark_logger_config=True)
 
     def test_unify_use_spark_handler_not_frozen(self, fresh_log_manager, test_handler):
         """Test that unify() with use_spark_handler=True raises error when LogSpark not frozen."""
@@ -134,7 +134,7 @@ class TestUnify:
         spark_logger.kill()
         spark_logger.configure(
             level=logging.INFO,
-            traceback=TracebackOptions.HIDE,
+            traceback_policy=TracebackOptions.HIDE,
             handler=test_handler,
             no_freeze=True,
         )
@@ -143,7 +143,7 @@ class TestUnify:
         with pytest.raises(
             UnfrozenGlobalOperationError, match="LogSpark logger needs to be frozen"
         ):
-            fresh_log_manager.unify(use_spark_handler=True)
+            fresh_log_manager.unify(copy_spark_logger_config=True)
 
     def test_unify_use_spark_handler_success(self, fresh_log_manager, test_handler):
         """Test successful unify() with use_spark_handler=True."""
@@ -157,26 +157,16 @@ class TestUnify:
 
         spark_logger.kill()
         spark_logger.configure(
-            level=logging.INFO, traceback=TracebackOptions.HIDE, handler=test_handler
+            level=logging.INFO, traceback_policy=TracebackOptions.HIDE, handler=test_handler
         )
         # configure() auto-freezes
 
         # Unify using LogSpark handler
-        fresh_log_manager.unify(use_spark_handler=True)
+        fresh_log_manager.unify(copy_spark_logger_config=True)
 
         # Verify handler was copied
         assert len(logger.handlers) == 1
         assert logger.handlers[0] is test_handler
-
-    def test_unify_invalid_handler_type(self, fresh_log_manager):
-        """Test that unify() raises ValueError for invalid handler type."""
-        # Create and adopt logger
-        logger = logging.getLogger("test.invalid.handler")
-        fresh_log_manager.adopt(logger)
-
-        # Verify error is raised for non-handler object
-        with pytest.raises(ValueError, match="Handler must be a logging.Handler instance"):
-            fresh_log_manager.unify(handler="not a handler")
 
     def test_unify_level_validation(self, fresh_log_manager):
         """Test that unify() validates log levels."""
@@ -204,7 +194,7 @@ class TestUnify:
         fresh_log_manager.adopt(logger)
 
         # Unify with only handler specified
-        fresh_log_manager.unify(handler=test_handler)
+        fresh_log_manager.unify(handlers=[test_handler])
 
         # Verify handler was replaced but other settings preserved
         assert len(logger.handlers) == 1
@@ -270,7 +260,7 @@ class TestUnifyProperties:
         target_propagate = False
 
         spark_log_manager.unify(
-            handler=test_handler, level=target_level, propagate=target_propagate
+            handlers=[test_handler], level=target_level, propagate=target_propagate
         )
 
         # Verify configuration was applied to all managed loggers

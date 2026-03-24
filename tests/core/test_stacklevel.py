@@ -88,7 +88,7 @@ class TestStacklevelResolution:
 
         # Configure logger with capturing handler
         handler = RecordCapturingHandler()
-        fresh_logger.configure()
+        fresh_logger.configure(handler=handler)
 
         # Create a nested call structure to test stacklevel resolution
         def user_function():
@@ -117,7 +117,7 @@ class TestStacklevelResolution:
                 captured_records.append(record)
 
         handler = RecordCapturingHandler()
-        fresh_logger.configure()
+        fresh_logger.configure(handler=handler)
 
         def level_5():
             fresh_logger.info("deep call")
@@ -227,7 +227,7 @@ class TestStacklevelProperties:
 
                 fresh_logger.kill()  # Reset for each iteration
                 handler = RecordCapturingHandler()
-                fresh_logger.configure()
+                fresh_logger.configure(handler=handler)
 
                 # Create a test function to ensure consistent call site
                 def test_function():
@@ -274,19 +274,13 @@ class TestCallSiteResolutionProperties:
         import inspect
 
         # Configure logger with test parameters
-        from logspark.Handlers import SparkTerminalHandler
+        logger.kill()
 
-        handler = SparkTerminalHandler()
-        logger.configure()
-
-        # Capture log output to examine call-site information
         log_stream = StringIO()
         test_handler = logging.StreamHandler(log_stream)
         test_handler.setFormatter(logging.Formatter("%(pathname)s:%(lineno)d:%(funcName)s"))
 
-        # Replace handler to capture call-site info
-        logger.instance.handlers.clear()
-        logger.instance.addHandler(test_handler)
+        logger.configure(handler=test_handler)
 
         # Create a nested function to test call-site resolution
         def nested_logging_function():
@@ -321,11 +315,6 @@ class TestCallSiteResolutionProperties:
         log_output = log_stream.getvalue().strip()
 
         if log_output:  # Only check if something was logged (level filtering might prevent output)
-            # Parse the call-site information from log output
-            # Format is: filename:lineno:funcname message
-            # But on Windows, the full path might contain colons, so we need to be careful
-
-            # Find the last occurrence of the pattern :number: to split correctly
             import re
 
             match = re.search(r"([^:]+):(\d+):([^:]+)", log_output)
@@ -333,15 +322,12 @@ class TestCallSiteResolutionProperties:
             if match:
                 logged_filename = match.group(1)
 
-                # The key requirement: call-site should NEVER point to LogSpark internal modules
-                # EXCEPT when fast_log=True (fast_log trades accuracy for performance)
                 assert not (
                     "LogSpark/Logging/" in logged_filename
                     or logged_filename.endswith("LogSpark/Logging/core.py")
                     or logged_filename.endswith("LogSpark/Logging/SparkTerminalHandler.py")
                 ), f"Call-site points to LogSpark internal module: {logged_filename}"
 
-                # For stacklevel=1 (default), it should point to our test code
                 if stacklevel == 1:
                     assert "test_stacklevel.py" in logged_filename, (
                         f"With stacklevel=1, call-site should point to test code, got: {logged_filename}"
@@ -369,17 +355,12 @@ class TestCallSiteResolutionProperties:
             return
 
         with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
-            from logspark.Handlers import SparkTerminalHandler
+            logger.kill()
 
-            handler = SparkTerminalHandler()
-            logger.configure()
-
-            # Capture log output with a formatter that includes the message clearly
             log_stream = StringIO()
             test_handler = logging.StreamHandler(log_stream)
             test_handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-            logger.instance.handlers.clear()
-            logger.instance.addHandler(test_handler)
+            logger.configure(handler=test_handler)
 
             # Create deeply nested function calls to test constant-time behavior
             def create_nested_calls(depth):
@@ -407,7 +388,7 @@ class TestCallSiteResolutionProperties:
 
                 # Verify logging still works regardless of depth
                 log_output = log_stream.getvalue().strip()
-                if logger.instance.isEnabledFor(level):
+                if logger.isEnabledFor(level):
                     assert message in log_output, (
                         f"Message '{message}' not found in output '{log_output}' at depth {depth}"
                     )

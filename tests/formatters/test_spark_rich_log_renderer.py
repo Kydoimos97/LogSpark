@@ -82,7 +82,7 @@ class TestSparkRichLogRenderer:
 
         renderer = SparkRichFormatter(show_function = True, show_path = True)
 
-        message_width, path_width, function_width, show_arrow = renderer._assign_variable_widths(console, None, None, None, Text('funky_function'))
+        message_width, time_width, path_width, function_width = renderer._assign_variable_widths(console, None, None, None, Text('funky_function'))
 
         assert function_width == len('funky_function')
 

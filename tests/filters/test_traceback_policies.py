@@ -1,528 +1,115 @@
 """
-Test traceback policy behavior across different handlers.
+Test TracebackPolicyFilter behavior.
 
-This module tests the HIDE, COMPACT, and FULL traceback policies to ensure
-they behave consistently and correctly modify log records as expected.
+This module tests that TracebackPolicyFilter correctly enriches log records
+with spark attributes and sets the exception origin flag.
 """
 
-import io
 import logging
 import sys
+from pathlib import Path
 
-from logspark._Internal.Func.configure_handler_traceback_policy import (
-    configure_handler_traceback_policy,
-)
+from logspark.Filters.TracebackPolicyFilter import TracebackPolicyFilter
 from logspark.Types.Options import TracebackOptions
+from logspark.Types.SparkRecordAttrs import SparkRecordAttrs, has_spark_extra_attributes
 
 
-class TestTracebackPolicyNone:
-    """Test HIDE policy excludes exception information"""
+class TestTracebackPolicyFilterBasics:
+    """Test TracebackPolicyFilter sets correct record attributes."""
 
-    def test_none_policy_excludes_exception_info(self):
-        """Test that HIDE policy excludes exception information from records"""
-        # Create a basic handler
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
+    def test_filter_sets_spark_exc_flag(self):
+        """Test that filter sets _spark_exc = True on records."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.INFO, "test.py", 1, "msg", (), None)
+        f.filter(record)
+        assert getattr(record, "_spark_exc", False) is True
 
-        # Create a record with exception info
-        try:
-            raise ValueError("Test exception for HIDE policy")
-        except ValueError:
-            record = logging.LogRecord(
-                name="test.logger",
-                level=logging.ERROR,
-                pathname="test.py",
-                lineno=42,
-                msg="Error occurred",
-                args=(),
-                exc_info=sys.exc_info(),
-            )
+    def test_filter_creates_spark_attrs_if_missing(self):
+        """Test that filter creates record.spark if not already present."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.INFO, "test.py", 1, "msg", (), None)
+        assert not hasattr(record, "spark")
+        f.filter(record)
+        assert has_spark_extra_attributes(record)
+        assert isinstance(record.spark, SparkRecordAttrs)
 
-        # Process the record through the handler's filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Verify traceback policy was set
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.HIDE
-
-        # The record should still have exc_info at this point
-        # (handlers are responsible for processing the policy)
-        assert record.exc_info is not None
-
-    def test_none_policy_with_no_exception(self):
-        """Test that HIDE policy works correctly with records that have no exception"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
-
-        record = logging.LogRecord(
-            name="test.logger",
-            level=logging.INFO,
-            pathname="test.py",
-            lineno=42,
-            msg="Normal log message",
-            args=(),
-            exc_info=None,
+    def test_filter_does_not_overwrite_existing_spark(self):
+        """Test that filter preserves spark attrs already set on the record."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.INFO, "test.py", 1, "msg", (), None)
+        existing = SparkRecordAttrs(
+            filename="existing.py",
+            filepath=Path("existing.py"),
+            lineno=99,
+            function="existing_func",
+            uri=None,
+            exc_type=None,
+            exc_value=None,
         )
-
-        # Process the record through the handler's filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Verify traceback policy was set
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.HIDE
-        assert record.exc_info is None
-
-
-class TestTracebackPolicyCompact:
-    """Test COMPACT policy includes essential information"""
-
-    def test_compact_policy_sets_policy_attribute(self):
-        """Test that COMPACT policy sets the correct policy attribute"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.COMPACT)
-
-        try:
-            raise ValueError("Test exception for COMPACT policy")
-        except ValueError:
-            record = logging.LogRecord(
-                name="test.logger",
-                level=logging.ERROR,
-                pathname="test.py",
-                lineno=42,
-                msg="Error occurred",
-                args=(),
-                exc_info=sys.exc_info(),
-            )
-
-        # Process the record through the handler's filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Verify traceback policy was set
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.COMPACT
-
-    def test_compact_policy_with_no_exception(self):
-        """Test that COMPACT policy works correctly with records that have no exception"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.COMPACT)
-
-        record = logging.LogRecord(
-            name="test.logger",
-            level=logging.INFO,
-            pathname="test.py",
-            lineno=42,
-            msg="Normal log message",
-            args=(),
-            exc_info=None,
-        )
-
-        # Process the record through the handler's filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Verify traceback policy was set
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.COMPACT
-        assert record.exc_info is None
-
-
-class TestTracebackPolicyFull:
-    """Test FULL policy includes complete information"""
-
-    def test_full_policy_sets_policy_attribute(self):
-        """Test that FULL policy sets the correct policy attribute"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.FULL)
-
-        try:
-            raise ValueError("Test exception for FULL policy")
-        except ValueError:
-            record = logging.LogRecord(
-                name="test.logger",
-                level=logging.ERROR,
-                pathname="test.py",
-                lineno=42,
-                msg="Error occurred",
-                args=(),
-                exc_info=sys.exc_info(),
-            )
-
-        # Process the record through the handler's filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Verify traceback policy was set
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.FULL
-
-    def test_full_policy_with_no_exception(self):
-        """Test that FULL policy works correctly with records that have no exception"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.FULL)
-
-        record = logging.LogRecord(
-            name="test.logger",
-            level=logging.INFO,
-            pathname="test.py",
-            lineno=42,
-            msg="Normal log message",
-            args=(),
-            exc_info=None,
-        )
-
-        # Process the record through the handler's filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Verify traceback policy was set
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.FULL
-        assert record.exc_info is None
-
-
-class TestRecordMutationGuarantees:
-    """Test record mutation guarantees"""
-
-    def test_filter_mutates_record_not_output(self):
-        """Test that traceback policy filter mutates records but doesn't format output"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.COMPACT)
-
-        record = logging.LogRecord(
-            name="test.logger",
-            level=logging.INFO,
-            pathname="test.py",
-            lineno=42,
-            msg="Test message",
-            args=(),
-            exc_info=None,
-        )
-
-        # Record should not have traceback_policy initially
-        assert not hasattr(record, "traceback_policy")
-
-        # Process through filters
-        for filter_obj in handler.filters:
-            result = filter_obj.filter(record)
-            # Filter should return True (allow record to pass)
-            assert result is True
-
-        # Record should now have traceback_policy attribute
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.COMPACT
-
-        # The original message and other attributes should be unchanged
-        assert record.msg == "Test message"
-        assert record.levelno == logging.INFO
-        assert record.name == "test.logger"
-
-    def test_multiple_filters_preserve_policy(self):
-        """Test that multiple filters don't interfere with traceback policy"""
-        handler = logging.StreamHandler(io.StringIO())
-
-        # Add a custom filter first
-        class CustomFilter(logging.Filter):
-            def filter(self, record):
-                record.custom_field = "custom_value"
-                return True
-
-        handler.addFilter(CustomFilter())
-        configure_handler_traceback_policy(handler, TracebackOptions.FULL)
-
-        record = logging.LogRecord(
-            name="test.logger",
-            level=logging.INFO,
-            pathname="test.py",
-            lineno=42,
-            msg="Test message",
-            args=(),
-            exc_info=None,
-        )
-
-        # Process through all filters
-        for filter_obj in handler.filters:
-            filter_obj.filter(record)
-
-        # Both custom field and traceback policy should be set
-        assert hasattr(record, "custom_field")
-        assert record.custom_field == "custom_value"
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.FULL
+        record.spark = existing
+        f.filter(record)
+        assert record.spark is existing
 
     def test_filter_always_returns_true(self):
-        """Test that traceback policy filter always allows records to pass through"""
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
+        """Test that filter always allows records to pass through."""
+        f = TracebackPolicyFilter()
+        for level in [logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL]:
+            record = logging.LogRecord("test", level, "test.py", 1, "msg", (), None)
+            assert f.filter(record) is True
 
-        # Test with various record types
-        records = [
-            logging.LogRecord("test", logging.DEBUG, "test.py", 1, "debug", (), None),
-            logging.LogRecord("test", logging.INFO, "test.py", 1, "info", (), None),
-            logging.LogRecord("test", logging.WARNING, "test.py", 1, "warning", (), None),
-            logging.LogRecord("test", logging.ERROR, "test.py", 1, "error", (), None),
-            logging.LogRecord("test", logging.CRITICAL, "test.py", 1, "critical", (), None),
-        ]
-
-        for record in records:
-            for filter_obj in handler.filters:
-                result = filter_obj.filter(record)
-                assert result is True, f"Filter should always return True for {record.levelname}"
-                assert hasattr(record, "traceback_policy")
-                assert record.traceback_policy == TracebackOptions.HIDE
-
-
-# Property-based tests
-from hypothesis import given
-from hypothesis import strategies as st
-
-
-class TestTracebackPolicyProperties:
-    """Property-based tests for traceback policy behavior"""
-
-    @given(
-        logger_name=st.text(
-            min_size=1, max_size=100, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        message=st.text(
-            min_size=1, max_size=500, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        level=st.sampled_from([
-            logging.DEBUG,
-            logging.INFO,
-            logging.WARNING,
-            logging.ERROR,
-            logging.CRITICAL,
-        ]),
-        lineno=st.integers(min_value=1, max_value=10000),
-        exception_message=st.text(
-            min_size=1, max_size=200, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-    )
-    def test_property_traceback_policy_none(
-        self, logger_name, message, level, lineno, exception_message
-    ):
-        """
-
-        For any log record, when traceback policy is HIDE, the policy should be set correctly
-
-        """
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.HIDE)
-
-        # Create record with or without exception
+    def test_filter_works_with_exception_record(self):
+        """Test that filter handles exception records correctly."""
+        f = TracebackPolicyFilter()
         try:
-            raise ValueError(exception_message)
+            raise ValueError("test")
         except ValueError:
-            exc_info = sys.exc_info()
+            record = logging.LogRecord(
+                "test", logging.ERROR, "test.py", 1, "msg", (), sys.exc_info()
+            )
+        result = f.filter(record)
+        assert result is True
+        assert getattr(record, "_spark_exc", False) is True
+        assert has_spark_extra_attributes(record)
+        assert record.spark.is_exception
 
-        record = logging.LogRecord(
-            name=logger_name,
-            level=level,
-            pathname="test.py",
-            lineno=lineno,
-            msg=message,
-            args=(),
-            exc_info=exc_info,
-        )
+    def test_filter_with_no_exception(self):
+        """Test that filter works correctly on records with no exception."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.INFO, "test.py", 1, "msg", (), None)
+        result = f.filter(record)
+        assert result is True
+        assert getattr(record, "_spark_exc", False) is True
+        assert has_spark_extra_attributes(record)
+        assert not record.spark.is_exception
 
-        # Process through filters
-        for filter_obj in handler.filters:
-            result = filter_obj.filter(record)
-            assert result is True
 
-        # Verify HIDE policy was applied
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.HIDE
-        # Original record data should be preserved
-        assert record.name == logger_name
-        assert record.msg == message
-        assert record.levelno == level
-        assert record.lineno == lineno
+class TestTracebackPolicyFilterRecordPreservation:
+    """Test that TracebackPolicyFilter does not mutate core record fields."""
 
-    @given(
-        logger_name=st.text(
-            min_size=1, max_size=100, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        message=st.text(
-            min_size=1, max_size=500, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        level=st.sampled_from([
-            logging.DEBUG,
-            logging.INFO,
-            logging.WARNING,
-            logging.ERROR,
-            logging.CRITICAL,
-        ]),
-        lineno=st.integers(min_value=1, max_value=10000),
-        exception_message=st.text(
-            min_size=1, max_size=200, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-    )
-    def test_property_traceback_policy_compact(
-        self, logger_name, message, level, lineno, exception_message
-    ):
-        """
+    def test_filter_preserves_message(self):
+        """Test that filter does not alter the record message."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.INFO, "test.py", 42, "original message", (), None)
+        f.filter(record)
+        assert record.msg == "original message"
 
-        For any log record, when traceback policy is COMPACT, the policy should be set correctly
+    def test_filter_preserves_level(self):
+        """Test that filter does not alter the record level."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.WARNING, "test.py", 1, "msg", (), None)
+        f.filter(record)
+        assert record.levelno == logging.WARNING
 
-        """
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.COMPACT)
+    def test_filter_preserves_name(self):
+        """Test that filter does not alter the logger name."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("my.logger", logging.INFO, "test.py", 1, "msg", (), None)
+        f.filter(record)
+        assert record.name == "my.logger"
 
-        # Create record with or without exception
-        try:
-            raise ValueError(exception_message)
-        except ValueError:
-            exc_info = sys.exc_info()
-
-        record = logging.LogRecord(
-            name=logger_name,
-            level=level,
-            pathname="test.py",
-            lineno=lineno,
-            msg=message,
-            args=(),
-            exc_info=exc_info,
-        )
-
-        # Process through filters
-        for filter_obj in handler.filters:
-            result = filter_obj.filter(record)
-            assert result is True
-
-        # Verify COMPACT policy was applied
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.COMPACT
-        # Original record data should be preserved
-        assert record.name == logger_name
-        assert record.msg == message
-        assert record.levelno == level
-        assert record.lineno == lineno
-
-    @given(
-        logger_name=st.text(
-            min_size=1, max_size=100, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        message=st.text(
-            min_size=1, max_size=500, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        level=st.sampled_from([
-            logging.DEBUG,
-            logging.INFO,
-            logging.WARNING,
-            logging.ERROR,
-            logging.CRITICAL,
-        ]),
-        lineno=st.integers(min_value=1, max_value=10000),
-        exception_message=st.text(
-            min_size=1, max_size=200, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-    )
-    def test_property_traceback_policy_full(
-        self, logger_name, message, level, lineno, exception_message
-    ):
-        """
-
-        For any log record, when traceback policy is FULL, the policy should be set correctly
-
-        """
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, TracebackOptions.FULL)
-
-        # Create record with or without exception
-        try:
-            raise ValueError(exception_message)
-        except ValueError:
-            exc_info = sys.exc_info()
-
-        record = logging.LogRecord(
-            name=logger_name,
-            level=level,
-            pathname="test.py",
-            lineno=lineno,
-            msg=message,
-            args=(),
-            exc_info=exc_info,
-        )
-
-        # Process through filters
-        for filter_obj in handler.filters:
-            result = filter_obj.filter(record)
-            assert result is True
-
-        # Verify FULL policy was applied
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == TracebackOptions.FULL
-        # Original record data should be preserved
-        assert record.name == logger_name
-        assert record.msg == message
-        assert record.levelno == level
-        assert record.lineno == lineno
-
-    @given(
-        logger_name=st.text(
-            min_size=1, max_size=100, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        message=st.text(
-            min_size=1, max_size=500, alphabet=st.characters(min_codepoint=32, max_codepoint=126)
-        ),
-        level=st.sampled_from([
-            logging.DEBUG,
-            logging.INFO,
-            logging.WARNING,
-            logging.ERROR,
-            logging.CRITICAL,
-        ]),
-        lineno=st.integers(min_value=1, max_value=10000),
-        policy=st.sampled_from([
-            TracebackOptions.HIDE,
-            TracebackOptions.COMPACT,
-            TracebackOptions.FULL,
-        ]),
-    )
-    def test_property_filter_record_mutation(self, logger_name, message, level, lineno, policy):
-        """
-
-        For any log record and traceback policy, filters should modify records but not format output
-
-        """
-        handler = logging.StreamHandler(io.StringIO())
-        configure_handler_traceback_policy(handler, policy)
-
-        record = logging.LogRecord(
-            name=logger_name,
-            level=level,
-            pathname="test.py",
-            lineno=lineno,
-            msg=message,
-            args=(),
-            exc_info=None,
-        )
-
-        # Store original values
-        original_name = record.name
-        original_msg = record.msg
-        original_level = record.levelno
-        original_lineno = record.lineno
-
-        # Record should not have traceback_policy initially
-        assert not hasattr(record, "traceback_policy")
-
-        # Process through filters
-        for filter_obj in handler.filters:
-            result = filter_obj.filter(record)
-            # Filter should return True (allow record to pass)
-            assert result is True
-
-        # Record should now have traceback_policy attribute (mutation)
-        assert hasattr(record, "traceback_policy")
-        assert record.traceback_policy == policy
-
-        # Original record data should be preserved (no formatting)
-        assert record.name == original_name
-        assert record.msg == original_msg
-        assert record.levelno == original_level
-        assert record.lineno == original_lineno
+    def test_filter_preserves_lineno(self):
+        """Test that filter does not alter the line number."""
+        f = TracebackPolicyFilter()
+        record = logging.LogRecord("test", logging.INFO, "test.py", 99, "msg", (), None)
+        f.filter(record)
+        assert record.lineno == 99

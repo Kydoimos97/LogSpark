@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from logspark.Handlers.Rich import SparkRichHandler
+from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 
 
 class TestSparkRichHandlerPathEdgeCases:

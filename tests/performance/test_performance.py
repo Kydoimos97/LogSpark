@@ -19,7 +19,7 @@ from logspark.Types.Options import TracebackOptions
 
 def _debug_print(request, capsys, *args, **kwargs):
     """Print debug information only if capture is explicitly disabled"""
-    if request.is_configured.getoption("capture") == "no":
+    if request.config.getoption("capture") == "no":
         print(*args, **kwargs)
 
 
@@ -383,7 +383,7 @@ class TestManagerUnificationPerformance:
 
         # Measure unify_format() performance
         start_time = time.perf_counter()
-        fresh_log_manager.unify(level=fresh_logger.instance.level, use_spark_handler=True)
+        fresh_log_manager.unify(level=fresh_logger.level, copy_spark_logger_config=True)
         end_time = time.perf_counter()
         elapsed = end_time - start_time
 
@@ -431,7 +431,7 @@ class TestManagerUnificationPerformance:
 
             # Measure unify_format time
             start_time = time.perf_counter()
-            fresh_log_manager.unify(use_spark_handler=True)
+            fresh_log_manager.unify(copy_spark_logger_config=True)
             unify_time = time.perf_counter() - start_time
             unify_times.append(unify_time)
 

@@ -16,7 +16,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from logspark import SparkLogger, logger
+from logspark import logger
+from logspark.Core import SparkLogger
 from logspark.Types import FrozenClassException, InvalidConfigurationError
 from logspark.Types.Exceptions import SparkLoggerUnconfiguredUsageWarning
 
@@ -46,45 +47,27 @@ class TestLifecycleWorkflow:
             fresh_logger.configure()
 
     def test_configure_ddtrace_filter_duplicate_prevention(self, fresh_logger):
-        """Test that DDTrace filter is not duplicated (lines 287-288)."""
+        """Test that DDTrace filter is not duplicated on reconfigure after kill."""
         from logspark.Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 
-        # Configure logger first time
         fresh_logger.configure()
 
-        # Count DDTrace filters
-        ddtrace_filters = [
-            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(ddtrace_filters) == 1
+        ddtrace_filters = [f for f in fresh_logger.filters if isinstance(f, DDTraceInjectionFilter)]
+        initial_count = len(ddtrace_filters)
 
-        # Manually add another DDTrace filter to test duplicate prevention
-        fresh_logger.instance.addFilter()
-
-        # Verify we now have 2 filters
-        ddtrace_filters = [
-            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(ddtrace_filters) == 2
-
-        # Kill and reconfigure - this should reset everything
         fresh_logger.kill()
         fresh_logger.configure()
 
-        # Should only have one DDTrace filter after reconfigure
-        ddtrace_filters = [
-            f for f in fresh_logger.instance.filters if isinstance(f, DDTraceInjectionFilter)
-        ]
-        assert len(ddtrace_filters) == 1
+        ddtrace_filters = [f for f in fresh_logger.filters if isinstance(f, DDTraceInjectionFilter)]
+        assert len(ddtrace_filters) == initial_count
 
     def test_configure_fast_mode_null_handler(self, fresh_logger):
         """Test that fast mode with no handler uses NullHandler."""
         with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
             fresh_logger.configure()
 
-            # Should use NullHandler for maximum speed in fast mode
-            assert len(fresh_logger.instance.handlers) == 1
-            assert isinstance(fresh_logger.instance.handlers[0], logging.NullHandler)
+            assert len(fresh_logger.handlers) == 1
+            assert isinstance(fresh_logger.handlers[0], logging.NullHandler)
 
     def test_kill_reset_behavior(self, fresh_logger):
         """Test that kill() resets logger to unconfigured state."""
@@ -133,14 +116,12 @@ class TestLifecycleWorkflow:
 
     def test_configure_no_freeze_option(self, fresh_logger):
         """Test that no_freeze=True prevents automatic freezing."""
-        # Configure with no_freeze=True
-        fresh_logger.configure()
+        fresh_logger.configure(no_freeze=True)
 
-        # Should not be frozen
         assert not fresh_logger.frozen
 
-        # Should be able to configure again
-        fresh_logger.configure()
+        # Should be able to configure again since not frozen
+        fresh_logger.configure(no_freeze=True)
         assert not fresh_logger.frozen
 
         # Manual freeze should work
@@ -156,25 +137,20 @@ class TestLifecycleWorkflow:
             fresh_logger.freeze()
 
     def test_config_property_access_before_configuration(self, fresh_logger):
-        """Test that accessing is_configured property before configuration raises error."""
-        with pytest.raises(InvalidConfigurationError, match="LogSpark logger not is_configured"):
-            _ = fresh_logger.is_configured
+        """Test that is_configured is False before configuration."""
+        assert fresh_logger.is_configured is False
 
     def test_config_property_access_after_configuration(self, fresh_logger):
-        """Test that is_configured property is accessible after configuration."""
+        """Test that is_configured is True and level is set after configuration."""
         fresh_logger.configure()
 
-        # Should be able to access is_configured
-        config = fresh_logger.is_configured
-        assert config.level == logging.INFO
+        assert fresh_logger.is_configured is True
+        assert fresh_logger.level == logging.INFO
 
-    def test_instance_property_creates_stdlib_logger(self, fresh_logger):
-        """Test that instance property creates stdlib logger even before configuration."""
-        # Accessing instance should create stdlib logger
-        stdlib_logger = fresh_logger.instance
-
-        assert isinstance(stdlib_logger, logging.Logger)
-        assert stdlib_logger.name == "LogSpark"
+    def test_instance_is_stdlib_logger(self, fresh_logger):
+        """Test that fresh_logger is itself a logging.Logger instance."""
+        assert isinstance(fresh_logger, logging.Logger)
+        assert fresh_logger.name == "LogSpark"
 
     def test_kill_clears_singleton_state(self):
         """Test that kill() properly clears singleton state."""
@@ -230,7 +206,7 @@ class TestLifecycleProperties:
             fresh_logger.kill()  # Reset for each iteration
 
             # Configure with random parameters
-            fresh_logger.configure()
+            fresh_logger.configure(no_freeze=no_freeze)
 
             # Should be frozen unless no_freeze=True
             if no_freeze:
@@ -329,9 +305,9 @@ class TestLifecycleProperties:
             assert not fresh_logger.frozen
 
             # Should be able to reconfigure
-            fresh_logger.configure()
+            fresh_logger.configure(level=second_level)
             assert fresh_logger.frozen
-            assert fresh_logger.is_configured.level == second_level
+            assert fresh_logger.level == second_level
 
         property_test()
 

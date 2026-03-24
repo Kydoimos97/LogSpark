@@ -1,259 +1,97 @@
 """
-Tests for validate_configuration_parameters function.
+Tests for configure() parameter handling.
 
-Tests parameter validation, invalid combinations, and handler_preset/handler precedence.
+Tests the configure() method validation, parameter acceptance, and error conditions.
 """
 
 import logging
 
 import pytest
 
-from logspark._Internal.Func import validate_configuration_parameters
-from logspark.Types import InvalidConfigurationError, PresetOptions
-from logspark.Types.Options import TracebackOptions
+from logspark.Types import FrozenClassException
+from logspark.Types.Options import TracebackOptions, PathResolutionSetting
 
 
-class TestValidateConfigurationParameters:
-    """Test validate_configuration_parameters function behavior."""
+class TestConfigureParameters:
+    """Test configure() method accepts valid parameters."""
 
-    def test_valid_parameters_all_specified(self):
-        """Test validation with all valid parameters specified."""
-        handler = logging.StreamHandler()
-        level, traceback, preset = validate_configuration_parameters(
-            level=logging.INFO,
-            traceback=TracebackOptions.COMPACT,
-            handler=handler,
-            preset=PresetOptions.TERMINAL,
-            no_freeze=False,
-        )
+    def test_configure_default_parameters(self, fresh_logger):
+        """Test configure() with default parameters succeeds."""
+        fresh_logger.configure()
+        assert fresh_logger.is_configured
+        assert fresh_logger.frozen
 
-        assert level == logging.INFO
-        assert traceback == TracebackOptions.COMPACT
-        assert preset == PresetOptions.TERMINAL
+    def test_configure_with_explicit_level_int(self, fresh_logger):
+        """Test configure() accepts integer log level."""
+        fresh_logger.configure(level=logging.DEBUG)
+        assert fresh_logger.level == logging.DEBUG
 
-    def test_valid_parameters_minimal(self):
-        """Test validation with minimal valid parameters."""
-        level, traceback, preset = validate_configuration_parameters(
-            level=logging.WARNING, traceback=None, handler=None, preset=None, no_freeze=True
-        )
+    def test_configure_with_explicit_level_string(self, fresh_logger):
+        """Test configure() accepts string log level."""
+        fresh_logger.configure(level="WARNING")
+        assert fresh_logger.level == logging.WARNING
 
-        assert level == logging.WARNING
-        assert traceback == TracebackOptions.HIDE
-        assert preset is None
+    def test_configure_with_explicit_handler(self, fresh_logger, test_handler):
+        """Test configure() accepts explicit handler."""
+        fresh_logger.configure(handler=test_handler)
+        assert fresh_logger.is_configured
+        assert test_handler in fresh_logger.handlers
 
-    def test_string_level_conversion(self):
-        """Test that string levels are converted to integers."""
-        level, _, _ = validate_configuration_parameters(
-            level="DEBUG", traceback=None, handler=None, preset=None, no_freeze=False
-        )
+    def test_configure_with_traceback_policy_hide(self, fresh_logger):
+        """Test configure() accepts HIDE traceback policy."""
+        fresh_logger.configure(traceback_policy=TracebackOptions.HIDE)
+        assert fresh_logger.is_configured
 
-        assert level == logging.DEBUG
+    def test_configure_with_traceback_policy_full(self, fresh_logger):
+        """Test configure() accepts FULL traceback policy."""
+        fresh_logger.configure(traceback_policy=TracebackOptions.FULL)
+        assert fresh_logger.is_configured
 
-    def test_string_traceback_conversion(self):
-        """Test that string traceback options are converted to enums."""
-        _, traceback, _ = validate_configuration_parameters(
-            level=logging.INFO, traceback="full", handler=None, preset=None, no_freeze=False
-        )
+    def test_configure_with_path_resolution_absolute(self, fresh_logger):
+        """Test configure() accepts ABSOLUTE path resolution."""
+        fresh_logger.configure(path_resolution=PathResolutionSetting.ABSOLUTE)
+        assert fresh_logger.is_configured
 
-        assert traceback == TracebackOptions.FULL
+    def test_configure_with_no_freeze_true(self, fresh_logger):
+        """Test configure() with no_freeze=True does not freeze the logger."""
+        fresh_logger.configure(no_freeze=True)
+        assert fresh_logger.is_configured
+        assert not fresh_logger.frozen
 
-    def test_string_preset_conversion(self):
-        """Test that string handler_preset options are converted to enums."""
-        _, _, preset = validate_configuration_parameters(
-            level=logging.INFO, traceback=None, handler=None, preset="json", no_freeze=False
-        )
-
-        assert preset == PresetOptions.JSON
-
-    def test_case_insensitive_traceback(self):
-        """Test that traceback options are case insensitive."""
-        test_cases = [
-            ("HIDE", TracebackOptions.HIDE),
-            ("none", TracebackOptions.HIDE),
-            ("None", TracebackOptions.HIDE),
-            ("COMPACT", TracebackOptions.COMPACT),
-            ("compact", TracebackOptions.COMPACT),
-            ("Compact", TracebackOptions.COMPACT),
-            ("FULL", TracebackOptions.FULL),
-            ("full", TracebackOptions.FULL),
-            ("Full", TracebackOptions.FULL),
-        ]
-
-        for input_str, expected in test_cases:
-            _, traceback, _ = validate_configuration_parameters(
-                level=logging.INFO, traceback=input_str, handler=None, preset=None, no_freeze=False
-            )
-            assert traceback == expected
-
-    def test_case_insensitive_preset(self):
-        """Test that handler_preset options are case insensitive."""
-        test_cases = [
-            ("TERMINAL", PresetOptions.TERMINAL),
-            ("terminal", PresetOptions.TERMINAL),
-            ("Terminal", PresetOptions.TERMINAL),
-            ("JSON", PresetOptions.JSON),
-            ("json", PresetOptions.JSON),
-            ("Json", PresetOptions.JSON),
-        ]
-
-        for input_str, expected in test_cases:
-            _, _, preset = validate_configuration_parameters(
-                level=logging.INFO, traceback=None, handler=None, preset=input_str, no_freeze=False
-            )
-            assert preset == expected
-
-    def test_invalid_level_raises_error(self):
-        """Test that invalid levels raise KeyError."""
-        with pytest.raises(KeyError):
-            validate_configuration_parameters(
-                level=999,  # Invalid level
-                traceback=None,
-                handler=None,
-                preset=None,
-                no_freeze=False,
-            )
-
-    def test_invalid_traceback_string_raises_error(self):
-        """Test that invalid traceback strings raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="Invalid traceback option"):
-            validate_configuration_parameters(
-                level=logging.INFO, traceback="invalid", handler=None, preset=None, no_freeze=False
-            )
-
-    def test_invalid_traceback_type_raises_error(self):
-        """Test that invalid traceback types raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="Invalid traceback"):
-            validate_configuration_parameters(
-                level=logging.INFO,
-                traceback=123,  # Invalid type
-                handler=None,
-                preset=None,
-                no_freeze=False,
-            )
-
-    def test_invalid_preset_string_raises_error(self):
-        """Test that invalid handler_preset strings raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="Invalid handler_preset option"):
-            validate_configuration_parameters(
-                level=logging.INFO, traceback=None, handler=None, preset="invalid", no_freeze=False
-            )
-
-    def test_invalid_preset_type_raises_error(self):
-        """Test that invalid handler_preset types raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="Invalid handler_preset option"):
-            validate_configuration_parameters(
-                level=logging.INFO,
-                traceback=None,
-                handler=None,
-                preset=123,  # Invalid type
-                no_freeze=False,
-            )
-
-    def test_invalid_handler_type_raises_error(self):
-        """Test that invalid handler types raise InvalidConfigurationError."""
-        with pytest.raises(
-            InvalidConfigurationError, match="handler must be a logging.Handlers instance"
-        ):
-            validate_configuration_parameters(
-                level=logging.INFO,
-                traceback=None,
-                handler="not_a_handler",  # Invalid type
-                preset=None,
-                no_freeze=False,
-            )
-
-    def test_invalid_no_freeze_type_raises_error(self):
-        """Test that invalid no_freeze types raise InvalidConfigurationError."""
-        with pytest.raises(InvalidConfigurationError, match="no_freeze must be a bool"):
-            validate_configuration_parameters(
-                level=logging.INFO,
-                traceback=None,
-                handler=None,
-                preset=None,
-                no_freeze="not_a_bool",  # Invalid type
-            )
-
-    def test_handler_precedence_over_preset(self):
-        """Test that explicit handler takes precedence over handler_preset."""
-        # When both handler and handler_preset are provided, both should be validated
-        # but the function should return the handler_preset as-is (precedence is handled elsewhere)
-        handler = logging.StreamHandler()
-        level, traceback, preset = validate_configuration_parameters(
-            level=logging.INFO,
-            traceback=None,
-            handler=handler,
-            preset=PresetOptions.JSON,
-            no_freeze=False,
-        )
-
-        # Both should be preserved - precedence logic is handled by caller
-        assert preset == PresetOptions.JSON
-
-    def test_none_traceback_defaults_to_none_enum(self):
-        """Test that None traceback defaults to TracebackOptions.HIDE."""
-        _, traceback, _ = validate_configuration_parameters(
-            level=logging.INFO, traceback=None, handler=None, preset=None, no_freeze=False
-        )
-
-        assert traceback == TracebackOptions.HIDE
-
-    def test_valid_handler_instance(self):
-        """Test that valid handler instances are accepted."""
-        handlers = [
-            logging.StreamHandler(),
-            logging.FileHandler("test.log"),
-            logging.NullHandler(),
-        ]
-
-        for handler in handlers:
-            # Should not raise any exception
-            validate_configuration_parameters(
-                level=logging.INFO, traceback=None, handler=handler, preset=None, no_freeze=False
-            )
-            # Clean up file handler if created
-            if hasattr(handler, "close"):
-                handler.close()
+    def test_configure_with_no_freeze_false_freezes(self, fresh_logger):
+        """Test configure() with no_freeze=False (default) freezes the logger."""
+        fresh_logger.configure(no_freeze=False)
+        assert fresh_logger.frozen
 
 
-class TestParameterCombinations:
-    """Test invalid parameter combinations."""
+class TestConfigureErrorConditions:
+    """Test configure() raises on invalid state or parameters."""
 
-    def test_conflicting_traceback_formats(self):
-        """Test behavior with conflicting traceback and format specifications."""
-        # This tests that the function validates each parameter independently
-        # Conflict resolution is handled by the caller
-        handler = logging.StreamHandler()
+    def test_configure_frozen_logger_raises(self, fresh_logger):
+        """Test configuring a frozen logger raises FrozenClassException."""
+        fresh_logger.configure()
+        assert fresh_logger.frozen
+        with pytest.raises(FrozenClassException):
+            fresh_logger.configure()
 
-        # Should validate successfully - conflict resolution is caller's responsibility
-        level, traceback, preset = validate_configuration_parameters(
-            level=logging.INFO,
-            traceback=TracebackOptions.FULL,
-            handler=handler,
-            preset=PresetOptions.JSON,  # JSON might have different traceback handling
-            no_freeze=False,
-        )
+    def test_configure_invalid_level_raises(self, fresh_logger):
+        """Test configure() with invalid level raises."""
+        with pytest.raises((KeyError, ValueError)):
+            fresh_logger.configure(level=999999)
 
-        assert traceback == TracebackOptions.FULL
-        assert preset == PresetOptions.JSON
 
-    def test_edge_case_empty_string_traceback(self):
-        """Test that empty string traceback raises appropriate error."""
-        with pytest.raises(InvalidConfigurationError):
-            validate_configuration_parameters(
-                level=logging.INFO,
-                traceback="",  # Empty string
-                handler=None,
-                preset=None,
-                no_freeze=False,
-            )
+class TestConfigureHandlerPrecedence:
+    """Test configure() handler selection."""
 
-    def test_edge_case_empty_string_preset(self):
-        """Test that empty string handler_preset raises appropriate error."""
-        with pytest.raises(InvalidConfigurationError):
-            validate_configuration_parameters(
-                level=logging.INFO,
-                traceback=None,
-                handler=None,
-                preset="",  # Empty string
-                no_freeze=False,
-            )
+    def test_explicit_handler_takes_priority(self, fresh_logger, test_handler):
+        """Test that an explicit handler is used when provided."""
+        fresh_logger.configure(handler=test_handler)
+        assert test_handler in fresh_logger.handlers
+
+    def test_no_handler_creates_terminal_handler(self, fresh_logger):
+        """Test that no handler argument results in SparkTerminalHandler."""
+        from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
+
+        fresh_logger.configure()
+        assert len(fresh_logger.handlers) == 1
+        assert isinstance(fresh_logger.handlers[0], SparkTerminalHandler)

@@ -43,18 +43,18 @@ class TestSparkRichHandlerInitialization:
         assert isinstance(handler, RichHandler)
 
         # Should have SparkRichFormatter instance
-        assert hasattr(handler, "_c_log_render")
+        assert hasattr(handler, "_spark_formatter")
         from logspark.Formatters.Rich.SparkRichFormatter import SparkRichFormatter
 
-        assert isinstance(handler._c_log_render, SparkRichFormatter)
+        assert isinstance(handler._spark_formatter, SparkRichFormatter)
 
         # Check default configuration
-        assert handler._c_log_render.show_time is True
-        assert handler._c_log_render.show_level is True
-        assert handler._c_log_render.show_path is True
-        assert handler._c_log_render.show_function is False
-        assert handler._c_log_render.omit_repeated_times is True
-        assert handler._c_log_render.level_width == 8
+        assert handler._spark_formatter.show_time is True
+        assert handler._spark_formatter.show_level is True
+        assert handler._spark_formatter.show_path is True
+        assert handler._spark_formatter.show_function is False
+        assert handler._spark_formatter.omit_repeated_times is True
+        assert handler._spark_formatter.level_width == 8
 
     def test_custom_initialization(self):
         """Test SparkRichHandler with custom parameters"""
@@ -67,8 +67,6 @@ class TestSparkRichHandlerInitialization:
             show_level=False,
             show_path=False,
             show_function=True,
-            markup=True,
-            rich_tracebacks=True,
             log_time_format="%H:%M:%S",
         )
 
@@ -92,6 +90,8 @@ class TestSparkRichHandlerInitialization:
         console = Console(file=io.StringIO())
         highlighter = NullHighlighter()
 
+        from logspark.Types.Options import SparkRichHandlerSettings
+
         handler = SparkRichHandler(
             level=logging.DEBUG,
             console=console,
@@ -99,12 +99,9 @@ class TestSparkRichHandlerInitialization:
             show_level=True,
             show_path=True,
             show_function=True,
-            markup=False,
-            rich_tracebacks=False,
-            tracebacks_width=120,
-            tracebacks_extra_lines=5,
             log_time_format="[%H:%M:%S]",
             highlighter=highlighter,
+            settings=SparkRichHandlerSettings(tracebacks_width=120, tracebacks_extra_lines=5),
         )
 
         assert handler.level == logging.DEBUG
@@ -118,13 +115,15 @@ class TestSparkRichHandlerLayoutDegradation:
 
     def test_layout_degradation_warning_emitted_once(self):
         """Test that layout degradation warning is emitted only once per handler instance"""
+        from logspark.Types.Options import SparkRichHandlerSettings
+
         # Create narrow console to trigger degradation
         narrow_console = Console(file=io.StringIO(), width=40)
         handler = SparkRichHandler(
             console=narrow_console,
             show_path=True,
             show_function=True,
-            min_message_width=60
+            settings=SparkRichHandlerSettings(min_message_width=60),
         )
 
         # Create log record
@@ -158,12 +157,14 @@ class TestSparkRichHandlerLayoutDegradation:
 
     def test_layout_degradation_warning_content(self):
         """Test that layout degradation warning contains expected information"""
+        from logspark.Types.Options import SparkRichHandlerSettings
+
         narrow_console = Console(file=io.StringIO(), width=40)
         handler = SparkRichHandler(
             console=narrow_console,
             show_path=True,
             show_function=True,
-            min_message_width=60
+            settings=SparkRichHandlerSettings(min_message_width=60),
         )
 
         record = logging.LogRecord(
@@ -196,12 +197,14 @@ class TestSparkRichHandlerLayoutDegradation:
 
     def test_no_layout_degradation_warning_wide_console(self):
         """Test that no warning is emitted with wide console"""
+        from logspark.Types.Options import SparkRichHandlerSettings
+
         wide_console = Console(file=io.StringIO(), width=200)
         handler = SparkRichHandler(
             console=wide_console,
             show_path=True,
             show_function=True,
-            min_message_width=60
+            settings=SparkRichHandlerSettings(min_message_width=60),
         )
 
         record = logging.LogRecord(
@@ -248,12 +251,17 @@ class TestSparkRichHandlerPathResolution:
             handler = shr_module.SparkRichHandler()
             Console(file=io.StringIO())
 
-            # Create a mock record
-            record = Mock()
-            record.pathname = test_record_path
-            record.funcName = "test_function"
-            record.lineno = 42
-            record.created = datetime.now().timestamp()
+            # Create a real log record to avoid Mock satisfying HasSparkAttributes Protocol
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname=test_record_path,
+                lineno=42,
+                msg="test message",
+                args=(),
+                exc_info=None,
+                func="test_function",
+            )
 
             # Mock get_level_text method
             handler.get_level_text = Mock(return_value="INFO")
@@ -288,12 +296,17 @@ class TestSparkRichHandlerPathResolution:
             handler = shr_module.SparkRichHandler()
             Console(file=io.StringIO())
 
-            # Create a mock record with a long path
-            record = Mock()
-            record.pathname = "/very/long/path/to/project/module/file.py"
-            record.funcName = "test_function"
-            record.lineno = 42
-            record.created = datetime.now().timestamp()
+            # Create a real log record to avoid Mock satisfying HasSparkAttributes Protocol
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname="/very/long/path/to/project/module/file.py",
+                lineno=42,
+                msg="test message",
+                args=(),
+                exc_info=None,
+                func="test_function",
+            )
 
             # Mock get_level_text method
             handler.get_level_text = Mock(return_value="INFO")
@@ -315,12 +328,17 @@ class TestSparkRichHandlerPathResolution:
         """Test path resolution with short path (less than 2 parts)"""
         handler = SparkRichHandler()
 
-        # Create a mock record with short path
-        record = Mock()
-        record.pathname = "module.py"  # Single part path
-        record.funcName = "test_function"
-        record.lineno = 42
-        record.created = datetime.now().timestamp()
+        # Create a real log record to avoid Mock satisfying HasSparkAttributes Protocol
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="module.py",
+            lineno=42,
+            msg="test message",
+            args=(),
+            exc_info=None,
+            func="test_function",
+        )
 
         # Mock get_level_text method
         handler.get_level_text = Mock(return_value="INFO")
@@ -342,12 +360,17 @@ class TestSparkRichHandlerPathResolution:
         """Test path resolution with exactly 2 parts"""
         handler = SparkRichHandler()
 
-        # Create a mock record with 2-part path
-        record = Mock()
-        record.pathname = "dir/module.py"  # Two part path
-        record.funcName = "test_function"
-        record.lineno = 42
-        record.created = datetime.now().timestamp()
+        # Create a real log record to avoid Mock satisfying HasSparkAttributes Protocol
+        record = logging.LogRecord(
+            name="test",
+            level=logging.INFO,
+            pathname="dir/module.py",
+            lineno=42,
+            msg="test message",
+            args=(),
+            exc_info=None,
+            func="test_function",
+        )
 
         # Mock get_level_text method
         handler.get_level_text = Mock(return_value="INFO")
@@ -380,12 +403,17 @@ class TestSparkRichHandlerPathResolution:
 
             handler = shr_module.SparkRichHandler()
 
-            # Create a mock record
-            record = Mock()
-            record.pathname = test_record_path
-            record.funcName = "test_function"
-            record.lineno = 42
-            record.created = datetime.now().timestamp()
+            # Create a real log record to avoid Mock satisfying HasSparkAttributes Protocol
+            record = logging.LogRecord(
+                name="test",
+                level=logging.INFO,
+                pathname=test_record_path,
+                lineno=42,
+                msg="test message",
+                args=(),
+                exc_info=None,
+                func="test_function",
+            )
 
             # Mock get_level_text method
             handler.get_level_text = Mock(return_value="INFO")
@@ -620,7 +648,7 @@ class TestSparkRichHandlerIntegration:
         """Test exception logging through SparkRichHandler"""
         test_stream = io.StringIO()
         console = Console(file=test_stream)
-        handler = SparkRichHandler(console=console, rich_tracebacks=True)
+        handler = SparkRichHandler(console=console)
 
         logger = logging.getLogger("test.exception")
         logger.setLevel(logging.DEBUG)

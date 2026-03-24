@@ -1,58 +1,34 @@
-"""Tests for LoggerConfig validation errors (lines 27, 30, 33)."""
+"""Tests for configure() error conditions and input validation."""
 
 import logging
 
 import pytest
 
-from logspark._Internal.State.LoggerConfig import LoggerConfig
+from logspark.Types import FrozenClassException
 from logspark.Types.Options import TracebackOptions
 
 
-class TestLoggerConfigValidation:
-    """Test LoggerConfig validation in __post_init__."""
+class TestLoggerConfigureValidation:
+    """Test configure() raises on invalid inputs or state."""
 
-    def test_invalid_level_raises_value_error(self):
-        """Test that non-int level raises ValueError (line 27)."""
-        handler = logging.StreamHandler()
-        
-        with pytest.raises(ValueError, match="level must be a stdlib logging level integer"):
-            LoggerConfig(
-                level="invalid",  # String instead of int
-                handler=handler,
-                traceback_policy=TracebackOptions.HIDE
-            )
+    def test_frozen_raises_frozen_exception(self, fresh_logger):
+        """Test that configuring a frozen logger raises FrozenClassException."""
+        fresh_logger.configure()
+        with pytest.raises(FrozenClassException):
+            fresh_logger.configure()
 
-    def test_invalid_handler_raises_value_error(self):
-        """Test that non-Handler handler raises ValueError (line 30)."""
-        with pytest.raises(ValueError, match="handler must be a stdlib logging.Handlers instance"):
-            LoggerConfig(
-                level=logging.INFO,
-                handler="invalid",  # String instead of Handler
-                traceback_policy=TracebackOptions.HIDE
-            )
+    def test_invalid_level_raises(self, fresh_logger):
+        """Test that an invalid level value raises."""
+        with pytest.raises((KeyError, ValueError)):
+            fresh_logger.configure(level=999999)
 
-    def test_invalid_traceback_policy_raises_value_error(self):
-        """Test that non-TracebackOptions traceback_policy raises ValueError (line 33)."""
-        handler = logging.StreamHandler()
-        
-        with pytest.raises(ValueError, match="traceback_policy must be a TracebackOptions enum value"):
-            LoggerConfig(
-                level=logging.INFO,
-                handler=handler,
-                traceback_policy="invalid"  # String instead of TracebackOptions
-            )
-
-    def test_valid_config_passes_validation(self):
-        """Test that valid configuration passes validation."""
-        handler = logging.StreamHandler()
-        
-        # Should not raise any exception
-        config = LoggerConfig(
+    def test_valid_config_passes_validation(self, fresh_logger, test_handler):
+        """Test that a valid configuration succeeds without exception."""
+        fresh_logger.configure(
             level=logging.INFO,
-            handler=handler,
-            traceback_policy=TracebackOptions.COMPACT
+            handler=test_handler,
+            traceback_policy=TracebackOptions.COMPACT,
         )
-        
-        assert config.level == logging.INFO
-        assert config.handler is handler
-        assert config.traceback_policy == TracebackOptions.COMPACT
+        assert fresh_logger.is_configured
+        assert test_handler in fresh_logger.handlers
+        assert fresh_logger.level == logging.INFO

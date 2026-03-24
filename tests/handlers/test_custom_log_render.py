@@ -357,27 +357,6 @@ class TestCustomLogRenderLevelStyling:
         style = renderer._get_level_style("  INFO  ")
         assert style is not None
 
-
-class TestCustomLogRenderDividerHandling:
-    """Test divider functionality"""
-
-    def test_add_divider_static_method(self):
-        """Test add_divider static method"""
-        from rich.style import Style
-
-        table = Table.grid()
-        row = []
-        level_style = Style(color="red")
-        original_row_length = len(row)
-
-        new_table, new_row = SparkRichFormatter.add_divider(table, row, level_style)
-
-        assert new_table is table  # Should return same table
-        assert len(new_row) == original_row_length + 1  # Should add one item to row
-        assert isinstance(new_row[-1], Text)  # Last item should be Text
-        assert "-" in str(new_row[-1])  # Should contain divider character
-
-
 class TestCustomLogRenderLayoutDegradation:
     """Test layout degradation detection and handling"""
 
@@ -591,8 +570,9 @@ class TestCustomLogRenderProperties:
         # Rich may filter out some characters, so check if path content is preserved
         path_str = str(path_text)
         assert len(path_str) > 0  # Should produce some output
-        # Check that at least some part of the path is preserved
-        assert any(char in path_str for char in path if char.isprintable())
+        # _format_path uses as_posix() which converts backslashes to forward slashes
+        path_normalized = path.replace("\\", "/")
+        assert any(char in path_str for char in path_normalized if char.isprintable())
 
         if line_no is not None:
             assert str(line_no) in path_str
