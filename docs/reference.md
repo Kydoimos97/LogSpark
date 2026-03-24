@@ -12,7 +12,7 @@ Handlers route log records to a destination. Each handler owns its formatter. Se
 
 ### SparkTerminalHandler
 
-Human-readable terminal output. Default handler when `configure()` is called without an explicit handler. Automatically upgrades to [`SparkRichHandler`](#richhandler) if `rich` is installed.
+Human-readable terminal output. Default handler when `configure()` is called without an explicit handler. Uses ANSI color output on color-compatible terminals (`SparkColorFormatter`) and falls back to plain text (`SparkBaseFormatter`) on non-color terminals.
 
 ```python
 from logspark.Handlers import SparkTerminalHandler
@@ -32,6 +32,7 @@ logger.configure(handler=SparkTerminalHandler(level="DEBUG", show_function=True)
 | `show_function` | `bool` | `False` | Include calling function name |
 | `traceback_policy` | [`TracebackOptions`](glossary.md#tracebackoptions) | `None` | Traceback rendering policy |
 | `multiline` | `bool` | `True` | Allow multiline output |
+| `level_width` | `int` | `8` | Character width reserved for the level name column |
 | `log_time_format` | `str` | `"%H:%M:%S"` | strftime format for timestamps |
 
 ---
@@ -64,7 +65,7 @@ logger.configure(handler=SparkJsonHandler())
 
 ### SparkRichHandler
 
-Rich-enhanced terminal output with structured column layout, clickable file paths, and improved exception rendering.
+Rich-enhanced terminal output with structured column layout, clickable file paths, and improved exception rendering. Must be passed explicitly to `configure()` — it is not selected automatically.
 
 ```python
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
@@ -86,6 +87,7 @@ logger.configure(handler=SparkRichHandler(show_function=True, settings=settings)
 | `show_level` | `bool` | `True` | Include level column |
 | `show_path` | `bool` | `True` | Include path column |
 | `show_function` | `bool` | `False` | Include function name column |
+| `level_width` | `int` | `8` | Character width reserved for the level name column |
 | `log_time_format` | `str` | `"%H:%M:%S"` | Timestamp format |
 | `settings` | `SparkRichHandlerSettings` | `None` | Advanced layout settings (see below) |
 
@@ -177,13 +179,13 @@ fmt = SparkBaseFormatter(
 
 ### SparkColorFormatter
 
-Extends `SparkBaseFormatter` with ANSI color coding by log level. Used automatically by [`SparkTerminalHandler`](#terminalhandler) on color-compatible terminals.
+Extends `SparkBaseFormatter` with ANSI color coding by log level. Used automatically by [`SparkTerminalHandler`](#sparkterminalhandler) on color-compatible terminals.
 
 ---
 
 ### SparkJsonFormatter
 
-Wraps `python-json-logger` to enforce the single-line JSON output invariant. Used by [`SparkJsonHandler`](#jsonhandler). Tracebacks are flattened to single-line strings before serialization.
+Wraps `python-json-logger` to enforce the single-line JSON output invariant. Used by [`SparkJsonHandler`](#sparkjsonhandler). Tracebacks are flattened to single-line strings before serialization.
 
 ---
 
@@ -218,6 +220,18 @@ from logspark.Types.Options import PathResolutionSetting
 | `PathResolutionSetting.FILE` | Filename only |
 
 See [Output Modes: Path resolution](output-modes.md#path-resolution).
+
+---
+
+### SparkRichHandlerSettings
+
+```python
+from logspark.Types.Options import SparkRichHandlerSettings
+```
+
+Dataclass for advanced layout configuration passed to [`SparkRichHandler`](#sparkrichhandler). All fields are optional; defaults apply when the dataclass is instantiated with no arguments.
+
+See the `SparkRichHandler` parameter table above for field descriptions.
 
 ---
 

@@ -6,7 +6,7 @@ LogSpark supports two output modes: terminal for human-readable development outp
 
 ## Terminal mode
 
-The default. Produces human-readable output, optionally with color and Rich layout.
+The default. Produces human-readable output with optional ANSI color.
 
 ```python
 from logspark import logger
@@ -15,12 +15,12 @@ logger.configure()
 logger.info("Server started", extra={"port": 8080})
 ```
 
-Output (with color):
+Output (color terminal):
 ```
 10:42:01 INFO     server.py:14 -> Server started
 ```
 
-If `rich` is installed, `SparkTerminalHandler` automatically upgrades to [`SparkRichHandler`](reference.md#richhandler) for structured column layout, clickable file links, and improved exception rendering. No code change required.
+`SparkTerminalHandler` selects `SparkColorFormatter` on color-compatible terminals and falls back to `SparkBaseFormatter` on plain ones. For Rich-powered structured column layout, clickable file paths, and enhanced exception rendering, pass `SparkRichHandler` explicitly. See [Using Rich explicitly](#using-rich-explicitly).
 
 ### Traceback policy
 
@@ -64,14 +64,18 @@ See [`PathResolutionSetting`](glossary.md#pathresolutionsetting) in the glossary
 
 ### Using Rich explicitly
 
+`SparkRichHandler` provides structured column layout, clickable file paths, and Rich-rendered exception panels. It requires `rich` and must be passed explicitly to `configure()`:
+
 ```python
 from logspark import logger
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
+from logspark.Types.Options import SparkRichHandlerSettings
 
-logger.configure(handler=SparkRichHandler(show_function=True))
+settings = SparkRichHandlerSettings(min_message_width=60)
+logger.configure(handler=SparkRichHandler(show_function=True, settings=settings))
 ```
 
-Requires `rich`. See [`SparkRichHandler`](reference.md#richhandler) for full options.
+See [`SparkRichHandler`](reference.md#sparkrichhandler) for full options.
 
 ---
 
@@ -84,10 +88,7 @@ from logspark import logger
 from logspark.Handlers import SparkJsonHandler
 
 logger.configure(handler=SparkJsonHandler())
-logger.info(
-    "Server started", extra={
-        "port": 8080}
-    )
+logger.info("Server started", extra={"port": 8080})
 ```
 
 Output:
@@ -102,7 +103,7 @@ Output:
 - Exception tracebacks are flattened to single-line strings before serialization
 - Any `extra` fields appear as top-level JSON keys
 
-Requires `python-json-logger`. See [`SparkJsonHandler`](reference.md#jsonhandler).
+Requires `python-json-logger`. See [`SparkJsonHandler`](reference.md#sparkjsonhandler).
 
 ---
 

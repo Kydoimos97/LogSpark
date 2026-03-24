@@ -40,16 +40,16 @@ What `configure()` does:
 1. Validates the level
 2. Creates the appropriate handler if none is provided
 3. Attaches configured filters
-4. Freezes the logger
+4. Freezes the logger (unless `no_freeze=True`)
 
-After `configure()` returns, the logger is [frozen](glossary.md#freeze). No further calls to `addHandler()`, `addFilter()`, or `configure()` will succeed. They raise [`FrozenClassException`](reference.md#exceptions).
+After `configure()` returns, the logger is [frozen](glossary.md#freeze). No further calls to `addHandler()`, `addFilter()`, `eject_handlers()`, or `configure()` will succeed. They raise [`FrozenClassException`](reference.md#exceptions).
 
 ### Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `level` | `str \| int` | `logging.INFO` | Minimum log level |
-| `handler` | `logging.Handler` | `None` | Custom handler. If omitted, LogSpark creates one based on available dependencies. |
+| `handler` | `logging.Handler` | `None` | Custom handler. If omitted, LogSpark creates a `SparkTerminalHandler`. |
 | `traceback_policy` | [`TracebackOptions`](glossary.md#tracebackoptions) | `COMPACT` | How exceptions are rendered |
 | `path_resolution` | [`PathResolutionSetting`](glossary.md#pathresolutionsetting) | `RELATIVE` | How file paths appear in log lines |
 | `multiline` | `bool` | `True` | Whether log output can span multiple lines |
@@ -64,7 +64,7 @@ Once frozen, the logger is immutable for the lifetime of the process:
 - Handler list is locked
 - Filter list is locked
 - `configure()` cannot be called again
-- `addHandler()` and `addFilter()` raise [`FrozenClassException`](reference.md#exceptions) immediately
+- `addHandler()`, `addFilter()`, and `eject_handlers()` raise [`FrozenClassException`](reference.md#exceptions) immediately
 
 By default, `configure()` freezes automatically. Deferring with `no_freeze=True` and calling `logger.freeze()` manually is only needed in unusual initialization sequences:
 
