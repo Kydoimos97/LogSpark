@@ -185,7 +185,7 @@ class SparkLogger(logging.Logger):
                 # Fast logging with no explicit handler - use NullHandler for maximum speed
                 hdl: logging.Handler = logging.NullHandler()
             elif handler is None:
-                hdl = SparkTerminalHandler(level = log_level, traceback_policy=traceback_policy, path_resolution=path_resolution, multiline=multiline)
+                hdl = SparkTerminalHandler(level=log_level, traceback_policy=traceback_policy, multiline=multiline)
             else:
                 hdl = handler
 
@@ -347,6 +347,10 @@ class SparkLogger(logging.Logger):
             self.eject_filters()
 
             logging.Logger.manager.loggerDict.pop(name, None)
+
+            # Removing from loggerDict prevents manager._clear_cache() from reaching
+            # this logger, so stale isEnabledFor cache entries must be cleared explicitly.
+            self._cache.clear()
 
             # Reset instance state
             self._configured = False
