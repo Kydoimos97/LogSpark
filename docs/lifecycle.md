@@ -88,7 +88,7 @@ logger.frozen         # True after freeze
 Logging before `configure()` does not silently discard records. LogSpark:
 
 1. Emits a [`SparkLoggerUnconfiguredUsageWarning`](reference.md#exceptions) once per process
-2. Falls back to a minimal `PreConfigHandler` with a simple stdout format
+2. Falls back to a minimal `SparkPreConfigHandler` with a simple stdout format
 
 Logging never disappears, but lifecycle violations are always surfaced.
 

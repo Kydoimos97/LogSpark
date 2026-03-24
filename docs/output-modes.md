@@ -20,7 +20,7 @@ Output (with color):
 10:42:01 INFO     server.py:14 -> Server started
 ```
 
-If `rich` is installed, `TerminalHandler` automatically upgrades to [`RichHandler`](reference.md#richhandler) for structured column layout, clickable file links, and improved exception rendering. No code change required.
+If `rich` is installed, `SparkTerminalHandler` automatically upgrades to [`SparkRichHandler`](reference.md#richhandler) for structured column layout, clickable file links, and improved exception rendering. No code change required.
 
 ### Traceback policy
 
@@ -66,12 +66,12 @@ See [`PathResolutionSetting`](glossary.md#pathresolutionsetting) in the glossary
 
 ```python
 from logspark import logger
-from logspark.Handlers.Rich.RichHandler import RichHandler
+from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 
-logger.configure(handler=RichHandler(show_function=True))
+logger.configure(handler=SparkRichHandler(show_function=True))
 ```
 
-Requires `rich`. See [`RichHandler`](reference.md#richhandler) for full options.
+Requires `rich`. See [`SparkRichHandler`](reference.md#richhandler) for full options.
 
 ---
 
@@ -81,10 +81,13 @@ Produces single-line JSON output suitable for log aggregation (Datadog, CloudWat
 
 ```python
 from logspark import logger
-from logspark.Handlers import JsonHandler
+from logspark.Handlers import SparkJsonHandler
 
-logger.configure(handler=JsonHandler())
-logger.info("Server started", extra={"port": 8080})
+logger.configure(handler=SparkJsonHandler())
+logger.info(
+    "Server started", extra={
+        "port": 8080}
+    )
 ```
 
 Output:
@@ -99,7 +102,7 @@ Output:
 - Exception tracebacks are flattened to single-line strings before serialization
 - Any `extra` fields appear as top-level JSON keys
 
-Requires `python-json-logger`. See [`JsonHandler`](reference.md#jsonhandler).
+Requires `python-json-logger`. See [`SparkJsonHandler`](reference.md#jsonhandler).
 
 ---
 
@@ -110,10 +113,10 @@ A common pattern is terminal output in development and JSON in production withou
 ```python
 import os
 from logspark import logger
-from logspark.Handlers import JsonHandler
+from logspark.Handlers import SparkJsonHandler
 
 if os.environ.get("LOG_FORMAT") == "json":
-    logger.configure(handler=JsonHandler())
+    logger.configure(handler=SparkJsonHandler())
 else:
     logger.configure()
 ```

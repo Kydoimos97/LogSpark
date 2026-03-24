@@ -33,7 +33,7 @@ Drop-in logging foundation for Python projects.
 from logspark import spark_logger
 import logging
 
-spark_logger.configure(level=logging.INFO, preset="terminal")
+spark_logger.configure()
 spark_logger.info("Application started")
 ```
 

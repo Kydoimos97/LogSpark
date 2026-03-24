@@ -10,15 +10,15 @@ Handlers route log records to a destination. Each handler owns its formatter. Se
 
 ---
 
-### TerminalHandler
+### SparkTerminalHandler
 
-Human-readable terminal output. Default handler when `configure()` is called without an explicit handler. Automatically upgrades to [`RichHandler`](#richhandler) if `rich` is installed.
+Human-readable terminal output. Default handler when `configure()` is called without an explicit handler. Automatically upgrades to [`SparkRichHandler`](#richhandler) if `rich` is installed.
 
 ```python
-from logspark.Handlers import TerminalHandler
+from logspark.Handlers import SparkTerminalHandler
 from logspark import logger
 
-logger.configure(handler=TerminalHandler(level="DEBUG", show_function=True))
+logger.configure(handler=SparkTerminalHandler(level="DEBUG", show_function=True))
 ```
 
 | Parameter | Type | Default | Description |
@@ -36,15 +36,15 @@ logger.configure(handler=TerminalHandler(level="DEBUG", show_function=True))
 
 ---
 
-### JsonHandler
+### SparkJsonHandler
 
 Single-line JSON output for production and log aggregation pipelines.
 
 ```python
-from logspark.Handlers import JsonHandler
+from logspark.Handlers import SparkJsonHandler
 from logspark import logger
 
-logger.configure(handler=JsonHandler())
+logger.configure(handler=SparkJsonHandler())
 ```
 
 | Parameter | Type | Default | Description |
@@ -62,17 +62,17 @@ logger.configure(handler=JsonHandler())
 
 ---
 
-### RichHandler
+### SparkRichHandler
 
 Rich-enhanced terminal output with structured column layout, clickable file paths, and improved exception rendering.
 
 ```python
-from logspark.Handlers.Rich.RichHandler import RichHandler
+from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 from logspark.Types.Options import SparkRichHandlerSettings
 from logspark import logger
 
 settings = SparkRichHandlerSettings(min_message_width=60, max_path_width=40)
-logger.configure(handler=RichHandler(show_function=True, settings=settings))
+logger.configure(handler=SparkRichHandler(show_function=True, settings=settings))
 ```
 
 | Parameter | Type | Default | Description |
@@ -177,13 +177,13 @@ fmt = SparkBaseFormatter(
 
 ### SparkColorFormatter
 
-Extends `SparkBaseFormatter` with ANSI color coding by log level. Used automatically by [`TerminalHandler`](#terminalhandler) on color-compatible terminals.
+Extends `SparkBaseFormatter` with ANSI color coding by log level. Used automatically by [`SparkTerminalHandler`](#terminalhandler) on color-compatible terminals.
 
 ---
 
 ### SparkJsonFormatter
 
-Wraps `python-json-logger` to enforce the single-line JSON output invariant. Used by [`JsonHandler`](#jsonhandler). Tracebacks are flattened to single-line strings before serialization.
+Wraps `python-json-logger` to enforce the single-line JSON output invariant. Used by [`SparkJsonHandler`](#jsonhandler). Tracebacks are flattened to single-line strings before serialization.
 
 ---
 

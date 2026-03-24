@@ -1,11 +1,19 @@
 site_name: LogSpark
 site_url: !ENV READTHEDOCS_CANONICAL_URL
-site_description: Simple, explicit logging for Python applications
+site_description: A configuration and integration layer over Python's standard logging module.
 site_author: Willem van der Schans
 
 nav:
   - Home: index.md
-  - Quick Start: quick-start.md
+  - Concepts: concepts.md
+  - Glossary: glossary.md
+  - Quickstart: quickstart.md
+  - Lifecycle: lifecycle.md
+  - Output Modes: output-modes.md
+  - Environment Variables: environment.md
+  - Advanced Usage: advanced.md
+  - Component Reference: reference.md
+
 
 
 

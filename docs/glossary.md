@@ -28,10 +28,10 @@ Handlers are stdlib-compatible and can be attached to any `logging.Logger`, not 
 
 | Handler | Output | When to use |
 |---|---|---|
-| [`TerminalHandler`](reference.md#terminalhandler) | stdout | Development, interactive use |
-| [`JsonHandler`](reference.md#jsonhandler) | stdout (JSON) | Production, log aggregation |
-| [`RichHandler`](reference.md#richhandler) | stdout (Rich) | Development with `rich` installed |
-| `PreConfigHandler` | stdout | Internal: used before `configure()` is called, not for direct use |
+| [`SparkTerminalHandler`](reference.md#terminalhandler) | stdout | Development, interactive use |
+| [`SparkJsonHandler`](reference.md#jsonhandler) | stdout (JSON) | Production, log aggregation |
+| [`SparkRichHandler`](reference.md#richhandler) | stdout (Rich) | Development with `rich` installed |
+| `SparkPreConfigHandler` | stdout | Internal: used before `configure()` is called, not for direct use |
 
 ---
 
