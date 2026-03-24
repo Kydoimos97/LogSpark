@@ -6,7 +6,7 @@ from .get_devnull import get_devnull
 
 
 def resolve_stream(stream: SupportsWrite | None) -> SupportsWrite:
-    stream = stream or sys.stdout
+    resolved: SupportsWrite = stream if stream is not None else sys.stdout
     if is_silenced_mode():
-        stream = get_devnull()
-    return stream
+        resolved = get_devnull()
+    return resolved

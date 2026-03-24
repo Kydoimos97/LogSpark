@@ -74,9 +74,17 @@ class TestGetMultilineTb:
         assert "test.py" in result
         assert "42" in result
 
-    def test_full_policy_returns_none(self):
-        """FULL policy in multiline mode returns None to allow Rich/stdlib rendering."""
-        attrs = _make_exc_attrs()
+    def test_full_policy_returns_formatted_traceback(self):
+        """FULL policy in multiline mode returns complete traceback text."""
+        attrs = _make_exc_attrs(with_tb=True)
+        result = SparkBaseFormatMixin._get_multiline_tb(attrs, TracebackOptions.FULL)
+        assert result is not None
+        assert "ValueError" in result
+        assert "test error" in result
+
+    def test_full_policy_without_traceback_returns_none(self):
+        """FULL policy with no traceback returns None."""
+        attrs = _make_exc_attrs(with_tb=False)
         result = SparkBaseFormatMixin._get_multiline_tb(attrs, TracebackOptions.FULL)
         assert result is None
 

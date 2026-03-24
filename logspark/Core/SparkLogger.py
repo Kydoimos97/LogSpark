@@ -2,18 +2,21 @@ import logging
 import threading
 from typing import Any
 
-from ..Handlers import SparkTerminalHandler
-from ..Filters import PathNormalizationFilter
-from ..Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
-from ..Filters.TracebackPolicyFilter import TracebackPolicyFilter
-from ..Handlers import SparkPreConfigHandler
-from ..Types import (
-    FrozenClassException, InvalidConfigurationError, SparkLoggerUnconfiguredUsageWarning,
-    SparkLoggerDuplicatedHandlerWarning, SparkLoggerDuplicatedFilterWarning)
-from ..Types.Options import PathResolutionSetting, TracebackOptions
 from .._Internal.Func import emit_warning, resolve_stacklevel, validate_level
 from .._Internal.State import SingletonClass, is_fast_mode
 from .._Internal.State.Env import is_ddtrace_available
+from ..Filters import PathNormalizationFilter
+from ..Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
+from ..Filters.TracebackPolicyFilter import TracebackPolicyFilter
+from ..Handlers import SparkPreConfigHandler, SparkTerminalHandler
+from ..Types import (
+    FrozenClassException,
+    InvalidConfigurationError,
+    SparkLoggerDuplicatedFilterWarning,
+    SparkLoggerDuplicatedHandlerWarning,
+    SparkLoggerUnconfiguredUsageWarning,
+)
+from ..Types.Options import PathResolutionSetting, TracebackOptions
 
 
 @SingletonClass
@@ -167,7 +170,7 @@ class SparkLogger(logging.Logger):
         self,
         level: str | int = logging.INFO,
         *,
-        handler: logging.Handler = None,
+        handler: logging.Handler | None = None,
         traceback_policy: TracebackOptions | None = TracebackOptions.COMPACT,
         path_resolution: PathResolutionSetting | None = PathResolutionSetting.RELATIVE,
         multiline: bool = True,
@@ -190,7 +193,7 @@ class SparkLogger(logging.Logger):
                 hdl = handler
 
             # ensure we have a name
-            hdl.name = getattr(hdl, 'name', self._logger_name)
+            hdl.name = getattr(hdl, "name", self._logger_name)
 
             self._apply_config(log_level, handler=hdl, traceback_policy=traceback_policy, path_resolution=path_resolution, multiline=multiline)
 
@@ -350,7 +353,7 @@ class SparkLogger(logging.Logger):
 
             # Removing from loggerDict prevents manager._clear_cache() from reaching
             # this logger, so stale isEnabledFor cache entries must be cleared explicitly.
-            self._cache.clear()
+            getattr(self, "_cache", {}).clear()
 
             # Reset instance state
             self._configured = False

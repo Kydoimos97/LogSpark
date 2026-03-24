@@ -14,11 +14,6 @@ class SparkColorFormatter(SparkBaseFormatter):
 
 
     def format(self, record: logging.LogRecord) -> str:
-        # Base exc formatting checks:
-        # if record.exc_info:
-        # if not record.exc_text:
-        # record.exc_text = self.formatException(record.exc_info)
-        record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
         msg = super().format(record)
         color = self.LEVEL_COLORS.get(record.levelno)
         if not color:

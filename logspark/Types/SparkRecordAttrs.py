@@ -5,7 +5,7 @@ from logging import LogRecord
 from pathlib import Path
 from traceback import FrameSummary, StackSummary, extract_tb
 from types import TracebackType
-from typing import Protocol, Literal, TypeGuard, runtime_checkable
+from typing import Literal, Protocol, TypeGuard, runtime_checkable
 
 
 @dataclass(slots=True)
@@ -26,10 +26,10 @@ class SparkRecordAttrs:
 
     @property
     def exc_name(self) -> str:
-        return self.exc_type.__name__
+        return self.exc_type.__name__ if self.exc_type is not None else "UnknownError"
 
     @property
-    def name(self) -> str:
+    def name(self) -> str | None:
         return self.function
 
     @classmethod
@@ -49,10 +49,11 @@ class SparkRecordAttrs:
             )
             return instance
 
-        # Extract exception info
-        exc_type: type[BaseException] | None = record.exc_info[0]
-        exc_value: BaseException | None = record.exc_info[1]
-        tb: TracebackType | None = record.exc_info[2]
+        # Extract exception info (use local exc_info which is Any from getattr, not the
+        # typed record.exc_info attribute which includes None in its union)
+        exc_type: type[BaseException] | None = exc_info[0]
+        exc_value: BaseException | None = exc_info[1]
+        tb: TracebackType | None = exc_info[2]
         if tb is None:
             # Some cases where exc_info is set but no traceback is available
             instance = cls(
@@ -94,12 +95,11 @@ class ExceptionOriginEnabled(HasSparkAttributes, Protocol):
     _spark_exc: Literal[True]
 
 
-def is_spark_exception_enabled(record: LogRecord) -> TypeGuard[ExceptionOriginEnabled | LogRecord]:
+def is_spark_exception_enabled(record: object) -> TypeGuard[ExceptionOriginEnabled]:
     return getattr(record, "_spark_exc", False) is True
 
 
-def has_spark_extra_attributes(record: LogRecord) -> TypeGuard[HasSparkAttributes | LogRecord]:
-    return (hasattr(record, "spark")
-            and record.spark is not None # noqa
-            and isinstance(record.spark, SparkRecordAttrs))
+def has_spark_extra_attributes(record: object) -> TypeGuard[HasSparkAttributes]:
+    spark = getattr(record, "spark", None)
+    return spark is not None and isinstance(spark, SparkRecordAttrs)
 

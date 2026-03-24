@@ -1,6 +1,7 @@
 from .emit_warning import emit_warning
 from .generate_stdlib_format import generate_stdlib_format
 from .get_devnull import get_devnull
+from .get_handler_by_preset import get_handler_by_preset
 from .is_color_compatible_terminal import (
     emit_color_incompatible_console_warning,
     emit_color_incompatible_rich_console_warning,
@@ -14,7 +15,6 @@ from .validate_timeformat import (
     validate_rich_timeformat,
     validate_stdlib_timeformat,
 )
-from .get_handler_by_preset import get_handler_by_preset
 
 __all__ = [
     "resolve_stacklevel",

@@ -1,18 +1,15 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
-from .._Internal import SparkFilterModule
-
 if TYPE_CHECKING:
-    from ddtrace.trace import Tracer
+    pass  # type: ignore[import-unresolved]
 
-_dd_tracer: Optional["Tracer"] = None
-
+_dd_tracer: Optional[Any] = None
 
 try:
-    from ddtrace.trace import tracer as _dd_tracer
+    from ddtrace.trace import tracer as _dd_tracer  # type: ignore[import-unresolved]
 except ImportError:  # pragma: no cover
-    _dd_tracer = None  # pragma: no cover
+    pass  # pragma: no cover
 
 
 class DDTraceInjectionFilter(logging.Filter):

@@ -1,7 +1,6 @@
 import logging
 
-from ..Types.SparkRecordAttrs import (
-    SparkRecordAttrs, has_spark_extra_attributes)
+from ..Types.SparkRecordAttrs import SparkRecordAttrs, has_spark_extra_attributes
 
 
 class TracebackPolicyFilter(logging.Filter):

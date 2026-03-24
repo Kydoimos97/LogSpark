@@ -1,6 +1,6 @@
 import logging
 import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from .._Internal.Func import validate_level
 from .._Internal.State import IsSingletonClassInstance, LogManagerState, SingletonClass
@@ -198,8 +198,8 @@ class SparkLogManager:
         self,
         /,
         level: int | str | None = None,
-        handlers: list[logging.Handler] = None,
-        filters: list[logging.Filter] = None,
+        handlers: list[logging.Handler] | None = None,
+        filters: list[logging.Filter | Callable[[logging.LogRecord], bool]] | None = None,
         propagate: bool | None = None,
         copy_spark_logger_config: bool = False,
     ) -> None:
@@ -262,9 +262,9 @@ class SparkLogManager:
                             "LogSpark logger needs to be frozen before copying its handlers"
                         )
                 if not handlers:
-                    handlers = spark_logger.handlers
+                    handlers = list(spark_logger.handlers)
                 if not filters:
-                    filters = spark_logger.filters
+                    filters = list(spark_logger.filters)  # type: ignore[assignment]
 
 
             if level is not None:

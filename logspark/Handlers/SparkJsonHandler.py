@@ -1,11 +1,11 @@
 import logging
 import sys
 
+from .._Internal.Func import get_devnull
+from .._Internal.State import is_silenced_mode
 from ..Formatters import SparkJsonFormatter
 from ..Types import MissingDependencyException
 from ..Types.Protocol import SupportsWrite
-from .._Internal.Func import get_devnull
-from .._Internal.State import is_silenced_mode
 
 
 class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
@@ -59,12 +59,13 @@ class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
             Additional fields can be added via the 'extra' parameter in log calls.
         """
 
+        resolved: SupportsWrite
         if is_silenced_mode():
-            stream = get_devnull()
+            resolved = get_devnull()
         else:
-            stream = stream or sys.stdout
+            resolved = stream if stream is not None else sys.stdout
 
-        super().__init__(stream or sys.stdout)
+        super().__init__(resolved)
 
         # Import and configure python-json-logger backend
         try:

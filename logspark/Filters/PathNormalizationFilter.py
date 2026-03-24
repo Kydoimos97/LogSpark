@@ -1,11 +1,15 @@
 import logging
 from logging import LogRecord
 from pathlib import Path
+from typing import cast
 
-from ..Types.SparkRecordAttrs import (
-    SparkRecordAttrs, has_spark_extra_attributes)
-from ..Types.Options import PathResolutionSetting
 from .._Internal.State import resolve_project_root
+from ..Types.Options import PathResolutionSetting
+from ..Types.SparkRecordAttrs import (
+    HasSparkAttributes,
+    SparkRecordAttrs,
+    has_spark_extra_attributes,
+)
 
 
 class PathNormalizationFilter(logging.Filter):
@@ -39,16 +43,16 @@ class PathNormalizationFilter(logging.Filter):
     def filter(self, record: LogRecord) -> bool:
         if not has_spark_extra_attributes(record):
             record.spark = SparkRecordAttrs.from_record(record)
-        assert has_spark_extra_attributes(record)
 
         display_path = self._handle_path_resolution(record)
         link_path = self._handle_link_uri(record)
 
-        record.spark.filename = display_path.name
-        record.spark.filepath = display_path
-        record.spark.uri = link_path
-        record.spark.lineno = record.lineno
-        record.spark.function = record.funcName
+        spark = cast(HasSparkAttributes, record).spark
+        spark.filename = display_path.name
+        spark.filepath = display_path
+        spark.uri = link_path
+        spark.lineno = record.lineno
+        spark.function = record.funcName
 
         if self.inject_base_record:
             record.pathname = str(display_path)
@@ -69,7 +73,7 @@ class PathNormalizationFilter(logging.Filter):
                 display_path = Path(path.absolute().as_posix())
             else:
                 display_path = Path(path.name)
-        except ValueError as e:
+        except ValueError:
             display_path = Path(path.name)
         return display_path
 

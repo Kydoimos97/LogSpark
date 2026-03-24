@@ -1,5 +1,6 @@
 import logging
-from typing import Mapping, Literal, Any
+from typing import Any, Literal, Mapping
+
 from ..Formatters.SparkBaseFormatter import SparkBaseFormatter
 from ..Types.Options import TracebackOptions
 

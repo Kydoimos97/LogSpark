@@ -1,6 +1,6 @@
-from .TempLogLevel import TempLogLevel
 from .SparkLogger import SparkLogger
 from .SparkLogManager import SparkLogManager
+from .TempLogLevel import TempLogLevel
 
 # Singleton Patterns
 spark_log_manager = SparkLogManager()

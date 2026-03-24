@@ -2,15 +2,18 @@ from .Exceptions import (
     FrozenClassException,
     InvalidConfigurationError,
     MissingDependencyException,
+    SparkLoggerDuplicatedFilterWarning,
+    SparkLoggerDuplicatedHandlerWarning,
     SparkLoggerUnconfiguredUsageWarning,
     UnfrozenGlobalOperationError,
-    SparkLoggerDuplicatedFilterWarning,
-    SparkLoggerDuplicatedHandlerWarning
 )
 
-__all__ = ["FrozenClassException",
+__all__ = [
+    "FrozenClassException",
     "InvalidConfigurationError",
     "MissingDependencyException",
+    "SparkLoggerDuplicatedFilterWarning",
+    "SparkLoggerDuplicatedHandlerWarning",
     "SparkLoggerUnconfiguredUsageWarning",
     "UnfrozenGlobalOperationError",
 ]

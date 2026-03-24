@@ -2,7 +2,7 @@
 #  Author: Willem van der Schans.
 #  Licensed under the MIT License (https://opensource.org/license/mit).
 from datetime import datetime
-from logging import LogRecord, NOTSET
+from logging import NOTSET, LogRecord
 from pathlib import Path
 from typing import IO, cast
 
@@ -13,16 +13,19 @@ from rich.highlighter import Highlighter
 from rich.logging import RichHandler as _RichHandler
 from rich.traceback import Traceback
 
-from ...Formatters.SparkBaseFormatter import SparkBaseFormatMixin
-from ...Types.Options import TracebackOptions
-from ...Types.SparkRecordAttrs import HasSparkAttributes
-from ...Formatters.Rich.SparkRichFormatter import SparkRichFormatter
-from ...Types import InvalidConfigurationError
-from ...Types.Options import SparkRichHandlerSettings
-from ...Types.Protocol import SupportsWrite
 from ..._Internal import _DegradationGates
 from ..._Internal.Func import (
-    emit_color_incompatible_rich_console_warning, emit_warning, is_color_compatible_terminal, resolve_stream, )
+    emit_color_incompatible_rich_console_warning,
+    emit_warning,
+    is_color_compatible_terminal,
+    resolve_stream,
+)
+from ...Formatters.Rich.SparkRichFormatter import SparkRichFormatter
+from ...Formatters.SparkBaseFormatter import SparkBaseFormatMixin
+from ...Types import InvalidConfigurationError
+from ...Types.Options import SparkRichHandlerSettings, TracebackOptions
+from ...Types.Protocol import SupportsWrite
+from ...Types.SparkRecordAttrs import HasSparkAttributes
 
 
 class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
@@ -66,12 +69,13 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
             from rich.console import Console
 
             spark_stream = resolve_stream(stream)
-            spark_stream = cast(IO[str], spark_stream)
             _compatible = is_color_compatible_terminal(spark_stream)
+            # Rich Console requires IO[str]; SupportsWrite is structurally compatible
+            rich_stream = cast(IO[str], spark_stream)
             # Force Behavior when color support is detected
             if _compatible:
                 console = Console(
-                    file=spark_stream,
+                    file=rich_stream,
                     tab_size=4,
                     no_color=not use_color,
                     color_system="truecolor",
@@ -83,14 +87,14 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
                 if color_system is not None:
                     console._color_system = color_system
             else:
-                console = Console(file=spark_stream, tab_size=4, no_color=not use_color)
+                console = Console(file=rich_stream, tab_size=4, no_color=not use_color)
         else:
             if stream is not None:
                 raise InvalidConfigurationError(
                     "Cannot set stream when passing in a pre-is_configured console."
                 )
 
-        if not is_color_compatible_terminal(console.file) and use_color:
+        if not is_color_compatible_terminal(cast(SupportsWrite, console.file)) and use_color:
             emit_color_incompatible_rich_console_warning()
 
         if not use_color:
@@ -268,6 +272,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         return message
 
     def _apply_trace_formatting(self, record: LogRecord) -> "Traceback":
+        assert record.exc_info is not None
         exc_type, exc_value, exc_traceback = record.exc_info
         assert exc_type is not None
         assert exc_value is not None

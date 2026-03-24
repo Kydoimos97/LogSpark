@@ -11,7 +11,6 @@ from rich.style import Style
 from rich.table import Table
 from rich.text import Text, TextType
 
-from ..SparkBaseFormatter import SparkBaseFormatMixin
 from ..._Internal import _DegradationGates
 
 
@@ -590,7 +589,7 @@ class SparkRichFormatter:
         fmt = time_format or self.time_format
 
         if callable(fmt):
-            time_text = fmt(log_time)
+            time_text = fmt(log_time)  # type: ignore[call-arg]
         else:
             time_text = Text(log_time.strftime(fmt) + " ")
 

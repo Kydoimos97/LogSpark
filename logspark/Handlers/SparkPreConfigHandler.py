@@ -7,12 +7,12 @@ from ..Types.Protocol import SupportsWrite
 
 
 class SparkPreConfigHandler(logging.StreamHandler[SupportsWrite]):
-    def __init__(self, stream: SupportsWrite = sys.stdout) -> None:
-        stream = stream or sys.stdout
+    def __init__(self, stream: SupportsWrite | None = None) -> None:
+        resolved: SupportsWrite = stream if stream is not None else sys.stdout
         if is_silenced_mode():
-            stream = get_devnull()
+            resolved = get_devnull()
 
-        super().__init__(stream=stream)
+        super().__init__(stream=resolved)
         fmt = logging.Formatter(
             fmt="(PreConfig) %(asctime)-8s %(levelname)-8s - %(filename)s:%(lineno)d -> %(message)s",
             datefmt="%H:%M:%S",

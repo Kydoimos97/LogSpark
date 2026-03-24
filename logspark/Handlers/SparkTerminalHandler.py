@@ -1,7 +1,6 @@
 import logging
 from typing import TYPE_CHECKING
 
-
 from .._Internal.Func import (
     emit_color_incompatible_console_warning,
     generate_stdlib_format,
@@ -13,6 +12,7 @@ from ..Types.Protocol import SupportsWrite
 
 if TYPE_CHECKING:
     from rich._log_render import FormatTimeCallable
+
     from ..Types.Options import TracebackOptions
 
 
@@ -102,7 +102,7 @@ class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
             fmt = SparkBaseFormatter(
                 fmt=fmt_string,
                 datefmt=std_lib_time_format,
-                traceback_policy=traceback_policy,
+                tb_policy=traceback_policy,
                 multiline=multiline
             )
 
