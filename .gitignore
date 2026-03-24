@@ -12,3 +12,7 @@ scripts/
 /.claude
 /.cov
 /*.patch
+__pycache__/
+*.pyc
+*.pyo
+*.log
