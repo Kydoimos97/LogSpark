@@ -34,14 +34,14 @@ def is_ddtrace_available() -> bool:
 def get_console_width() -> int | None:
     """Query the real terminal width via platform-native APIs, bypassing stdout redirection.
 
-    Tries all three standard handles (stdout, stderr, stdin) in order so that redirected
-    streams do not prevent detection.  Returns ``None`` when no console is attached or all
-    probes fail; never raises.
+    Tries all three standard handles (stdout, stderr, stdin) in order so that a single
+    redirected stream does not prevent detection.  Returns ``None`` when no console is
+    attached or all probes fail; never raises.
 
     - **Windows** — ``GetConsoleScreenBufferInfo`` via ``ctypes``; equivalent to
       ``$Host.UI.RawUI.WindowSize.Width`` in PowerShell.
     - **Linux / macOS** — ``fcntl.ioctl(fd, TIOCGWINSZ)``; works even when stdout is a pipe
-      provided at least one of the three handles is attached to the terminal.
+      provided at least one handle remains attached to the terminal.
     """
     if os.name == "nt":
         return _get_console_width_windows()
@@ -109,17 +109,6 @@ def _get_console_width_unix() -> int | None:
     except Exception:
         pass
     return None
-
-
-def is_defer_width_mode() -> bool:
-    """Return True when LOGSPARK_DEFER_WIDTH is set.
-
-    When active and neither Rich nor the Windows Console API can determine the real terminal
-    width, the formatter skips width-based column degradation instead of falling back to the
-    80-column default.  Intended for environments such as PyCharm's run console where no real
-    Windows console is attached and the terminal is wider than 80 columns.
-    """
-    return os.environ.get("LOGSPARK_DEFER_WIDTH") is not None
 
 
 def resolve_project_root() -> Path | None:

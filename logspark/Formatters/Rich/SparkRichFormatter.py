@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.text import Text, TextType
 
 from ..._Internal import _DegradationGates
-from ..._Internal.State.Env import get_console_width, is_defer_width_mode
+from ..._Internal.State.Env import get_console_width
 
 
 @runtime_checkable
@@ -323,14 +323,15 @@ class SparkRichFormatter:
 
         # When Rich is using its default fallback width (console._width is None, meaning no
         # explicit width was set and os.get_terminal_size() failed), attempt a deeper probe via
-        # platform-native APIs that succeed even when stdout is redirected.  If that also fails
-        # and LOGSPARK_DEFER_WIDTH is set, skip degradation entirely by using a large budget.
+        # platform-native APIs that succeed even when stdout is redirected.
+        # If the native probe also fails, console_width stays at Rich's 80-column default and
+        # the degradation warning will fire normally when columns cannot fit.
         if getattr(console, "_width", None) is None:
             native_width = get_console_width()
             if native_width is not None:
                 console_width = native_width
-            elif is_defer_width_mode():
-                console_width = 9999
+            else:
+                console_width = console.width  # explicit: keep Rich's 80-col fallback
 
         available_width = console_width - self._gutter_width - self._padding
 
