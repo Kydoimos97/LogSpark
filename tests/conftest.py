@@ -90,9 +90,6 @@ def fresh_log_manager():
     from logspark import spark_log_manager
 
     spark_log_manager.release_all()
-    # Clear the LogSpark logger that gets auto-added by release_all()
-    with spark_log_manager._lock:
-        spark_log_manager._state.managed_loggers.clear()
     yield spark_log_manager
     spark_log_manager.release_all()
 

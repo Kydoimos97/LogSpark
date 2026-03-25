@@ -240,64 +240,46 @@ class TestLogManagerPassiveManagement:
     )
     def test_logmanager_passive_management(self, external_logger_names):
         """
-        For any newly created logmanager instance, it should manage only LogSpark's logger by default
-        and not automatically adopt other loggers
+        After release_all(), the manager is empty. External loggers that exist in
+        the logging registry are not automatically adopted -- adopt_all() is required.
         """
-        # Create external loggers before creating logmanager
         external_loggers = {}
         for logger_name in external_logger_names:
             external_logger = logging.getLogger(f"external.{logger_name}")
             external_loggers[f"external.{logger_name}"] = external_logger
 
-        # Create fresh logmanager instance
         fresh_manager = spark_log_manager
-
-        # Reset singleton state properly
         fresh_manager.release_all()
         try:
-            # Verify logmanager only manages LogSpark logger by default
             managed_loggers = fresh_manager._state.managed_loggers
 
-            # Should only contain 'LogSpark' logger
-            assert "LogSpark" in managed_loggers, (
-                "logmanager should manage LogSpark logger by default"
-            )
+            # Manager starts empty after release_all()
+            assert len(managed_loggers) == 0
 
-            # Should not automatically manage external loggers
+            # External loggers are not automatically managed
             for logger_name in external_loggers.keys():
                 assert logger_name not in managed_loggers, (
                     f"logmanager should not automatically manage external logger: {logger_name}"
                 )
 
-            # Verify external loggers are not accessible via managed()
+            # External loggers raise KeyError via managed()
             for logger_name in external_loggers.keys():
                 with pytest.raises(KeyError):
                     fresh_manager.managed(logger_name)
 
-            # Verify LogSpark logger is accessible
-            LogSpark_logger = fresh_manager.managed("LogSpark")
-            assert isinstance(LogSpark_logger, logging.Logger)
-            assert LogSpark_logger.name == "LogSpark"
-
-            # Verify that external loggers exist in the registry but are not managed
+            # External loggers exist in the Python registry but are not managed
             for logger_name, logger_instance in external_loggers.items():
-                # Logger should exist in Python's logging registry
                 registry_logger = logging.getLogger(logger_name)
                 assert registry_logger is logger_instance
-
-                # But should not be managed by logmanager
                 assert logger_name not in fresh_manager._state.managed_loggers
 
-            # Test that adopt_all() is required to manage external loggers
+            # adopt_all() is required to bring them under management
             fresh_manager.adopt_all()
-
-            # Now external loggers should be managed
             for logger_name, logger_instance in external_loggers.items():
                 managed_logger = fresh_manager.managed(logger_name)
                 assert managed_logger is logger_instance
 
         finally:
-            # Cleanup using new methods
             fresh_manager.release_all()
 
             # Clear external loggers from registry

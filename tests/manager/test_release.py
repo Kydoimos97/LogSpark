@@ -58,11 +58,9 @@ class TestRelease:
         # Release all
         fresh_log_manager.release_all()
 
-        # Verify manager is in clean state
-        # Should only have LogSpark logger by default
+        # Verify manager is in clean state -- empty, matching __init__
         managed_names = fresh_log_manager.managed_names
-        assert "LogSpark" in managed_names
-        assert len(managed_names) == 1
+        assert len(managed_names) == 0
 
     def test_release_single_logger(self, fresh_log_manager):
         """Test releasing a single logger via release()."""
@@ -131,10 +129,9 @@ class TestRelease:
         fresh_log_manager.release_all()
         managed_after_second = fresh_log_manager.managed_names
 
-        # Should be in same state
+        # Should be in same empty state both times
         assert managed_after_first == managed_after_second
-        assert "LogSpark" in managed_after_second
-        assert len(managed_after_second) == 1
+        assert len(managed_after_second) == 0
 
     def test_release_all_thread_safety(self, fresh_log_manager):
         """Test that release_all() is thread-safe."""
@@ -160,10 +157,9 @@ class TestRelease:
         for thread in threads:
             thread.join()
 
-        # Verify final state is consistent
+        # Verify final state is consistently empty
         managed_names = fresh_log_manager.managed_names
-        assert "LogSpark" in managed_names
-        assert len(managed_names) == 1
+        assert len(managed_names) == 0
 
     def test_release_preserves_other_loggers(self, fresh_log_manager):
         """Test that releasing one logger doesn't affect others."""
@@ -251,6 +247,5 @@ class TestReleaseProperties:
         for logger in loggers:
             assert logger.name not in managed_names_after
 
-        # Verify manager is in clean baseline state
-        assert "LogSpark" in managed_names_after
-        assert len(managed_names_after) == 1
+        # Verify manager is in clean empty state
+        assert len(managed_names_after) == 0
