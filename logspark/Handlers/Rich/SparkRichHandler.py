@@ -13,7 +13,6 @@ from rich.highlighter import Highlighter
 from rich.logging import RichHandler as _RichHandler
 from rich.traceback import Traceback
 
-from ..._Internal import _DegradationGates
 from ..._Internal.Func import (
     emit_color_incompatible_rich_console_warning,
     emit_warning,
@@ -44,8 +43,6 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
     Traceback rendering is controlled by ``traceback_policy``; Rich tracebacks
     are used only when ``exc_info`` survives the policy filter intact.
     """
-
-    _warn_width_shown: bool = False
 
     def __init__(
         self,
@@ -126,6 +123,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
 
         self._tb_policy = traceback_policy
         self._multiline = True
+        self._warn_width_shown: bool = False
         self._spark_formatter: SparkRichFormatter = SparkRichFormatter(
             show_time=show_time,
             show_level=show_level,
@@ -226,21 +224,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
 
             pass
 
-        cols_hidden = []
-
-        if self._spark_formatter.show_path and self._spark_formatter._degradation_gate in (
-            _DegradationGates.TIME,
-            _DegradationGates.PATH,
-        ):
-            cols_hidden.append("Path")
-        if self._spark_formatter.show_function and self._spark_formatter._degradation_gate in (
-            _DegradationGates.TIME,
-            _DegradationGates.PATH,
-            _DegradationGates.FUNCTION,
-        ):
-            cols_hidden.append("Function")
-
-        cols = ", ".join(cols_hidden)
+        cols = ", ".join(self._spark_formatter.degraded_columns())
         message = (
             "\nLogSpark layout degraded: \n"
             "  | terminal width ({width} cols) cannot satisfy the required message width ({message_width} cols)\n"

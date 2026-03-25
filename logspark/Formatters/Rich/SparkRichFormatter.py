@@ -64,8 +64,6 @@ class SparkRichFormatter:
     hidden and prevents redundant per-record recalculation.
     """
 
-    _degradation_gate: _DegradationGates = _DegradationGates.NONE
-    _layout_degradation_flag: bool = False
     _TIME_STYLE = Style(color="white", dim=True)
     _PATH_STYLE = Style(color="cyan")
     _FUNCTION_STYLE = Style(color="white", dim=True)
@@ -83,7 +81,6 @@ class SparkRichFormatter:
         "MESSAGE_CRITICAL": Style(color="magenta"),
     }
 
-    # noinspection PyMissingConstructor
     def __init__(
         self,
         *,
@@ -99,6 +96,8 @@ class SparkRichFormatter:
         min_message_width: int = 40,
         indent_guide: str | None = "│",
     ) -> None:
+        """Initialize with layout settings and reset all per-instance mutable state."""
+        super().__init__()
         self.show_time = show_time
         self.show_level = show_level
         self.show_path = show_path
@@ -114,6 +113,8 @@ class SparkRichFormatter:
         self.max_function_width = max_function_width
         self.min_message_width = min_message_width
 
+        self._degradation_gate: _DegradationGates = _DegradationGates.NONE
+        self._layout_degradation_flag: bool = False
         self._last_time: Text | None = None
         self._minimal_col_width: int = 10
         self._minimal_path_width: int = 0
@@ -563,7 +564,24 @@ class SparkRichFormatter:
 
     @property
     def is_layout_degraded(self) -> bool:
+        """True when at least one optional column was collapsed due to insufficient terminal width."""
         return self._layout_degradation_flag
+
+    def degraded_columns(self) -> list[str]:
+        """Return the names of optional columns that were hidden during the last layout allocation."""
+        hidden: list[str] = []
+        if self.show_path and self._degradation_gate in (
+            _DegradationGates.TIME,
+            _DegradationGates.PATH,
+        ):
+            hidden.append("Path")
+        if self.show_function and self._degradation_gate in (
+            _DegradationGates.TIME,
+            _DegradationGates.PATH,
+            _DegradationGates.FUNCTION,
+        ):
+            hidden.append("Function")
+        return hidden
 
     @staticmethod
     def _console_has_space(console: Console) -> bool:
