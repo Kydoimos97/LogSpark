@@ -111,6 +111,17 @@ def _get_console_width_unix() -> int | None:
     return None
 
 
+def is_disable_degradation_mode() -> bool:
+    """Return True when LOGSPARK_DISABLE_DEGRADATION is set.
+
+    When active, the Rich formatter assigns every column its desired width without
+    ever collapsing to zero.  Use in environments where the reported console width
+    is known to be inaccurate (e.g. PyCharm run console fixed at 80 cols) and the
+    terminal can handle the actual output width without wrapping.
+    """
+    return os.environ.get("LOGSPARK_DISABLE_DEGRADATION") is not None
+
+
 def resolve_project_root() -> Path | None:
     """
     Resolve the project root by checking PROJECT_ROOT env var, VIRTUAL_ENV parent,

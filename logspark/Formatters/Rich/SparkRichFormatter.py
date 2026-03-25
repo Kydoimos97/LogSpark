@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.text import Text, TextType
 
 from ..._Internal import _DegradationGates
-from ..._Internal.State.Env import get_console_width
+from ..._Internal.State.Env import get_console_width, is_disable_degradation_mode
 
 
 @runtime_checkable
@@ -458,6 +458,9 @@ class SparkRichFormatter:
 
         if renderable is None:
             return 0, available_width, False
+
+        if is_disable_degradation_mode():
+            return desired_width, available_width, False
 
         max_width = available_width - self.min_message_width - self._padding
         if max_width < minimal_width:
