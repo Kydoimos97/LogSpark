@@ -13,6 +13,24 @@ from ..Types.SparkRecordAttrs import (
 
 
 class PathNormalizationFilter(logging.Filter):
+    """
+    Filter that resolves and normalises source file paths on each log record.
+
+    Populates ``record.spark.filepath``, ``record.spark.filename``,
+    ``record.spark.uri``, and related fields according to ``resolution_mode``:
+
+    - ``RELATIVE`` — path relative to the detected project root (falls back to
+      ``FILE`` mode when the root cannot be resolved)
+    - ``ABSOLUTE`` — absolute filesystem path
+    - ``FILE`` — filename only, no directory component
+
+    When ``link_path=True`` and the resolved path is absolute, a ``file://``
+    URI is generated for terminal hyperlink support.
+
+    When ``inject_base_record=True``, ``record.pathname`` is also updated so
+    stdlib formatters see the normalised path.
+    """
+
     resolution_mode: PathResolutionSetting = PathResolutionSetting.RELATIVE
     _project_root: Path | None = None
     link_path: bool = True
@@ -22,6 +40,7 @@ class PathNormalizationFilter(logging.Filter):
                  resolution_mode: PathResolutionSetting = PathResolutionSetting.RELATIVE,
                  link_path: bool = True,
                  inject_base_record: bool = False):
+        """Initialize with resolution mode, link path generation flag, and optional base-record injection."""
         super().__init__(name)
         self.resolution_mode = resolution_mode
         self.link_path = link_path
@@ -37,10 +56,11 @@ class PathNormalizationFilter(logging.Filter):
 
     @project_root.setter
     def project_root(self, value: Path | None):
-        "can override but wouldn't do so. also can use a ENV var."
+        """Override the project root used for RELATIVE resolution; ``None`` re-enables auto-detection."""
         self._project_root = value
 
     def filter(self, record: LogRecord) -> bool:
+        """Resolve and write normalised path attributes onto ``record.spark``; always returns True."""
         if not has_spark_extra_attributes(record):
             record.spark = SparkRecordAttrs.from_record(record)
 
@@ -61,6 +81,7 @@ class PathNormalizationFilter(logging.Filter):
         return True
 
     def _handle_path_resolution(self, record: LogRecord) -> Path:
+        """Apply the configured resolution mode to produce the display path."""
         if has_spark_extra_attributes(record):
             path = record.spark.filepath
         else:
@@ -78,6 +99,7 @@ class PathNormalizationFilter(logging.Filter):
         return display_path
 
     def _handle_link_uri(self, record: LogRecord) -> str | None:
+        """Return a ``file://`` URI for terminal hyperlinks when link_path is enabled and the path is absolute."""
         if has_spark_extra_attributes(record):
             path = record.spark.filepath
         else:

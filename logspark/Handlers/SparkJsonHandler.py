@@ -10,54 +10,19 @@ from ..Types.Protocol import SupportsWrite
 
 class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
     """
-    JSON structured logging handler using python-json-logger backend.
+    Structured JSON logging handler backed by python-json-logger.
 
-    Produces single-line JSON output suitable for log aggregation systems,
-    structured logging pipelines, and production environments. Each log
-    record is formatted as a complete JSON object on a single line.
+    Emits one JSON object per log record on a single line, making output
+    suitable for log aggregation pipelines and production environments.
+    Extra fields passed via ``extra=`` in log calls are included in the
+    JSON object automatically.
 
-    Features:
-    - Structured JSON output with consistent schema
-    - Automatic field extraction from LogRecord attributes
-    - Support for extra fields via the 'extra' parameter
-    - Single-line output invariant for easy parsing
-    - Traceback policy integration for error handling
-
-    Example:
-        ```python
-        from logspark import logger
-        from logspark.handlers import SparkJsonHandler
-
-        logger.configure(
-            level=logging.INFO,
-            handler=SparkJsonHandler()
-        )
-
-        logger.info("User action", extra={
-            "user_id": 123,
-            "action": "login",
-            "ip_address": "192.168.1.1"
-        })
-        # Output: {"timestamp": "2023-...", "level": "INFO", "message": "User action", "user_id": 123, ...}
-        ```
+    Requires python-json-logger; raises ``MissingDependencyException`` at
+    construction time if the package is absent.
     """
 
     def __init__(self, stream: SupportsWrite | None = None) -> None:
-        """
-        Initialize JSON handler with python-json-logger backend.
-
-        Args:
-            stream: Output stream for JSON log records. If None, defaults to sys.stdout.
-                   Can be any object that supports write() method (file, StringIO, etc.).
-
-        Raises:
-            MissingDependencyException: If python-json-logger is not installed.
-
-        Note:
-            The handler automatically configures structured JSON formatting with
-            standard fields including timestamp, level, message, and source location.
-            Additional fields can be added via the 'extra' parameter in log calls.
-        """
+        """Initialize the handler with ``SparkJsonFormatter``; raises ``MissingDependencyException`` if python-json-logger is absent."""
 
         resolved: SupportsWrite
         if is_silenced_mode():

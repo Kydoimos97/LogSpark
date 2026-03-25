@@ -13,57 +13,27 @@ class TempLogLevel:
     """
     Context manager and decorator for temporary logging level adjustments.
 
-    Provides scoped debugging capabilities by temporarily changing the logger's
-    effective level without modifying the frozen configuration. The original
-    level is automatically restored when the scope ends.
+    Temporarily changes the SparkLogger's effective level without touching
+    the frozen configuration. The original level is restored automatically
+    when the scope exits or the decorated function returns.
 
-    This is useful for debugging specific code sections or functions without
-    permanently changing your logger configuration.
+    Usage as a context manager::
 
-    Usage as context manager:
-        ```python
-        from logspark import logger, LogOverride
-        import logging
+        with TempLogLevel(logging.DEBUG):
+            logger.debug("visible only inside this block")
 
-        logger.configure(level=logging.INFO)
+    Usage as a decorator::
 
-        with ScopedLogLevel(level=logging.DEBUG):
-            logger.debug("This debug message is now visible")
-        # Debug level is automatically restored to INFO
-        ```
+        @TempLogLevel(logging.DEBUG)
+        def process_order(order_id: str) -> None:
+            logger.debug("visible during this call")
 
-    Usage as decorator:
-        ```python
-        @LogOverride(level=logging.DEBUG)
-        def debug_function():
-            logger.debug("This debug message is now visible")
-            # Function runs with DEBUG level enabled
-        ```
-
-    Note:
-        LogOverride only affects the effective logging level, not handlers,
-        formatters, or other configuration aspects. The frozen configuration
-        remains immutable.
+    Only the logger level is affected. Handlers, formatters, filters, and
+    the frozen configuration remain unchanged.
     """
 
     def __init__(self, level: str | int) -> None:
-        """
-        Initialize LogOverride with the target logging level.
-
-        Args:
-            level: Target logging level for the override scope. Should be one of
-                  the standard library logging levels (e.g., logging.DEBUG,
-                  logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL).
-
-        Raises:
-            InvalidConfigurationError: If level is not a valid integer.
-
-        Example:
-            ```python
-            # Create override for DEBUG level
-            debug_override = LogOverride(logging.DEBUG)
-            ```
-        """
+        """Store and validate the target level."""
         v_level = validate_level(level)
 
         self.target_level = v_level

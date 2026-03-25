@@ -7,15 +7,16 @@ from ..Types.Options import TracebackOptions
 
 class SparkJsonFormatter(SparkBaseFormatter):
     """
-    Wrapper formatter that enforces single-line JSON output invariant
+    JSON formatter that enforces a strict single-line-per-record invariant.
 
-    This formatter wraps python-json-logger to ensure all output is single-line,
-    including traceback information, regardless of traceback policy.
+    Delegates serialisation to ``pythonjsonlogger.json.JsonFormatter`` (lazy
+    import inside ``__init__``). Before serialising, exc_info and exc_text are
+    collapsed or cleared according to the traceback policy, and internal
+    LogSpark attributes (``spark``, ``_spark_exc``) are stripped so they never
+    appear in JSON output.
 
-    Invariant:
-        Each emitted log record results in exactly one line of JSON output.
-
-
+    Raises ``ImportError`` at construction time when python-json-logger is absent
+    (caught and re-raised as ``MissingDependencyException`` by ``SparkJsonHandler``).
     """
 
     def __init__(
@@ -29,6 +30,7 @@ class SparkJsonFormatter(SparkBaseFormatter):
         tb_policy: TracebackOptions | None = None,
         **kwargs,
     ):
+        """Initialize with the json-logger backend; multiline is always False for JSON output."""
         super().__init__(
             fmt, datefmt, style, validate, defaults=defaults, tb_policy=tb_policy, multiline=False
         )
@@ -41,9 +43,7 @@ class SparkJsonFormatter(SparkBaseFormatter):
 
 
     def format(self, record: logging.LogRecord) -> str:
-        """
-        Format record ensuring single-line JSON output.
-        """
+        """Apply traceback policy, strip internal attributes, and emit a single-line JSON string."""
         record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
 
         # Enforce single-line invariant on exc field values.

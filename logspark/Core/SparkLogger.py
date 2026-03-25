@@ -24,12 +24,18 @@ class SparkLogger(logging.Logger):
     """
     Singleton logger with explicit configuration and freeze semantics.
 
-    Lifecycle:
-        import → configure → freeze → use
+    Lifecycle: ``configure()`` → (optional) ``freeze()`` → use → (optional) ``kill()``.
+    Once frozen, all handler, filter, and level configuration is immutable for the
+    lifetime of the instance. ``kill()`` tears down the singleton and clears the
+    stdlib logger registry entry, allowing a fresh ``configure()`` call.
 
-    Invariant:
-        Once is_configured, logging behavior is immutable for the lifetime
-        of the logger instance.
+    Pre-configuration usage is allowed: a one-time warning is emitted and
+    ``SparkPreConfigHandler`` is attached as a fallback so no records are silently
+    dropped. Calling ``configure()`` replaces that fallback with the real handler.
+
+    All standard ``logging.Logger`` methods (``debug``, ``info``, ``warning``,
+    ``error``, ``critical``, ``exception``, ``log``) are available directly on
+    this instance. ``extra=`` kwargs are forwarded unchanged for structured fields.
     """
 
     def __init__(self) -> None:
@@ -47,102 +53,37 @@ class SparkLogger(logging.Logger):
 
     # PUBLIC LOGGING API
     def debug(self, msg: object, *args: object, **kwargs: Any) -> None:
-        """
-        Log a message with severity 'DEBUG'.
-
-        Args:
-            msg: The message to log. Can be any object that will be converted to string.
-            *args: Arguments for string formatting if msg contains format specifiers.
-            **kwargs: Additional keyword arguments passed to the underlying logging call.
-                     Common kwargs include 'extra' for additional context fields.
-
-        Note:
-            If the logger hasn't been is_configured, this will emit a suppressible warning
-            and use minimal terminal logging.
-        """
+        """Log a message at DEBUG level."""
         self._ensure_config()
         self._log(logging.DEBUG, msg, *args, **kwargs)
 
     def info(self, msg: object, *args: object, **kwargs: Any) -> None:
-        """
-        Log a message with severity 'INFO'.
-
-        Args:
-            msg: The message to log. Can be any object that will be converted to string.
-            *args: Arguments for string formatting if msg contains format specifiers.
-            **kwargs: Additional keyword arguments passed to the underlying logging call.
-                     Common kwargs include 'extra' for additional context fields.
-
-        Note:
-            If the logger hasn't been is_configured, this will emit a suppressible warning
-            and use minimal terminal logging.
-        """
+        """Log a message at INFO level."""
         self._ensure_config()
         self._log(logging.INFO, msg, *args, **kwargs)
 
     def warning(self, msg: object, *args: object, **kwargs: Any) -> None:
-        """
-        Log a message with severity 'WARNING'.
-
-        Args:
-            msg: The message to log. Can be any object that will be converted to string.
-            *args: Arguments for string formatting if msg contains format specifiers.
-            **kwargs: Additional keyword arguments passed to the underlying logging call.
-                     Common kwargs include 'extra' for additional context fields.
-
-        Note:
-            If the logger hasn't been is_configured, this will emit a suppressible warning
-            and use minimal terminal logging.
-        """
+        """Log a message at WARNING level."""
         self._ensure_config()
         self._log(logging.WARNING, msg, *args, **kwargs)
 
     def error(self, msg: object, *args: object, **kwargs: Any) -> None:
-        """
-        Log a message with severity 'ERROR'.
-
-        Args:
-            msg: The message to log. Can be any object that will be converted to string.
-            *args: Arguments for string formatting if msg contains format specifiers.
-            **kwargs: Additional keyword arguments passed to the underlying logging call.
-                     Common kwargs include 'extra' for additional context fields.
-
-        Note:
-            If the logger hasn't been is_configured, this will emit a suppressible warning
-            and use minimal terminal logging.
-        """
+        """Log a message at ERROR level."""
         self._ensure_config()
         self._log(logging.ERROR, msg, *args, **kwargs)
 
     def critical(self, msg: object, *args: object, **kwargs: Any) -> None:
-        """
-        Log a message with severity 'CRITICAL'.
-
-        Args:
-            msg: The message to log. Can be any object that will be converted to string.
-            *args: Arguments for string formatting if msg contains format specifiers.
-            **kwargs: Additional keyword arguments passed to the underlying logging call.
-                     Common kwargs include 'extra' for additional context fields.
-
-        Note:
-            If the logger hasn't been is_configured, this will emit a suppressible warning
-            and use minimal terminal logging.
-        """
+        """Log a message at CRITICAL level."""
         self._ensure_config()
         self._log(logging.CRITICAL, msg, *args, **kwargs)
 
     def exception(self, msg: object, *args: object, **kwargs: Any) -> None:
         """
-        Log a message with severity 'ERROR', including exception information.
+        Log a message at ERROR level and attach current exception information.
 
-        This method should be called from within an except block.
-        It is equivalent to calling error(..., exc_info=True).
-
-        Args:
-            msg: The message to log. Can be any object that will be converted to string.
-            *args: Arguments for string formatting if msg contains format specifiers.
-            **kwargs: Additional keyword arguments passed to the underlying logging call.
-                      'exc_info' will always be set to True.
+        Must be called from within an ``except`` block. ``exc_info=True`` is
+        set automatically; the traceback policy on the record governs how
+        the exception is rendered.
         """
         self._ensure_config()
         kwargs.setdefault("exc_info", True)
@@ -152,16 +93,11 @@ class SparkLogger(logging.Logger):
         """
         Log a message at an explicit numeric severity level.
 
-        This method exists for compatibility with generic logging utilities
-        and tooling that operate on numeric log levels and expect a `log()`
-        entry point, mirroring the standard library logging.Logger API.
-
-        preserves all LogSpark invariants:
-          - explicit configuration and freeze semantics
-          - deterministic callsite resolution
-          - controlled handler and traceback policy enforcement
+        Mirrors the stdlib ``Logger.log()`` entry point for compatibility with
+        generic logging utilities. All LogSpark invariants are preserved:
+        configuration and freeze semantics, deterministic callsite resolution,
+        and handler/traceback policy enforcement.
         """
-
         self._ensure_config()
         self._log(level, msg, *args, **kwargs)
 
@@ -176,7 +112,22 @@ class SparkLogger(logging.Logger):
         multiline: bool = True,
         no_freeze: bool = False,
     ) -> None:
-        " Stores the initial settings and setsup the intial handler. ensures user setsup correctly. can be bypassed completely if desired."
+        """
+        Configure the logger and, by default, freeze it immediately.
+
+        This is the primary entry point for LogSpark setup. It must be called
+        before the logger is used in production. Calling it a second time on a
+        frozen instance raises ``FrozenClassException``.
+
+        When no handler is supplied, a ``SparkTerminalHandler`` is created with
+        the given ``traceback_policy`` and ``multiline`` settings. If
+        ``LOGSPARK_MODE=fast`` is set in the environment, a ``NullHandler`` is
+        used instead for maximum throughput.
+
+        The ``no_freeze=True`` flag is intended for advanced use cases (e.g.
+        adding extra handlers or filters after initial configuration). Call
+        ``logger.freeze()`` manually when setup is complete.
+        """
         with self._lock:
             if self._frozen:
                 raise FrozenClassException("Cannot configure logger after freeze")
@@ -204,6 +155,7 @@ class SparkLogger(logging.Logger):
 
     def _apply_config(self, level: str | int = logging.INFO, *, handler: logging.Handler,
         traceback_policy: TracebackOptions | None = None, path_resolution: PathResolutionSetting | None = None, multiline: bool = True):
+        """Apply filters, handler, level, and ddtrace injection to the logger."""
         if traceback_policy is not None:
             self.addFilter(
                     TracebackPolicyFilter()
@@ -229,16 +181,26 @@ class SparkLogger(logging.Logger):
 
     @property
     def is_configured(self) -> bool:
+        """True after a successful ``configure()`` call."""
         return self._configured
 
     @is_configured.setter
     def is_configured(self, value: bool):
+        """Set the configured flag; raises ``InvalidConfigurationError`` if set True with no handlers."""
         if value is True:
             if not self.handlers:
                 raise InvalidConfigurationError("No handlers provided in current configuration set a handler with logger.addHandler()")
         self._configured = value
 
     def eject_handlers(self) -> None:
+        """
+        Flush, close, and remove all attached handlers.
+
+        Raises ``FrozenClassException`` if the logger is frozen. Intended for
+        reconfiguration flows (e.g. replacing the handler between ``configure``
+        calls when ``no_freeze=True``). Not part of the normal production
+        lifecycle.
+        """
         if self.frozen:
             raise FrozenClassException("Cannot eject handlers from frozen logger")
 
@@ -248,11 +210,23 @@ class SparkLogger(logging.Logger):
         self.handlers.clear()
 
     def eject_filters(self) -> None:
+        """
+        Remove all attached filters.
+
+        Raises ``FrozenClassException`` if the logger is frozen.
+        """
         if self.frozen:
             raise FrozenClassException("Cannot eject filters from frozen logger")
         self.filters.clear()
 
     def addHandler(self, hdlr, dedupe: bool = False):
+        """
+        Attach a handler, enforcing freeze semantics and optional deduplication.
+
+        Raises ``FrozenClassException`` if the logger is frozen. If a handler of
+        the same type is already attached, emits ``SparkLoggerDuplicatedHandlerWarning``
+        unless ``dedupe=True``, in which case the existing handler is removed first.
+        """
         if self.frozen:
             raise FrozenClassException("Cannot add handlers to frozen logger")
         with self._lock:
@@ -271,6 +245,13 @@ class SparkLogger(logging.Logger):
         super().addHandler(hdlr)
 
     def addFilter(self, filter, dedupe: bool = False):
+        """
+        Attach a filter, enforcing freeze semantics and optional deduplication.
+
+        Raises ``FrozenClassException`` if the logger is frozen. If a filter of
+        the same type is already attached, emits ``SparkLoggerDuplicatedFilterWarning``
+        unless ``dedupe=True``, in which case the existing filter is removed first.
+        """
         if self.frozen:
             raise FrozenClassException("Cannot add filters to frozen logger")
         with self._lock:
@@ -289,6 +270,17 @@ class SparkLogger(logging.Logger):
             super().addFilter(filter)
 
     def freeze(self) -> None:
+        """
+        Make the logger configuration immutable.
+
+        Called automatically by ``configure()`` unless ``no_freeze=True`` was
+        passed. After freezing, ``addHandler()``, ``addFilter()``,
+        ``eject_handlers()``, and ``eject_filters()`` all raise
+        ``FrozenClassException``.
+
+        Raises ``InvalidConfigurationError`` if called before ``configure()``.
+        Idempotent — calling it on an already-frozen logger is a no-op.
+        """
         if self._frozen:
             return
 
@@ -301,20 +293,12 @@ class SparkLogger(logging.Logger):
 
     @property
     def frozen(self) -> bool:
-        """
-        Check if the logger configuration is frozen (immutable).
-
-        Returns:
-            True if the logger has been is_configured and frozen, False otherwise.
-
-        Note:
-            Once configure() is called, the logger is automatically frozen and
-            this method will always return True.
-        """
+        """True once the logger has been configured and frozen."""
         return self._frozen
 
     @frozen.setter
     def frozen(self, value: bool):
+        """Assign True to freeze; assigning False raises ``ValueError``."""
         if value is True:
             self.freeze()
         else:
@@ -365,10 +349,8 @@ class SparkLogger(logging.Logger):
             # this maintains the relationship between singleton and
             # the global logging registry
 
-    # INTERNAL
-    # Overwrite self._log and call super().log to adhere to regular hooks instead of introducing new namings.
     def _log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
-        # Get user-provided stacklevel or default
+        """Resolve stacklevel and delegate to stdlib ``Logger._log``."""
         if not isinstance(level, int):
             if logging.raiseExceptions:
                 raise TypeError("level must be an integer")
@@ -385,13 +367,14 @@ class SparkLogger(logging.Logger):
         kwargs["stacklevel"] = resolved_stacklevel
         super()._log(level, msg, args, **kwargs)
 
-    # Life Cycle
     def _ensure_config(self) -> None:
+        """Emit unconfigured warning and attach pre-config handler if configure() has not been called."""
         if self._configured is not True and not self._pre_config_setup_done:
             self._emit_unconfigured_warning()
             self._ensure_pre_config_setup()
 
     def _ensure_pre_config_setup(self) -> None:
+        """Attach SparkPreConfigHandler as a one-time fallback before configure() is called."""
         if self._pre_config_setup_done:
             return
 
@@ -409,6 +392,7 @@ class SparkLogger(logging.Logger):
             self._pre_config_setup_done = True
 
     def _emit_unconfigured_warning(self) -> None:
+        """Emit a one-time SparkLoggerUnconfiguredUsageWarning."""
         if not self._unconfigured_warning_emitted:
             emit_warning(
                 message="\nWARNING: Logger used before configuration.\n"
@@ -420,6 +404,7 @@ class SparkLogger(logging.Logger):
             self._unconfigured_warning_emitted = True
 
     def _raise_logger_name_conflict(self) -> None:
+        """Raise RuntimeError when a conflicting logger name already exists in the registry."""
         raise RuntimeError(
             (
                 "\nLogSpark invariant violation detected.\n"

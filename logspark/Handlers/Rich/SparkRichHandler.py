@@ -30,16 +30,19 @@ from ...Types.SparkRecordAttrs import HasSparkAttributes
 
 class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
     """
-    Enhanced Rich logging handler with customizable layout and rendering.
+    Rich-based logging handler with budget-aware column layout.
 
-    Extends Rich's SparkRichHandler with LogSpark-specific features including:
-    - Configurable column widths and display options
-    - Custom log rendering with budget-based layout
-    - Enhanced path resolution and function name display
-    - Flexible time formatting and level display
+    Extends ``rich.logging.RichHandler`` with LogSpark-specific rendering via
+    ``SparkRichFormatter``, which allocates column widths against the current
+    terminal width and collapses optional columns (path, function) before
+    compressing the message column.
 
-    This handler uses a SparkRichFormatter for structured, terminal-aware output
-    that adapts to available screen space while maintaining readability.
+    When color is incompatible with the stream, the console is created without
+    color and a one-time warning is emitted. When a pre-configured ``Console``
+    is supplied directly, ``stream`` must not be set.
+
+    Traceback rendering is controlled by ``traceback_policy``; Rich tracebacks
+    are used only when ``exc_info`` survives the policy filter intact.
     """
 
     _warn_width_shown: bool = False
@@ -64,6 +67,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         # Advanced settings
         settings: SparkRichHandlerSettings | None = None,
     ) -> None:
+        """Set up Rich Console, apply color compatibility, and create the SparkRichFormatter."""
 
         if console is None:
             from rich.console import Console
@@ -137,8 +141,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         )
 
     def emit(self, record: LogRecord) -> None:
-        """Invoked by logging. rich has a poor seperation of concerns it formats in the handler and then uses a renderer which is technically a formatter but not a logging.formatter.
-        for now we can follow the paradigm but its poor and all the formatting should be done in the renderer/formatter"""
+        """Apply traceback policy, render to a Rich renderable, and print via the console."""
         record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
         message = self.format(record)
 
@@ -172,17 +175,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         traceback: "Traceback | None | ConsoleRenderable",
         message_renderable: "ConsoleRenderable",
     ) -> "ConsoleRenderable":
-        """Render log for display.
-
-        Args:
-            record (LogRecord): logging Record.
-            traceback (Optional[Traceback]): Traceback instance or None for no Traceback.
-            message_renderable (ConsoleRenderable): Renderable (typically Text)
-            containing log message contents.
-
-        Returns:
-            ConsoleRenderable: Renderable to display log.
-        """
+        """Resolve path and time metadata from the record and delegate layout to ``SparkRichFormatter``."""
         # Resolve Path
         if isinstance(record, HasSparkAttributes):
             display_path = record.spark.filepath
@@ -219,6 +212,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         return log_renderable
 
     def _resolve_time_format(self, created: float) -> tuple[str | None, datetime]:
+        """Return the active datefmt string and a datetime from the record's created timestamp."""
         if self.formatter is None:
             time_format = None
         else:
@@ -226,6 +220,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         return time_format, datetime.fromtimestamp(created)
 
     def _emit_degradation_warning(self) -> None:
+        """Emit a one-time ``ConsoleWidthWarning`` listing which layout columns were hidden."""
         class ConsoleWidthWarning(UserWarning):
             """Warning emitted when found console size affects availability of layout elements"""
 
@@ -262,6 +257,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         self._warn_width_shown = True
 
     def _apply_time_formatting(self, record: LogRecord) -> str:
+        """Format the message string with asctime injection when a traceback replaces the main body."""
         message = record.getMessage()
         if self.formatter:
             record.message = record.getMessage()
@@ -272,6 +268,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         return message
 
     def _apply_trace_formatting(self, record: LogRecord) -> "Traceback":
+        """Build a Rich ``Traceback`` renderable from the record's exc_info."""
         assert record.exc_info is not None
         exc_type, exc_value, exc_traceback = record.exc_info
         assert exc_type is not None

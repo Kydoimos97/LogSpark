@@ -32,7 +32,7 @@ class SparkLoggerUnconfiguredUsageWarning(LogSparkWarning):
     pass
 
 class SparkLoggerDuplicatedElementWarning(LogSparkWarning):
-    """Warning for duplicated log records"""
+    """Base warning for duplicated handlers or filters attached to the logger."""
 
 class SparkLoggerDuplicatedHandlerWarning(SparkLoggerDuplicatedElementWarning):
     """Warning for duplicated handlers"""
@@ -45,6 +45,8 @@ class SparkLoggerDuplicatedFilterWarning(SparkLoggerDuplicatedElementWarning):
 
 
 class MissingDependencyException(LogSparkError):
+    """Raised when a required optional dependency is not installed."""
+
     def __init__(self, dependencies: list[str]) -> None:
         msg = f"Missing required dependencies:\n{', '.join(dependencies)}\n"
         super().__init__(msg)

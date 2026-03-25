@@ -45,36 +45,23 @@ class PathInfo:
 
 class SparkRichFormatter:
     """
-    Custom log renderer with budget-based column layout for Rich console output.
+    Budget-based column layout renderer for Rich log output.
 
-    Provides structured, terminal-aware log rendering that adapts to available
-    screen space while maintaining readability. Uses a priority-based width
-    allocation strategy to ensure message content is always visible.
+    Called once per log record from ``SparkRichHandler.render()``. Computes
+    column widths against the current terminal width before rendering, so no
+    Rich auto-sizing or reflow occurs at display time.
 
-    Features:
-        - Budget-based column width allocation
-        - Configurable display of time, level, path, and function columns
-        - Automatic column collapse under space constraints
-        - Message column always receives priority for width allocation
-        - Rich styling with consistent color scheme
+    Layout priority (left to right):
+        1. Time — allocated first, collapses inline with level under pressure
+        2. Level — fixed width
+        3. Arrow separator — shown only when terminal width exceeds 120 columns
+        4. Message — guaranteed ``min_message_width``; highest priority
+        5. Path — optional, right-aligned, first to collapse
+        6. Function — optional, right-aligned, collapses after path
 
-    Layout Strategy:
-        1. Fixed columns (time, level, arrow) allocated first
-        2. Message column guaranteed minimum width
-        3. Optional metadata columns (path, function) allocated from remaining space
-        4. Columns collapse gracefully when terminal width is insufficient
-
-    Args:
-        show_time: Whether to display timestamps (default: True)
-        show_level: Whether to display log levels (default: False)
-        show_path: Whether to display source file paths (default: True)
-        show_function: Whether to display function names (default: False)
-        time_format: Time format string or callable (default: "[%x %X]")
-        omit_repeated_times: Whether to hide repeated timestamps (default: True)
-        level_width: Fixed width for level column (default: 8)
-        max_path_width: Maximum width for path column (default: 40)
-        max_function_width: Maximum width for function column (default: 25)
-        min_message_width: Minimum width reserved for log messages (default: 60)
+    Optional metadata columns are dropped to zero width before the message
+    column is compressed. The degradation gate tracks which columns were
+    hidden and prevents redundant per-record recalculation.
     """
 
     _degradation_gate: _DegradationGates = _DegradationGates.NONE
@@ -148,51 +135,16 @@ class SparkRichFormatter:
         function_name: str | None = None,
     ) -> ConsoleRenderable:
         """
-        Render a single log record as a Rich Table row using a budgeted, non-expanding layout.
+        Render one log record as a Rich ``Table`` row with explicit, pre-computed column widths.
 
-        Layout model:
-            - The terminal is treated as a finite-width surface.
-            - Fixed-priority columns (time, level, arrow) are allocated first.
-            - The message column is guaranteed a minimum width and always wins space conflicts.
-            - Optional metadata columns (path, function) are allocated last and may collapse to zero.
-            - No column width is inferred by Rich at render time.
+        All column widths are resolved against the current terminal width before
+        the table is constructed. ``expand=False`` is enforced so Rich never
+        reflowing or auto-sizes any column at display time.
 
-        Column order (left → right):
-            1. Time (optional, width grows monotonically to max observed format width)
-            2. Level (optional, fixed width)
-            3. Arrow separator (optional, fixed width, collapsible under pressure)
-            4. Message (required, folded, highest priority)
-            5. Path (optional, right-aligned, collapsible)
-            6. Function (optional, right-aligned, collapsible)
-
-        Invariants:
-            - `expand=False` is enforced to prevent Rich from reflowing columns.
-            - Column widths are computed before rendering and passed explicitly.
-            - The message column always retains at least `min_message_width` if possible.
-            - When space is insufficient, optional metadata columns collapse before the message.
-
-        Args:
-            console:
-                Active Rich Console used for size introspection.
-            renderables:
-                Renderables that form the log message body.
-            log_time:
-                Timestamp for the log record.
-            time_format:
-                Optional override for timestamp formatting.
-            level:
-                Log level name or Text.
-            path:
-                Source file path.
-            line_no:
-                Source line number.
-            link_path:
-                Optional link target for path rendering.
-            function_name:
-                Calling function name.
-
-        Returns:
-            A Rich Table containing exactly one rendered log row.
+        Column order: time → level → arrow → message → path → function.
+        Optional metadata columns collapse to zero width before the message
+        column is reduced. The arrow separator is omitted on narrow terminals
+        (below 120 columns).
         """
         if not self._console_has_space(console):
             self._gutter_width = 0
@@ -272,6 +224,7 @@ class SparkRichFormatter:
         path_info: PathInfo | None,
         function_name: str | None,
     ) -> tuple[Text | None, Text | None, Text | None, Text | None, Style]:
+        """Build styled Text renderables for each active column based on current display settings."""
         level_style = self._get_level_style(level)
         if self.show_time:
             time_renderable = self._format_time(console, log_time, time_format)
@@ -304,6 +257,7 @@ class SparkRichFormatter:
         time_width: int,
         level_style: Style,
     ) -> tuple[Table, list[RenderableType]]:
+        """Add time and level columns to the table; collapses time inline with level when time_width is zero."""
         if time_renderable is not None:
             if time_width > 0:
                 table.add_column(style=self._TIME_STYLE, width=time_width, justify="left")
@@ -326,6 +280,7 @@ class SparkRichFormatter:
         path_width: int,
         function_width: int,
     ) -> tuple[Table, list[RenderableType]]:
+        """Add path and function as a single combined right-aligned option column when either has non-zero width."""
         option_colomn = []
         option_width = 0
         if path_info is not None and path_width > 0:
@@ -355,54 +310,7 @@ class SparkRichFormatter:
         path_renderable: Text | None,
         function_renderable: Text | None,
     ) -> tuple[int, int, int, int]:
-        """
-        Compute column widths using a priority-based budget allocation strategy.
-
-        Strategy:
-            1. Start with the total terminal width.
-            2. Subtract invariant columns:
-               - time (dynamic, but already rendered)
-               - level (fixed width)
-               - arrow (fixed width)
-            3. Reserve space for the message column:
-               - message is guaranteed `min_message_width` if possible
-               - message always wins conflicts
-            4. Allocate remaining width to optional metadata columns:
-               - path (up to `max_path_width`)
-               - function (up to `max_function_width`)
-            5. If space is insufficient (space < min_message_width):
-               - optional columns collapse to zero before message is reduced
-               - The arrow column is removed and its width is reclaimed for the message.
-
-            6. If terminal width is unknown:
-               - fall back to user-controlled minimums
-
-        Important properties:
-            - Widths are computed once per row, before rendering.
-            - No Rich auto-sizing or reflow is relied upon.
-            - Zero-width columns are intentional and indicate full collapse.
-
-        Args:
-            console:
-                Active Rich Console used to determine terminal width.
-            time_renderable:
-                Rendered timestamp, if enabled.
-            level_renderable:
-                Rendered level text, if enabled.
-            path_renderable:
-                Rendered path text, if enabled.
-            function_renderable:
-                Rendered function text, if enabled.
-
-        Returns:
-            A tuple of:
-                (message_width, time_width, path_width, function_width)
-
-            Where:
-                - message_width is always non-negative
-                - path_width / function_width may be zero to indicate full collapse
-                - show_arrow indicates whether the arrow column should be rendered
-        """
+        """Compute (message_width, time_width, path_width, function_width) via priority-based budget allocation."""
 
         console_width = console.width
         if console_width is None or not isinstance(console_width, int):
@@ -523,13 +431,7 @@ class SparkRichFormatter:
         minimal_width: int | None = None,
         renderable: RenderableType | None,
     ) -> tuple[int, int, bool]:
-        """
-        Try to allocate width for a column.
-        If allocation is not viable, trigger degradation and return 0 width.
-
-        Returns:
-            (allocated_width, remaining_width)
-        """
+        """Return (allocated_width, remaining_width, degraded); degraded is True when the column was collapsed to zero."""
         if minimal_width is None:
             minimal_width = self._minimal_col_width
 
@@ -553,6 +455,7 @@ class SparkRichFormatter:
         return desired_width, available_width - desired_width - self._padding, False
 
     def _format_renderables(self, renderables: Iterable[ConsoleRenderable]) -> Renderables:
+        """Wrap renderables in indent guides if configured and the renderable supports them."""
         guided_renderables = []
         for renderable in renderables:
             if self.indent_guide and isinstance(renderable, _SupportsIndentGuides):
@@ -563,6 +466,7 @@ class SparkRichFormatter:
     def _format_function_name(
         self, function_name: str | None, path_renderable: Text | None
     ) -> Text:
+        """Format function name as ``[name]`` with a leading space when a path renderable is present."""
         if not function_name:
             return Text()
 
@@ -585,6 +489,7 @@ class SparkRichFormatter:
         log_time: datetime | None,
         time_format: str | FormatTimeCallable | None,
     ) -> Text | None:
+        """Format the record timestamp; returns an empty Text when omit_repeated_times suppresses a duplicate."""
         log_time = log_time or console.get_datetime()
         fmt = time_format or self.time_format
 
@@ -609,6 +514,7 @@ class SparkRichFormatter:
         link_path: str | None,
         path_width: int = 10,
     ) -> Text:
+        """Render path segments and line number as a styled, optionally linked Rich Text."""
 
         if isinstance(path, str):
             path = Path(path)
@@ -648,6 +554,7 @@ class SparkRichFormatter:
         return text
 
     def _get_level_style(self, key: TextType, message: bool = False) -> Style:
+        """Look up the Rich Style for a given level name; when message=True returns the message-body style."""
         name = str(key).strip()
         if message:
             name = f"MESSAGE_{name}"
@@ -660,6 +567,7 @@ class SparkRichFormatter:
 
     @staticmethod
     def _console_has_space(console: Console) -> bool:
+        """Return True when the console width is known and at least 120 columns."""
         if console is None:
             return False
         if console.width is None:
@@ -670,4 +578,5 @@ class SparkRichFormatter:
 
     @staticmethod
     def _get_minimal_path_split(path: Text) -> int:
+        """Return the length of the longest path segment, used as the minimum viable path column width."""
         return max([len(p) for p in Path(path.plain).as_posix().split("/")])

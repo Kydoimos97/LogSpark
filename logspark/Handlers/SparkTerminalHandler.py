@@ -18,37 +18,15 @@ if TYPE_CHECKING:
 
 class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
     """
-    Human-readable terminal logging handler with optional Rich rendering.
+    Human-readable terminal logging handler for developer-facing output.
 
-    This handler targets interactive, developer-facing output. When Rich is
-    available, it delegates rendering to a Rich-based handler for structured
-    layout, colors, and enhanced tracebacks. When Rich is not available, it
-    falls back to a standard ``logging.StreamHandler``.
+    Extends ``logging.StreamHandler`` directly — no composition or delegation.
+    Selects a formatter at construction time based on terminal color capability:
+    ``SparkColorFormatter`` when the stream supports ANSI color, otherwise
+    ``SparkBaseFormatter`` with a one-time color-incompatibility warning.
 
-    The handler is implemented as a *composed handler*: it wraps an internal
-    handler instance and forwards log records after applying LogSpark-specific
-    policies such as traceback formatting.
-
-    Features:
-        - Optional Rich-enhanced terminal output
-        - Graceful fallback to stdlib StreamHandler when Rich is unavailable
-        - Configurable display of time, level, path, and function name
-        - Traceback rendering controlled via ``TracebackOptions``
-        - Automatic terminal size detection with conservative defaults
-
-    Traceback handling:
-        The handler inspects the ``traceback_policy`` attribute on log records.
-        Depending on the policy, exception information may be suppressed,
-        compacted, or fully rendered by Rich.
-
-    Console configuration:
-        A pre-is_configured Rich ``Console`` may be supplied directly. When a
-        console is provided, the ``stream`` argument must not be set.
-
-    Intended use:
-        This handler is designed for human-readable output during development
-        and interactive use. It is not intended for high-volume or structured
-        logging pipelines.
+    Traceback rendering is delegated to the formatter via ``traceback_policy``.
+    When ``multiline=False``, exception text is collapsed to a single line.
     """
 
     def __init__(
@@ -66,9 +44,7 @@ class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
         level_width: int = 8,
         log_time_format: "str | FormatTimeCallable | None" = "%H:%M:%S",
     ) -> None:
-        """
-        Initialize a terminal logging handler.
-        """
+        """Initialize formatter selection and underlying StreamHandler."""
 
         # Rich not available - fall back to stdlib StreamHandler
         std_lib_time_format = validate_stdlib_timeformat(log_time_format)

@@ -14,22 +14,15 @@ except ImportError:  # pragma: no cover
 
 class DDTraceInjectionFilter(logging.Filter):
     """
-    Stage that opportunistically injects ddtrace correlation fields
+    Filter that opportunistically injects ddtrace trace and span IDs into log records.
 
-    This Stage enriches LogRecord instances with ddtrace correlation data
-    when ddtrace is active. It never forces JSON output or mutates handlers.
+    When a ddtrace span is active, ``dd_trace_id`` and ``dd_span_id`` are
+    written onto the record for correlation with APM traces. Failures are
+    swallowed silently — this filter never blocks a record or raises.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        """
-        Inject ddtrace correlation fields if ddtrace is active
-
-        Args:
-            record: LogRecord to potentially enrich
-
-        Returns:
-            True (always allow record to pass through)
-        """
+        """Inject ddtrace correlation fields when an active span exists; always returns True."""
         try:
             # Opportunistic ddtrace import - only inject if available and active
             # noinspection PyUnresolvedReferences

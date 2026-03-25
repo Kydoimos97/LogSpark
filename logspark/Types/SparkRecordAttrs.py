@@ -10,6 +10,16 @@ from typing import Literal, Protocol, TypeGuard, runtime_checkable
 
 @dataclass(slots=True)
 class SparkRecordAttrs:
+    """
+    Structured metadata extracted from a ``logging.LogRecord`` for use by LogSpark formatters.
+
+    Populated by ``TracebackPolicyFilter`` and ``PathNormalizationFilter`` at filter
+    time. Formatters read from this dataclass rather than from raw record attributes,
+    allowing path resolution and exception origin to be applied consistently regardless
+    of which formatter is active.
+
+    ``from_record()`` is the primary constructor; direct instantiation is for tests only.
+    """
     filename: str
     filepath: Path
     lineno: int | None
@@ -34,6 +44,7 @@ class SparkRecordAttrs:
 
     @classmethod
     def from_record(cls, record: LogRecord) -> SparkRecordAttrs:
+        """Construct a ``SparkRecordAttrs`` from a ``LogRecord``, extracting the last traceback frame when available."""
         exc_info = getattr(record, "exc_info", None)
 
         if exc_info is None or exc_info == (None, None, None):
@@ -86,20 +97,25 @@ class SparkRecordAttrs:
 
 @runtime_checkable
 class HasSparkAttributes(Protocol):
+    """Runtime-checkable protocol for records that carry a ``SparkRecordAttrs`` instance."""
+
     spark: SparkRecordAttrs
 
 
 @runtime_checkable
 class ExceptionOriginEnabled(HasSparkAttributes, Protocol):
-    """Enabled using the factory function"""
+    """Protocol for records that have both ``SparkRecordAttrs`` and the traceback policy flag set."""
+
     _spark_exc: Literal[True]
 
 
 def is_spark_exception_enabled(record: object) -> TypeGuard[ExceptionOriginEnabled]:
+    """Return True when the record has the traceback policy flag (``_spark_exc == True``) set."""
     return getattr(record, "_spark_exc", False) is True
 
 
 def has_spark_extra_attributes(record: object) -> TypeGuard[HasSparkAttributes]:
+    """Return True when the record has a ``spark`` attribute that is a ``SparkRecordAttrs`` instance."""
     spark = getattr(record, "spark", None)
     return spark is not None and isinstance(spark, SparkRecordAttrs)
 
