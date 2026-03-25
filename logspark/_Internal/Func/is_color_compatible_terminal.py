@@ -90,7 +90,7 @@ def is_color_compatible_terminal(stream: SupportsWrite | None = None) -> bool:
     if term in ("dumb", "unknown"):
         return False
 
-    if os.environ.get("TERMINAL_EMULATOR") is not None and os.environ.get("TERM") is not None:
+    if os.environ.get("TERMINAL_EMULATOR") is not None:
         return True
 
     colorterm = os.environ.get("COLORTERM", "").lower()
@@ -99,7 +99,11 @@ def is_color_compatible_terminal(stream: SupportsWrite | None = None) -> bool:
 
     # Windows conservative fallback
     if os.name == "nt" or "Windows" in os.environ.get("OS", ""):
-        if os.environ.get("WT_SESSION") or os.environ.get("ANSICON"):
+        if (
+            os.environ.get("WT_SESSION")
+            or os.environ.get("ANSICON")
+            or os.environ.get("PYCHARM_HOSTED") == "1"
+        ):
             return True
         else:
             return False
