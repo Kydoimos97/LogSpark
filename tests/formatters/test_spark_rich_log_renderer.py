@@ -4,6 +4,7 @@ import logging
 
 import pytest
 
+pytest.importorskip("rich")
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 
 

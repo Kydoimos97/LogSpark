@@ -265,6 +265,8 @@ class TestLargePayloadPerformance:
 class TestJSONFormattingPerformance:
     """Test JSON formatting performance with traceback serialization"""
 
+    pytestmark = pytest.mark.usefixtures("require_json_logger")
+
     def test_json_formatting_throughput(self, fresh_logger, request, capsys):
         """Test JSON formatting performance"""
         with StringIO() as devnull:

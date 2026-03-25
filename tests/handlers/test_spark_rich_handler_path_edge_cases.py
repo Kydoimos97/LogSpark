@@ -4,6 +4,9 @@ import logging
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
+
+pytest.importorskip("rich")
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 
 

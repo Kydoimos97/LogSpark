@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
+pytest.importorskip("pythonjsonlogger")
 from logspark.Handlers.SparkTerminalHandler import SparkTerminalHandler
 from logspark.Types.Options import TracebackOptions
 

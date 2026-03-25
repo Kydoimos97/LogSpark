@@ -49,38 +49,28 @@ class TestDependencyGuardSystem:
 
     def test_collection_time_safety(self):
         """Test that missing dependencies don't cause collection-time failures."""
-        # This test validates that the pytest_ignore_collect function works correctly
+        import tempfile
+        from pathlib import Path
+
         from tests.conftest import pytest_ignore_collect
 
-        # Create a mock path object for rich directory
-        class MockPath:
-            def __init__(self, name: str):
-                self._name = name
-
-            @property
-            def name(self):
-                return self._name
-
-            def is_dir(self):
-                return True
-
-        # Test with non-rich directory (should not be ignored)
-        non_rich_path = MockPath("other")
-        result = pytest_ignore_collect(non_rich_path, None)
-        assert result is False or result is None  # Should not skip collection
-
-        # Test with rich directory when Rich is available (should not be ignored)
-        rich_path = MockPath("rich")
-        try:
-            import rich  # noqa: F401
-
-            # If Rich is available, should not skip collection
-            result = pytest_ignore_collect(rich_path, None)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Non-rich directory should never be skipped
+            other_dir = Path(tmpdir) / "other"
+            other_dir.mkdir()
+            result = pytest_ignore_collect(other_dir, None)
             assert result is False or result is None
-        except ImportError:
-            # If Rich is not available, should skip collection
-            result = pytest_ignore_collect(rich_path, None)
-            assert result is True
+
+            # Rich directory: skipped when Rich is unavailable, collected when available
+            rich_dir = Path(tmpdir) / "rich"
+            rich_dir.mkdir()
+            try:
+                import rich  # noqa: F401
+                result = pytest_ignore_collect(rich_dir, None)
+                assert result is False or result is None
+            except ImportError:
+                result = pytest_ignore_collect(rich_dir, None)
+                assert result is True
 
     def test_dependency_availability_detection(self):
         """Test that dependency guards correctly detect when dependencies are available."""
