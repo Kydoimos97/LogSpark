@@ -76,6 +76,7 @@ import_mode = "importlib"
 
 [tool.coverage.run]
 source = [ "logspark" ]
+omit = [ "*/__init__.py" ]
 relative_files = true
 data_file = ".cov/.coverage"
 
@@ -127,6 +128,7 @@ dev = [
   "pytest-cov>=7.0.0",
   "pytest-xdist>=3.3.0",
   "ruff>=0.14.3",
+  "ty>=0.0.24",
 ]
 
 mkdocs = [
