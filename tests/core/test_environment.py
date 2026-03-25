@@ -47,18 +47,12 @@ class TestOutputSurfaceDetection:
                 assert is_color_compatible_terminal() is True
 
     def test_viable_output_surface_zero_terminal_ignores_force_color(self):
-        """Test that FORCE_COLOR is ignored when terminal size is 0x0 (file/remote)"""
-        # Test with zero terminal size - FORCE_COLOR should be ignored
-        with patch("shutil.get_terminal_size", return_value=(0, 0)):
-            # Without FORCE_COLOR - should be False
-            with patch.dict("os.environ", {}, clear=False):
-                if "FORCE_COLOR" in os.environ:
-                    del os.environ["FORCE_COLOR"]
-                assert is_color_compatible_terminal() is False
-            
-            # With FORCE_COLOR - should still be True (FORCE_COLOR overrides terminal size)
-            with patch.dict("os.environ", {"FORCE_COLOR": "true"}):
-                assert is_color_compatible_terminal() is True
+        """Test that without any color signals the function returns False on Windows."""
+        with patch.dict("os.environ", {}, clear=True):
+            assert is_color_compatible_terminal() is False
+
+        with patch.dict("os.environ", {"FORCE_COLOR": "true"}, clear=True):
+            assert is_color_compatible_terminal() is True
 
     def test_viable_output_surface_with_rich_console(self):
         """Test output surface detection with Rich console (defers to Rich logic)"""

@@ -62,22 +62,16 @@ class TestColorCompatibleTerminal:
 
     def test_color_compatible_stream_detection(self):
         """Test stream-based color compatibility detection"""
-        # Mock stream with isatty
         mock_stream = Mock()
         mock_stream.isatty.return_value = True
-        
+
         with patch.dict("os.environ", {}, clear=True):
-            # Clear any environment variables that might affect the result
-            for key in ["FORCE_COLOR", "NO_COLOR", "TTY_COMPATIBLE", "TERM"]:
-                if key in os.environ:
-                    del os.environ[key]
-            
-            # On Windows, need WT_SESSION or ANSICON for color support
-            with patch("os.name", "posix"):  # Mock as non-Windows
+            with patch("os.name", "posix"):
                 assert is_color_compatible_terminal(mock_stream) is True
-        
-        mock_stream.isatty.return_value = False
-        assert is_color_compatible_terminal(mock_stream) is False
+
+            mock_stream.isatty.return_value = False
+            with patch("os.name", "posix"):
+                assert is_color_compatible_terminal(mock_stream) is False
 
     def test_color_compatible_stream_no_isatty(self):
         """Test stream without isatty method"""

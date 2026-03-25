@@ -93,6 +93,10 @@ def is_color_compatible_terminal(stream: SupportsWrite | None = None) -> bool:
     if os.environ.get("TERMINAL_EMULATOR") is not None and os.environ.get("TERM") is not None:
         return True
 
+    colorterm = os.environ.get("COLORTERM", "").lower()
+    if colorterm in ("truecolor", "24bit"):
+        return True
+
     # Windows conservative fallback
     if os.name == "nt" or "Windows" in os.environ.get("OS", ""):
         if os.environ.get("WT_SESSION") or os.environ.get("ANSICON"):

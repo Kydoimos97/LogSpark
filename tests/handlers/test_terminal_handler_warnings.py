@@ -25,26 +25,22 @@ class TestSparkTerminalHandlerColorDegradationWarnings:
     def test_rich_color_degraded_warning(self):
         """Test RichColorDegradedWarning when Rich console doesn't support colors"""
         pytest.importorskip("rich")
-        from rich.console import Console
 
-        # Create non-terminal console
-        non_terminal_console = Console(force_terminal=False, file=io.StringIO())
+        with patch("logspark.Handlers.SparkTerminalHandler.is_color_compatible_terminal", return_value=False):
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+                SparkTerminalHandler(use_color=True)
 
-            SparkTerminalHandler(use_color=True)
-
-            # Should emit RichColorDegradedWarning
-            color_warnings = [
-                warning for warning in w
-                if "FORCE_COLOR=true".lower() in str(warning.message).lower()
-            ]
-            assert len(color_warnings) >= 1
+                color_warnings = [
+                    warning for warning in w
+                    if "FORCE_COLOR=true".lower() in str(warning.message).lower()
+                ]
+                assert len(color_warnings) >= 1
 
     def test_ansi_color_degraded_warning(self):
         """Test AnsiColorDegradedWarning when stdlib console doesn't support colors"""
-        with patch("logspark._Internal.Func.is_color_compatible_terminal.is_color_compatible_terminal", return_value=False):
+        with patch("logspark.Handlers.SparkTerminalHandler.is_color_compatible_terminal", return_value=False):
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
 
@@ -200,7 +196,7 @@ class TestSparkTerminalHandlerColorFormatter:
 
     def test_plain_formatter_when_not_viable(self):
         """Test that plain formatter is used when output surface is not viable"""
-        with patch("logspark._Internal.Func.is_color_compatible_terminal.is_color_compatible_terminal", return_value=False):
+        with patch("logspark.Handlers.SparkTerminalHandler.is_color_compatible_terminal", return_value=False):
             handler = SparkTerminalHandler(use_color=True)
 
             # Should use plain Formatter

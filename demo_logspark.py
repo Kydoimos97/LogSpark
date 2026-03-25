@@ -98,16 +98,10 @@ else:
         logger.exception("Division failed")
     print(buf.getvalue().strip())
 
-_section("4b. TracebackOptions.FULL -- all frames, stdlib passthrough")
+_section("4b. TracebackOptions.FULL -- all frames")
 
-# SparkBaseFormatter (use_color=False) does not call process_spark_log_record,
-# so exc_info is left intact and the stdlib full traceback renders normally.
-# SparkColorFormatter clears exc_info for FULL mode, so color is disabled here.
 logger.kill()
-logger.configure(
-    traceback_policy=TracebackOptions.FULL,
-    handler=SparkTerminalHandler(use_color=False),
-)
+logger.configure(traceback_policy=TracebackOptions.FULL)
 try:
     raise ValueError("something went wrong deeply")
 except ValueError:
