@@ -344,3 +344,62 @@ class TestImportOrderProperties:
     """Property-based tests for import order independence"""
 
     pass  # Tests removed - incorrect assumptions about automatic logger adoption
+
+
+class TestSparkLoggerUncoveredBranches:
+    """Cover the remaining branches in SparkLogger that lack direct tests."""
+
+    def test_is_configured_setter_raises_when_no_handlers(self, fresh_logger):
+        """Setting is_configured=True with no handlers raises InvalidConfigurationError."""
+        with pytest.raises(InvalidConfigurationError):
+            fresh_logger.is_configured = True
+
+    def test_add_handler_duplicate_type_emits_warning(self, fresh_logger):
+        """addHandler with a same-type handler and dedupe=False emits a warning."""
+        fresh_logger.configure(no_freeze=True)
+        h1 = logging.StreamHandler()
+        h2 = logging.StreamHandler()
+        fresh_logger.addHandler(h1)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            fresh_logger.addHandler(h2)
+        assert any("Duplicate active handler" in str(warning.message) for warning in w)
+
+    def test_add_handler_duplicate_type_dedupe_removes_existing(self, fresh_logger):
+        """addHandler with dedupe=True removes the existing same-type handler."""
+        fresh_logger.configure(no_freeze=True)
+        h1 = logging.StreamHandler()
+        h2 = logging.StreamHandler()
+        fresh_logger.addHandler(h1)
+        fresh_logger.addHandler(h2, dedupe=True)
+        assert h1 not in fresh_logger.handlers
+        assert h2 in fresh_logger.handlers
+
+    def test_add_filter_frozen_raises(self, fresh_logger):
+        """addFilter on a frozen logger raises FrozenClassException."""
+        fresh_logger.configure()
+        with pytest.raises(FrozenClassException, match="Cannot add filters"):
+            fresh_logger.addFilter(logging.Filter())
+
+    def test_add_filter_duplicate_type_dedupe_removes_existing(self, fresh_logger):
+        """addFilter with dedupe=True removes the existing same-type filter."""
+        fresh_logger.configure(no_freeze=True)
+        f1 = logging.Filter()
+        f2 = logging.Filter()
+        fresh_logger.addFilter(f1)
+        fresh_logger.addFilter(f2, dedupe=True)
+        assert f1 not in fresh_logger.filters
+        assert f2 in fresh_logger.filters
+
+    def test_frozen_setter_true_freezes_logger(self, fresh_logger):
+        """Assigning True to the frozen property calls freeze()."""
+        fresh_logger.configure(no_freeze=True)
+        assert not fresh_logger.frozen
+        fresh_logger.frozen = True
+        assert fresh_logger.frozen
+
+    def test_frozen_setter_false_raises_value_error(self, fresh_logger):
+        """Assigning False to the frozen property raises ValueError."""
+        fresh_logger.configure()
+        with pytest.raises(ValueError, match="Cannot unfreeze"):
+            fresh_logger.frozen = False

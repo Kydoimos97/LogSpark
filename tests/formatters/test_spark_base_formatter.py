@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from unittest.mock import patch
 
 import pytest
 
@@ -102,3 +103,26 @@ class TestSparkBaseFormatterFormat:
         exc_line = lines[-1]
         assert "ValueError" in exc_line
         assert "\n" not in exc_line
+
+
+class TestSparkBaseFormatMixinExceptionSuppression:
+
+    def test_inner_exception_is_suppressed(self):
+        """Errors raised inside process_spark_log_record are caught and discarded."""
+        from logspark.Formatters.SparkBaseFormatter import SparkBaseFormatMixin
+
+        record = logging.LogRecord(
+            name="test",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="trigger",
+            args=(),
+            exc_info=None,
+        )
+        with patch(
+            "logspark.Formatters.SparkBaseFormatter.is_spark_exception_enabled",
+            side_effect=RuntimeError("internal failure"),
+        ):
+            result = SparkBaseFormatMixin.process_spark_log_record(record)
+        assert result is record
