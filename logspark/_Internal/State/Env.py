@@ -31,6 +31,97 @@ def is_ddtrace_available() -> bool:
         return False
 
 
+def get_console_width() -> int | None:
+    """Query the real terminal width via platform-native APIs, bypassing stdout redirection.
+
+    Tries all three standard handles (stdout, stderr, stdin) in order so that redirected
+    streams do not prevent detection.  Returns ``None`` when no console is attached or all
+    probes fail; never raises.
+
+    - **Windows** — ``GetConsoleScreenBufferInfo`` via ``ctypes``; equivalent to
+      ``$Host.UI.RawUI.WindowSize.Width`` in PowerShell.
+    - **Linux / macOS** — ``fcntl.ioctl(fd, TIOCGWINSZ)``; works even when stdout is a pipe
+      provided at least one of the three handles is attached to the terminal.
+    """
+    if os.name == "nt":
+        return _get_console_width_windows()
+    return _get_console_width_unix()
+
+
+def _get_console_width_windows() -> int | None:
+    """Windows implementation of get_console_width()."""
+    try:
+        import ctypes
+        import ctypes.wintypes
+
+        class _COORD(ctypes.Structure):
+            _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+        class _SMALL_RECT(ctypes.Structure):
+            _fields_ = [
+                ("Left", ctypes.c_short),
+                ("Top", ctypes.c_short),
+                ("Right", ctypes.c_short),
+                ("Bottom", ctypes.c_short),
+            ]
+
+        class _CONSOLE_SCREEN_BUFFER_INFO(ctypes.Structure):
+            _fields_ = [
+                ("dwSize", _COORD),
+                ("dwCursorPosition", _COORD),
+                ("wAttributes", ctypes.c_ushort),
+                ("srWindow", _SMALL_RECT),
+                ("dwMaximumWindowSize", _COORD),
+            ]
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        invalid = ctypes.wintypes.HANDLE(-1).value
+
+        for std_id in (-11, -12, -10):  # STD_OUTPUT, STD_ERROR, STD_INPUT
+            handle = kernel32.GetStdHandle(std_id)
+            if not handle or handle == invalid:
+                continue
+            info = _CONSOLE_SCREEN_BUFFER_INFO()
+            if kernel32.GetConsoleScreenBufferInfo(handle, ctypes.byref(info)):
+                width = info.srWindow.Right - info.srWindow.Left + 1
+                if width > 0:
+                    return width
+    except Exception:
+        pass
+    return None
+
+
+def _get_console_width_unix() -> int | None:
+    """Linux/macOS implementation of get_console_width()."""
+    try:
+        import fcntl
+        import struct
+        import termios
+
+        for fd in (1, 2, 0):  # stdout, stderr, stdin
+            try:
+                packed = fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\x00" * 8)
+                _rows, cols = struct.unpack("HH", packed[:4])
+                if cols > 0:
+                    return cols
+            except OSError:
+                continue
+    except Exception:
+        pass
+    return None
+
+
+def is_defer_width_mode() -> bool:
+    """Return True when LOGSPARK_DEFER_WIDTH is set.
+
+    When active and neither Rich nor the Windows Console API can determine the real terminal
+    width, the formatter skips width-based column degradation instead of falling back to the
+    80-column default.  Intended for environments such as PyCharm's run console where no real
+    Windows console is attached and the terminal is wider than 80 columns.
+    """
+    return os.environ.get("LOGSPARK_DEFER_WIDTH") is not None
+
+
 def resolve_project_root() -> Path | None:
     """
     Resolve the project root by checking PROJECT_ROOT env var, VIRTUAL_ENV parent,

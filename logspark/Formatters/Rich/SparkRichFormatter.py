@@ -12,6 +12,7 @@ from rich.table import Table
 from rich.text import Text, TextType
 
 from ..._Internal import _DegradationGates
+from ..._Internal.State.Env import get_console_width, is_defer_width_mode
 
 
 @runtime_checkable
@@ -319,6 +320,17 @@ class SparkRichFormatter:
                 f"Console width must be an int, got {console_width!r} "
                 f"({type(console_width).__name__})"
             )
+
+        # When Rich is using its default fallback width (console._width is None, meaning no
+        # explicit width was set and os.get_terminal_size() failed), attempt a deeper probe via
+        # platform-native APIs that succeed even when stdout is redirected.  If that also fails
+        # and LOGSPARK_DEFER_WIDTH is set, skip degradation entirely by using a large budget.
+        if getattr(console, "_width", None) is None:
+            native_width = get_console_width()
+            if native_width is not None:
+                console_width = native_width
+            elif is_defer_width_mode():
+                console_width = 9999
 
         available_width = console_width - self._gutter_width - self._padding
 
