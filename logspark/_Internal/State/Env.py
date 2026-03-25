@@ -4,27 +4,17 @@ from pathlib import Path
 
 
 def is_silenced_mode() -> bool:
-    """
-    When LOGSPARK_MODE=silenced, all logging pipelines remain fully active,
-    but output is discarded. This mode is intended for tests and high-volume
-    scenarios where logging correctness must be validated without producing output.
-    """
+    """Return True when LOGSPARK_MODE=silenced; output is routed to devnull while pipelines stay active."""
     return os.getenv("LOGSPARK_MODE", "").lower() == "silenced"
 
 
 def is_fast_mode() -> bool:
-    """
-    Performance optimization that trades call-site accuracy for speed.
-    When set, uses constant-time stacklevel resolution instead of frame walking.
-    Recommended for high-throughput scenarios where logging performance is critical.
-    """
+    """Return True when LOGSPARK_MODE=fast; enables constant-time stacklevel resolution instead of frame walking."""
     return os.getenv("LOGSPARK_MODE", "").lower() == "fast"
 
 
 def is_rich_available() -> bool:
-    """
-    Check if Rich library is available for import.
-    """
+    """Return True when the Rich library is importable."""
     try:
         return find_spec("rich") is not None
     except ValueError:
@@ -33,9 +23,7 @@ def is_rich_available() -> bool:
 
 
 def is_ddtrace_available() -> bool:
-    """
-    Check if Rich library is available for import.
-    """
+    """Return True when the ddtrace library is importable."""
     try:
         return find_spec("ddtrace") is not None
     except ValueError:
@@ -44,15 +32,10 @@ def is_ddtrace_available() -> bool:
 
 
 def resolve_project_root() -> Path | None:
-    """Resolve the project root directory using explicit configuration first,
-    then environment context, and finally filesystem heuristics.
-
-    Priority order:
-    1) Explicit PROJECT_ROOT env override
-    2) Active virtual environment location
-    3) Upward search from CWD for common project markers
-
-    Returns None if no reasonable root can be inferred.
+    """
+    Resolve the project root by checking PROJECT_ROOT env var, VIRTUAL_ENV parent,
+    then walking upward from CWD for pyproject.toml, .git, or requirements.txt.
+    Returns None when no root can be inferred.
     """
     # Explicit user override always wins
     if root := os.environ.get("PROJECT_ROOT"):

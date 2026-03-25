@@ -127,8 +127,8 @@ dev = [
   "pytest>=8.4.2",
   "pytest-cov>=7.0.0",
   "pytest-xdist>=3.3.0",
-  "ruff>=0.14.3",
-  "ty>=0.0.24",
+  "ruff>=0.15.7",
+  "ty>=0.0.25",
 ]
 
 mkdocs = [
