@@ -7,6 +7,7 @@ from .Exceptions import (
     SparkLoggerUnconfiguredUsageWarning,
     UnfrozenGlobalOperationError,
 )
+from .Options import PathResolutionSetting, PresetOptions, SparkRichHandlerSettings, TracebackOptions
 
 __all__ = [
     "FrozenClassException",
@@ -16,4 +17,8 @@ __all__ = [
     "SparkLoggerDuplicatedHandlerWarning",
     "SparkLoggerUnconfiguredUsageWarning",
     "UnfrozenGlobalOperationError",
+    "TracebackOptions",
+    "PathResolutionSetting",
+    "PresetOptions",
+    "SparkRichHandlerSettings",
 ]

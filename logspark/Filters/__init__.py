@@ -1,8 +1,11 @@
-# Filters pre process logging records to enhance data either before handler or formatters
-
 from .DDTraceInjectionFilter import DDTraceInjectionFilter
 from .PathNormalizationFilter import PathNormalizationFilter
+from .TracebackPolicyFilter import TracebackPolicyFilter
+from .._Internal.SparkLogFilter import SparkFilterModule
 
-__all__ = ["DDTraceInjectionFilter",
-           "PathNormalizationFilter",
+__all__ = [
+    "DDTraceInjectionFilter",
+    "PathNormalizationFilter",
+    "TracebackPolicyFilter",
+    "SparkFilterModule",
 ]
