@@ -22,7 +22,7 @@ Drop-in logging foundation for Python projects.
 </b></p>
 
 <p align="center">
-  <a href="https://xpytools.readthedocs.io/en/latest"><b>Read the Docs</b></a>
+  <a href="https://github.com/Kydoimos97/logspark/tree/main/docs"><b>Documentation</b></a>
 </p>
 
 ---

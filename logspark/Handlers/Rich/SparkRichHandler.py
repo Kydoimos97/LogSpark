@@ -19,6 +19,7 @@ from ..._Internal.Func import (
     is_color_compatible_terminal,
     resolve_stream,
 )
+from ..._Internal.State.Env import get_console_width
 from ...Formatters.Rich.SparkRichFormatter import SparkRichFormatter
 from ...Formatters.SparkBaseFormatter import SparkBaseFormatMixin
 from ...Types import InvalidConfigurationError

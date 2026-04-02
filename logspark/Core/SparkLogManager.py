@@ -92,8 +92,7 @@ class SparkLogManager:
         entries in the registry are ignored. By default the ``"LogSpark"``
         logger is excluded via ``ignore_spark=True``.
         """
-        if ignore is None:
-            ignore = []
+        ignore = list(ignore) if ignore is not None else []
 
         if ignore_spark:
             ignore.append("LogSpark")

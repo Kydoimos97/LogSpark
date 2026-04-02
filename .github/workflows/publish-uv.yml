@@ -1,39 +1,49 @@
-# .github/workflows/publish-uv.yml
-name: Build & Publish (uv)
+name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches:
+      - main
 
 permissions:
-  id-token: write         # REQUIRED for PyPI Trusted Publishing
-  contents: read
+  contents: write       # push version commit + create tags and GitHub releases
+  id-token: write       # PyPI Trusted Publishing (OIDC)
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0         # hatch-vcs needs tags
+    concurrency:
+      group: release
+      cancel-in-progress: false
 
-      - name: Install uv
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Python and uv
         uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
 
-      - name: Create venv
-        run: uv venv .venv
-
-      - name: Install hatch-vcs
+      - name: Install dependencies
         run: |
-          . .venv/bin/activate
-          uv pip install hatch-vcs
+          uv venv .venv
+          source .venv/bin/activate
+          uv sync --all-groups
+          uv pip install -e .
 
-      - name: Build and Publish
+      - name: Run tests
         run: |
-          . .venv/bin/activate
-          uv build
-          ls -lh dist  # Debug: List built files
-          uv publish dist/* -- --yes
+          source .venv/bin/activate
+          pytest --tb=short -q
+
+      - name: Semantic release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          source .venv/bin/activate
+          semantic-release version
+          semantic-release publish

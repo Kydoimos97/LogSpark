@@ -242,7 +242,7 @@ class SparkLogger(logging.Logger):
                             category=SparkLoggerDuplicatedHandlerWarning,
                             stacklevel=4,
                         )
-        super().addHandler(hdlr)
+            super().addHandler(hdlr)
 
     def addFilter(self, filter, dedupe: bool = False):
         """

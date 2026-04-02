@@ -14,8 +14,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout repo
@@ -26,7 +24,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Create venv and install .[all]
+      - name: Create venv and install dependencies
         run: |
           uv venv .venv
           source .venv/bin/activate

@@ -32,7 +32,7 @@ tasks:
 
   run-demo:
     desc: Run the demo
-    cmd: uv run python ./scripts/path_check/invoker/demo.py
+    cmd: uv run python ./demo_logspark.py
 
   docs:
     desc: Start mkdocs development server

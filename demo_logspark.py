@@ -17,9 +17,6 @@ from logspark import TempLogLevel, logger, spark_log_manager
 from logspark.Handlers import SparkTerminalHandler
 from logspark.Types import TracebackOptions
 from logspark.Types.Options import PathResolutionSetting
-import os
-
-print(os.environ)
 
 # ---------------------------------------------------------------------------
 # ANSI helpers (work without Rich; safe to print alongside log output)

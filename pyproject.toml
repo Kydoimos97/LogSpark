@@ -1,10 +1,10 @@
 [build-system]
-requires = [ "hatchling>=1.24.2", "hatch-vcs>=0.4.0" ]
+requires = [ "hatchling>=1.24.2" ]
 build-backend = "hatchling.build"
 
 [project]
 name = "logspark"
-version = "0.0.0"
+version = "1.0.0"
 description = "Logging control plane and unifier"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,7 +12,10 @@ classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent"
 ]
 
@@ -26,11 +29,13 @@ classifiers = [
   Homepage = "https://github.com/Kydoimos97/logspark"
   "Author GitHub" = "https://github.com/Kydoimos97"
   "Author PyPI" = "https://pypi.org/user/Kydoimos97/"
-  PyPI = "https://pypi.org/project/xpytools/"
+  PyPI = "https://pypi.org/project/logspark/"
 
-[tool.hatch.version]
-source = "vcs"
-tag-pattern = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+  [project.optional-dependencies]
+  color = [ "rich>=14.2.0" ]
+  json  = [ "python-json-logger>=4.0.0" ]
+  trace = [ "ddtrace>=4.1.0" ]
+  all   = [ "rich>=14.2.0", "python-json-logger>=4.0.0", "ddtrace>=4.1.0" ]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -40,7 +45,6 @@ include = [
   "pyproject.toml",
   "README.md",
   "LICENSE",
-  "uv.lock"
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -127,6 +131,7 @@ dev = [
   "pytest>=8.4.2",
   "pytest-cov>=7.0.0",
   "pytest-xdist>=3.3.0",
+  "python-semantic-release>=9.0.0",
   "ruff>=0.15.7",
   "ty>=0.0.25",
 ]
@@ -148,6 +153,25 @@ json = [
 trace = [
     "ddtrace>=4.1.0",
 ]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+tag_format = "v{version}"
+build_command = "uv build"
+commit_message = "chore: release {version} [skip ci]"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "test", "chore", "style", "build", "ci"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]
+upload_to_vcs_release = true
 
 [tool.mypy]
 strict = true

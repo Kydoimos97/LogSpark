@@ -9,7 +9,7 @@ pip install logspark
 For Rich terminal output (recommended for development):
 
 ```bash
-pip install logspark[rich]
+pip install logspark[color]
 ```
 
 ---

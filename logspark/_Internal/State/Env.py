@@ -32,17 +32,26 @@ def is_ddtrace_available() -> bool:
 
 
 def get_console_width() -> int | None:
-    """Query the real terminal width via platform-native APIs, bypassing stdout redirection.
+    """Query the real terminal width, bypassing stdout redirection.
 
-    Tries all three standard handles (stdout, stderr, stdin) in order so that a single
-    redirected stream does not prevent detection.  Returns ``None`` when no console is
-    attached or all probes fail; never raises.
+    Checks in order:
 
-    - **Windows** — ``GetConsoleScreenBufferInfo`` via ``ctypes``; equivalent to
-      ``$Host.UI.RawUI.WindowSize.Width`` in PowerShell.
-    - **Linux / macOS** — ``fcntl.ioctl(fd, TIOCGWINSZ)``; works even when stdout is a pipe
-      provided at least one handle remains attached to the terminal.
+    1. ``COLUMNS`` env var — explicit user override, honoured on all platforms.
+    2. Platform-native API — succeeds even when stdout is redirected:
+       - **Windows**: ``GetConsoleScreenBufferInfo`` via ``ctypes``.
+       - **Linux / macOS**: ``fcntl.ioctl(fd, TIOCGWINSZ)`` tried on stdout, stderr, stdin.
+
+    Returns ``None`` when no width can be determined; never raises.
     """
+    columns_env = os.environ.get("COLUMNS")
+    if columns_env is not None:
+        try:
+            width = int(columns_env)
+            if width > 0:
+                return width
+        except ValueError:
+            pass
+
     if os.name == "nt":
         return _get_console_width_windows()
     return _get_console_width_unix()
