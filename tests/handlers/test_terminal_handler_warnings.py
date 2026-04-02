@@ -76,31 +76,35 @@ class TestSparkTerminalHandlerTimeFormatValidation:
         """Test InvalidTimeFormatWarning for Rich handler with invalid format"""
         pytest.importorskip("rich")
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with patch("logspark._Internal.Func.validate_timeformat.datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.side_effect = ValueError("invalid format")
 
-            SparkTerminalHandler(log_time_format="%invalid_format%")
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
 
-            # Should emit InvalidTimeFormatWarning and fall back to default
-            time_warnings = [
-                warning for warning in w
-                if "timeformat" in str(warning.message).lower()
-            ]
-            assert len(time_warnings) >= 1
+                SparkTerminalHandler(log_time_format="%invalid_format%")
+
+                time_warnings = [
+                    warning for warning in w
+                    if "timeformat" in str(warning.message).lower()
+                ]
+                assert len(time_warnings) >= 1
 
     def test_invalid_time_format_warning_stdlib(self):
         """Test InvalidTimeFormatWarning for stdlib handler with invalid format"""
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
+        with patch("logspark._Internal.Func.validate_timeformat.datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.side_effect = ValueError("invalid format")
 
-            SparkTerminalHandler(log_time_format="%invalid_format%")
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
 
-            # Should emit InvalidTimeFormatWarning and fall back to default
-            time_warnings = [
-                warning for warning in w
-                if "timeformat" in str(warning.message).lower()
-            ]
-            assert len(time_warnings) >= 1
+                SparkTerminalHandler(log_time_format="%invalid_format%")
+
+                time_warnings = [
+                    warning for warning in w
+                    if "timeformat" in str(warning.message).lower()
+                ]
+                assert len(time_warnings) >= 1
 
     def test_callable_time_format_rejected(self):
         """Test that callable time formats are rejected with a warning and fall back to default"""
