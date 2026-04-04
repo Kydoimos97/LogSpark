@@ -39,7 +39,7 @@ class TestCustomLogRenderInitialization:
         assert renderer.show_function is False
         assert renderer.time_format == "[%x %X]"
         assert renderer.omit_repeated_times is True
-        assert renderer.level_width == 8
+        assert renderer.level_width == 9
         assert renderer._last_time is None
 
     def test_custom_initialization(self):

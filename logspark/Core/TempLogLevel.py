@@ -53,6 +53,10 @@ class TempLogLevel:
         # Apply temporary level override
         # This only affects the stdlib logger's effective level, not the configuration
         self.logger_instance.setLevel(self.target_level)
+        # SparkLogger is removed from loggerDict by kill(), so manager._clear_cache()
+        # (called inside setLevel) never reaches it. Clear the isEnabledFor cache
+        # explicitly so the new level is picked up immediately.
+        self.logger_instance._cache.clear()  # type: ignore[attr-defined]
 
         return self
 
@@ -66,6 +70,7 @@ class TempLogLevel:
         if self.logger_instance is not None and self.original_level is not None:
             # Restore original level
             self.logger_instance.setLevel(self.original_level)
+            self.logger_instance._cache.clear()  # type: ignore[attr-defined]
 
         # Clear references
         self.logger_instance = None

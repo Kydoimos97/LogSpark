@@ -60,7 +60,6 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         show_level: bool = True,
         show_path: bool = True,
         show_function: bool = False,
-        level_width: int = 8,
         log_time_format: "str | FormatTimeCallable" = "%H:%M:%S",
         # Advanced settings
         settings: SparkRichHandlerSettings | None = None,
@@ -132,7 +131,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
             show_function=show_function,
             time_format=log_time_format,
             omit_repeated_times=settings.omit_repeated_times,
-            level_width=level_width,
+            level_width=settings.level_width,
             max_path_width=settings.max_path_width,
             max_function_width=settings.max_function_width,
             min_message_width=settings.min_message_width,

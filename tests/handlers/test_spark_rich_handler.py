@@ -54,7 +54,7 @@ class TestSparkRichHandlerInitialization:
         assert handler._spark_formatter.show_path is True
         assert handler._spark_formatter.show_function is False
         assert handler._spark_formatter.omit_repeated_times is True
-        assert handler._spark_formatter.level_width == 8
+        assert handler._spark_formatter.level_width == 9
 
     def test_custom_initialization(self):
         """Test SparkRichHandler with custom parameters"""

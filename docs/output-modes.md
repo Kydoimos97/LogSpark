@@ -20,7 +20,7 @@ Output (color terminal):
 10:42:01 INFO     server.py:14 -> Server started
 ```
 
-`SparkTerminalHandler` selects `SparkColorFormatter` on color-compatible terminals and falls back to `SparkBaseFormatter` on plain ones. For Rich-powered structured column layout, clickable file paths, and enhanced exception rendering, pass `SparkRichHandler` explicitly. See [Using Rich explicitly](#using-rich-explicitly).
+`SparkTerminalHandler` selects `SparkColorFormatter` on color-compatible terminals and falls back to `SparkBaseFormatter` on plain ones. For Rich-powered structured column layout, OSC 8 hyperlink file paths, and enhanced exception rendering, pass `SparkRichHandler` explicitly. See [Using Rich explicitly](#using-rich-explicitly).
 
 ### Traceback policy
 
@@ -64,7 +64,7 @@ See [`PathResolutionSetting`](glossary.md#pathresolutionsetting) in the glossary
 
 ### Using Rich explicitly
 
-`SparkRichHandler` provides structured column layout, clickable file paths, and Rich-rendered exception panels. It requires `rich` and must be passed explicitly to `configure()`:
+`SparkRichHandler` provides structured column layout, OSC 8 hyperlink file paths, and Rich-rendered exception panels. It requires `rich` and must be passed explicitly to `configure()`:
 
 ```python
 from logspark import logger
@@ -100,6 +100,7 @@ Output:
 
 - Exactly one JSON object per line, always
 - No ANSI color codes
+- Non-ASCII characters (e.g. `—`, `€`) are written as-is, not escaped to `\uXXXX`
 - Exception tracebacks are flattened to single-line strings before serialization
 - Any `extra` fields appear as top-level JSON keys
 

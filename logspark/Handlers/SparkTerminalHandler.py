@@ -41,7 +41,7 @@ class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
         show_function: bool = False,
         traceback_policy: "TracebackOptions | None" = None,
         multiline: bool = True,
-        level_width: int = 8,
+        level_width: int = 9,
         log_time_format: "str | FormatTimeCallable | None" = "%H:%M:%S",
     ) -> None:
         """Initialize formatter selection and underlying StreamHandler."""
