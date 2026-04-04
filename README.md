@@ -1,5 +1,5 @@
 <div align="center">
-<img alt="LogSpark" src="assets/Logo.png" width="200" height="200"/>
+<img alt="LogSpark" src="docs/assets/Logo.png" width="200" height="200"/>
 </div>
 
 <p align="center">
