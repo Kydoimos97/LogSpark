@@ -43,7 +43,7 @@ Filters run on the logger, in order, before any handler receives the record.
 
 | Filter | What it attaches |
 |---|---|
-| [`PathNormalizationFilter`](reference.md#pathnormalizationfilter) | Normalized file path, line number, clickable URI |
+| [`PathNormalizationFilter`](reference.md#pathnormalizationfilter) | Normalized file path, line number, OSC 8 hyperlink URI |
 | [`TracebackPolicyFilter`](reference.md#tracebackpolicyfilter) | Exception type, value, traceback structured for formatter use |
 | [`DDTraceInjectionFilter`](reference.md#ddtraceinjectionfilter) | Datadog `dd_trace_id` and `dd_span_id` when ddtrace is active |
 

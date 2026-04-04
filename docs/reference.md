@@ -32,7 +32,7 @@ logger.configure(handler=SparkTerminalHandler(level="DEBUG", show_function=True)
 | `show_function` | `bool` | `False` | Include calling function name |
 | `traceback_policy` | [`TracebackOptions`](glossary.md#tracebackoptions) | `None` | Traceback rendering policy |
 | `multiline` | `bool` | `True` | Allow multiline output |
-| `level_width` | `int` | `8` | Character width reserved for the level name column |
+| `level_width` | `int` | `9` | Character width reserved for the level name column |
 | `log_time_format` | `str` | `"%H:%M:%S"` | strftime format for timestamps |
 
 ---
@@ -65,7 +65,7 @@ logger.configure(handler=SparkJsonHandler())
 
 ### SparkRichHandler
 
-Rich-enhanced terminal output with structured column layout, clickable file paths, and improved exception rendering. Must be passed explicitly to `configure()` — it is not selected automatically.
+Rich-enhanced terminal output with structured column layout, OSC 8 hyperlink file paths, and improved exception rendering. Must be passed explicitly to `configure()` — it is not selected automatically.
 
 ```python
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
@@ -87,7 +87,7 @@ logger.configure(handler=SparkRichHandler(show_function=True, settings=settings)
 | `show_level` | `bool` | `True` | Include level column |
 | `show_path` | `bool` | `True` | Include path column |
 | `show_function` | `bool` | `False` | Include function name column |
-| `level_width` | `int` | `8` | Character width reserved for the level name column |
+| `level_width` | `int` | `9` | Character width reserved for the level name column |
 | `log_time_format` | `str` | `"%H:%M:%S"` | Timestamp format |
 | `settings` | `SparkRichHandlerSettings` | `None` | Advanced layout settings (see below) |
 
@@ -99,10 +99,11 @@ logger.configure(handler=SparkRichHandler(show_function=True, settings=settings)
 | `max_path_width` | `int` | `40` | Maximum character width for the path column |
 | `max_function_width` | `int` | `25` | Maximum character width for the function name column |
 | `omit_repeated_times` | `bool` | `True` | Suppress duplicate timestamps on consecutive lines |
-| `enable_link_path` | `bool` | `True` | Make file paths clickable in supporting terminals |
+| `enable_link_path` | `bool` | `True` | Render file paths as OSC 8 hyperlinks in supporting terminals |
 | `tracebacks_width` | `int \| None` | `None` | Override traceback panel width |
 | `tracebacks_extra_lines` | `int` | `3` | Extra context lines around exception frames |
 | `indent_guide` | `str \| None` | `"\|"` | Character used for multiline indent guides |
+| `level_width` | `int` | `9` | Character width reserved for the level name column |
 
 **Requires:** `rich`
 
@@ -118,7 +119,7 @@ Filters listed here are attached automatically by `configure()` when the relevan
 
 ### PathNormalizationFilter
 
-Rewrites file path information on the log record according to the configured [`PathResolutionSetting`](glossary.md#pathresolutionsetting). Also attaches a `file://` URI for terminal link support.
+Rewrites file path information on the log record according to the configured [`PathResolutionSetting`](glossary.md#pathresolutionsetting). Also attaches a `file://` URI used to render OSC 8 hyperlinks in supporting terminals.
 
 Attached automatically when `configure()` is called with a `path_resolution` setting.
 
