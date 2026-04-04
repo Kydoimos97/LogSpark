@@ -237,11 +237,14 @@ class TestSparkTerminalHandlerColorFormatter:
                 info_output = formatter.format(info_record)
                 warning_output = formatter.format(warning_record)
 
-                # DEBUG should be gray (contains ANSI codes)
-                assert "\033[90m" in debug_output  # Gray
+                # DEBUG: cyan badge, gray message/timestamp/path
+                assert "\033[36m" in debug_output  # cyan badge
+                assert "\033[90m" in debug_output  # gray fields
 
-                # INFO should be uncolored (no ANSI codes)
-                assert "\033[" not in info_output or info_output.count("\033[") == 0
+                # INFO: green badge, gray timestamp/path, unstyled message
+                assert "\033[32m" in info_output   # green badge
+                assert "\033[90m" in info_output   # gray fields
+                assert "\033[31m" not in info_output  # no red bleed
 
-                # WARNING should be yellow
-                assert "\033[33m" in warning_output  # Yellow
+                # WARNING: yellow badge and message
+                assert "\033[33m" in warning_output  # yellow
