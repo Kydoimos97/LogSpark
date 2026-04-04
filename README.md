@@ -1,5 +1,5 @@
 <div align="center">
-<img alt="LogSpark" src="docs/assets/Logo.png" width="200" height="200"/>
+<img alt="LogSpark" src="https://github.com/Kydoimos97/LogSpark/blob/main/docs/assets/Logo.png" width="200" height="200"/>
 </div>
 
 <p align="center">
