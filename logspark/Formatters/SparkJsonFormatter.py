@@ -36,6 +36,7 @@ class SparkJsonFormatter(SparkBaseFormatter):
         )
 
         from pythonjsonlogger.json import JsonFormatter
+        kwargs.setdefault("json_ensure_ascii", False)
         self._json_formatter = JsonFormatter(
             fmt=fmt, datefmt=datefmt, style=style, validate=validate, defaults=defaults, **kwargs
         )
