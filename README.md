@@ -3,8 +3,8 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Kydoimos97/logspark/actions/workflows/run-tests.yml">
-    <img src="https://github.com/Kydoimos97/logspark/actions/workflows/run-tests.yml/badge.svg" alt="Tests">
+  <a href="https://github.com/Kydoimos97/logspark/actions/workflows/ci.yml">
+    <img src="https://github.com/Kydoimos97/logspark/actions/workflows/ci.yml/badge.svg" alt="Tests">
   </a>
   <a href="https://codecov.io/gh/Kydoimos97/logspark">
     <img src="https://codecov.io/gh/Kydoimos97/logspark/branch/main/graph/badge.svg" alt="Coverage">
