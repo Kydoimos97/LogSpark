@@ -29,6 +29,7 @@ classifiers = [
   Homepage = "https://github.com/Kydoimos97/logspark"
   "Author GitHub" = "https://github.com/Kydoimos97"
   "Author PyPI" = "https://pypi.org/user/Kydoimos97/"
+  "Docs" = "https://logspark.readthedocs.io/en/latest/"
   PyPI = "https://pypi.org/project/logspark/"
 
   [project.optional-dependencies]

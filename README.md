@@ -25,7 +25,7 @@ Drop-in logging foundation for Python projects.
 </b></p>
 
 <p align="center">
-  <a href="https://github.com/Kydoimos97/logspark/tree/main/docs"><b>Documentation</b></a>
+  <a href="https://logspark.readthedocs.io/en/latest/"><b>Documentation</b></a>
 </p>
 
 ---
