@@ -87,7 +87,6 @@ logger.configure(handler=SparkRichHandler(show_function=True, settings=settings)
 | `show_level` | `bool` | `True` | Include level column |
 | `show_path` | `bool` | `True` | Include path column |
 | `show_function` | `bool` | `False` | Include function name column |
-| `level_width` | `int` | `9` | Character width reserved for the level name column |
 | `log_time_format` | `str` | `"%H:%M:%S"` | Timestamp format |
 | `settings` | `SparkRichHandlerSettings` | `None` | Advanced layout settings (see below) |
 
