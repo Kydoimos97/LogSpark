@@ -29,6 +29,7 @@ class SparkRichHandlerSettings:
     tracebacks_width: int | None = None
     tracebacks_extra_lines: int = 3
     indent_guide: str | None = "|"
+    level_width: int = 9
 
 
 class TracebackOptions(Enum):

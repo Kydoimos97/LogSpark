@@ -43,6 +43,15 @@ class PathInfo:
     uri: str | None
     lineno: int | None
 
+# (4-char, 3-char, 1-char) abbreviations per level name.
+_LEVEL_ABBREVS: dict[str, tuple[str, str, str]] = {
+    "DEBUG":    ("DBUG", "DBG", "D"),
+    "INFO":     ("INFO", "INF", "I"),
+    "WARNING":  ("WARN", "WRN", "W"),
+    "ERROR":    ("ERRO", "ERR", "E"),
+    "CRITICAL": ("CRIT", "CRT", "C"),
+}
+
 
 class SparkRichFormatter:
     """
@@ -91,7 +100,7 @@ class SparkRichFormatter:
         show_function: bool = False,
         time_format: str | FormatTimeCallable = "[%x %X]",
         omit_repeated_times: bool = True,
-        level_width: int = 8,
+        level_width: int = 9,
         max_path_width: int = 20,
         max_function_width: int = 25,
         min_message_width: int = 40,
@@ -182,6 +191,17 @@ class SparkRichFormatter:
             path_renderable=path_renderable,
             function_renderable=function_renderable,
         )
+
+        # Only abbreviate time when it has collapsed inline with the level column.
+        # When time has its own column this block is skipped entirely.
+        if time_renderable is not None and time_width == 0:
+            if self.level_width >= 9:
+                time_renderable = self._format_time(console, log_time, "%H:%M:%S")
+            elif self.level_width >= 6:
+                time_renderable = self._format_time(console, log_time, "%H:%M")
+            else:
+                time_renderable = None
+
         # Create Table
         table, row = self._handle_invariant_columns(
             table=table,
@@ -228,26 +248,41 @@ class SparkRichFormatter:
     ) -> tuple[Text | None, Text | None, Text | None, Text | None, Style]:
         """Build styled Text renderables for each active column based on current display settings."""
         level_style = self._get_level_style(level)
+        time_renderable = None
         if self.show_time:
             time_renderable = self._format_time(console, log_time, time_format)
-        else:
-            time_renderable = None
+
+        level_renderable = None
         if self.show_level:
-            level_display = (
-                level.plain.strip() if isinstance(level, _HasPlain) else str(level).strip()
-            )
+            level_str = level.plain.strip() if isinstance(level, _HasPlain) else str(level).strip()
+            if self.level_width < 1 + self._padding:
+                self.level_width = 1 + self._padding
+
+            abbrevs = _LEVEL_ABBREVS.get(level_str.upper())
+            if abbrevs is not None:
+                four_char, three_char, one_char = abbrevs
+                content_width = self.level_width - self._padding
+                if content_width >= len(level_str):
+                    level_display = level_str
+                elif content_width >= 4:
+                    level_display = four_char
+                elif content_width >= 3:
+                    level_display = three_char
+                else:
+                    level_display = one_char
+            else:
+                level_display = level_str
+
             level_renderable = Text(level_display, style=level_style)
-        else:
-            level_renderable = None
+
+        path_renderable = None
         if self.show_path and path_info:
             path_renderable = self._format_path(path_info.path, path_info.lineno, path_info.uri)
-        else:
-            path_renderable = None
 
+        function_renderable = None
         if self.show_function and function_name:
             function_renderable = self._format_function_name(function_name, path_renderable)
-        else:
-            function_renderable = None
+
         return time_renderable, level_renderable, path_renderable, function_renderable, level_style
 
     def _handle_invariant_columns(
@@ -262,11 +297,11 @@ class SparkRichFormatter:
         """Add time and level columns to the table; collapses time inline with level when time_width is zero."""
         if time_renderable is not None:
             if time_width > 0:
-                table.add_column(style=self._TIME_STYLE, width=time_width, justify="left")
+                table.add_column(style=self._TIME_STYLE, width=time_width, overflow="ignore", justify="left")
                 row.append(time_renderable)
 
         if level_renderable is not None:
-            table.add_column(width=self.level_width, style=level_style, justify="left")
+            table.add_column(width=self.level_width, overflow="ignore", style=level_style, justify="left")
             if time_width == 0 and time_renderable is not None:
                 row.append(Renderables([level_renderable, time_renderable]))
             else:
@@ -333,7 +368,12 @@ class SparkRichFormatter:
             else:
                 console_width = console.width  # explicit: keep Rich's 80-col fallback
 
-        available_width = console_width - self._gutter_width - self._padding
+        cols_in_play = 0
+        for col in (time_renderable, level_renderable, path_renderable, function_renderable):
+            if col is not None:
+                cols_in_play += 1
+
+        available_width = console_width - self._gutter_width - (self._padding * (cols_in_play - 1))
 
         raw_time_width = 0
         if time_renderable is not None:
