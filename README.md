@@ -32,6 +32,9 @@ Drop-in logging foundation for Python projects.
 
 LogSpark is a configuration and integration layer over Python's standard `logging` module. It adds lifecycle enforcement, environment-aware output policy, and corrected defaults — without replacing stdlib logging or introducing a new API. Every handler, filter, and formatter is a plain stdlib object.
 
+<img alt="LogSpark Demo" src="https://github.com/Kydoimos97/LogSpark/blob/main/docs/assets/demo.png" width="722" height="1124"/>
+
+
 ---
 
 ## Installation
