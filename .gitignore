@@ -16,3 +16,5 @@ __pycache__/
 *.pyc
 *.pyo
 *.log
+/verify_width_logic.py
+/demo_logspark.py
