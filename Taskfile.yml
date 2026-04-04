@@ -30,9 +30,15 @@ tasks:
           --cov-report=term \
           --cov-report=html:.coverage/html
 
-  run-demo:
-    desc: Run the demo
-    cmd: uv run python ./demo_logspark.py
+  run-demo-log:
+    desc: Run handler comparison then traceback policy demos
+    cmds:
+      - uv run python ./scripts/log_demo.py
+
+  run-demo-tb:
+    desc: Run handler comparison then traceback policy demos
+    cmds:
+      - uv run python ./scripts/tb_demo.py
 
   docs:
     desc: Start mkdocs development server
