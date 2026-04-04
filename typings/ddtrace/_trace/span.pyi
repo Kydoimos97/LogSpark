@@ -1,0 +1,6 @@
+
+
+class Span(object):
+
+    trace_id: int = ...
+    span_id: int = ...

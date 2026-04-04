@@ -1,96 +1,190 @@
 [build-system]
+requires = [ "hatchling>=1.24.2" ]
 build-backend = "hatchling.build"
-dependencies = [ ]
-requires = [ "hatchling>=1.24.2", "hatch-vcs>=0.4.0" ]
-
-[dependency-groups]
-all = [ ]
-dev = [
-  "mypy>=1.18.2",
-  "mypy-boto3-s3>=1.40.61",
-  "pytest>=8.4.2",
-  "pytest-cov>=7.0.0",
-  "pytest-sugar>=0.9.7",
-  "pytest-xdist>=3.3.0",
-  "ruff>=0.14.3"
-]
-mkdocs = [ ]
 
 [project]
+name = "logspark"
+version = "1.0.0"
+description = "Logging control plane and unifier"
+readme = "README.md"
+requires-python = ">=3.11"
 classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent"
 ]
-description = "Logging control plane and unifier"
-name = "logspark"
-readme = "README.md"
-requires-python = ">=3.11"
-version = "0.0.0"
-
-  [[project.authors]]
-  name = "Willem van der Schans"
 
   [project.license]
   text = "MIT"
 
+  [[project.authors]]
+  name = "Willem van der Schans"
+
   [project.urls]
+  Homepage = "https://github.com/Kydoimos97/logspark"
   "Author GitHub" = "https://github.com/Kydoimos97"
   "Author PyPI" = "https://pypi.org/user/Kydoimos97/"
-  Homepage = "https://github.com/Kydoimos97/logspark"
   PyPI = "https://pypi.org/project/logspark/"
 
-[tool.coverage.report]
-omit = [ "tests/*", "*/__init__.py" ]
-show_missing = true
-skip_empty = true
-
-[tool.coverage.run]
-omit = [ "tests/*", "*/__init__.py" ]
-source = [ "logspark" ]
+  [project.optional-dependencies]
+  color = [ "rich>=14.2.0" ]
+  json  = [ "python-json-logger>=4.0.0" ]
+  trace = [ "ddtrace>=4.1.0" ]
+  all   = [ "rich>=14.2.0", "python-json-logger>=4.0.0", "ddtrace>=4.1.0" ]
 
 [tool.hatch.build.targets.sdist]
-include = [ "logspark", "pyproject.toml", "README.md", "LICENSE" ]
+include = [
+  "logspark",
+  "logspark/py.typed",
+  "logspark/typings/**/*.pyi",
+  "pyproject.toml",
+  "README.md",
+  "LICENSE",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = [ "logspark" ]
 
-[tool.hatch.version]
-source = "vcs"
-tag-pattern = "^v(?P<version>\\d+\\.\\d+\\.\\d+)$"
+[tool.hatch.build.targets.wheel.shared-data]
+"logspark/py.typed" = "logspark/py.typed"
+"logspark/typings" = "logspark/typings"
 
 [tool.pytest.ini_options]
+testpaths = [ "tests" ]
+python_files = [ "test_*.py" ]
+python_classes = [ "Test*" ]
+log_cli = false
+log_cli_level = "CRITICAL"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(name)s: %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_capture = true
+log_level = "CRITICAL"
+python_functions = [ "test_*" ]
 addopts = [
-  "-v",
   "--strict-markers",
-  "--tb=short",
   "--disable-warnings",
-  "-ra",
-  "-s"
+]
+markers = [
+  "require_rich: tests that require Rich to be installed and enabled"
 ]
 filterwarnings = [
   "ignore::DeprecationWarning",
   "ignore::PendingDeprecationWarning"
 ]
 import_mode = "importlib"
-markers = [
-  "slow: marks tests as slow",
-  "integration: marks tests as integration tests"
+
+[tool.coverage.run]
+source = [ "logspark" ]
+omit = [ "*/__init__.py" ]
+relative_files = true
+data_file = ".cov/.coverage"
+
+[tool.coverage.report]
+precision = 0
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+    "def __repr__",
+    "def __str__",
+    "pass",
+    "\"\"\"",
+    "'''",
+    "-> .*:",
+    "\\.\\.\\.",
 ]
-python_classes = [ "Test*" ]
-python_files = [ "test_*.py" ]
-python_functions = [ "test_*" ]
-testpaths = [ "tests" ]
+sort = "Cover"
+
+[tool.coverage.xml]
+output = "coverage.xml"
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
 
-  [tool.ruff.format]
-  indent-style = "space"
-  quote-style = "double"
-
   [tool.ruff.lint]
-  select = [ "E", "F", "I" ]
+  select = [ "E", "F", "I" , "W", "B", "Q"]
+  ignore = ["E501", "E402"]
+
+  [tool.ruff.format]
+  quote-style = "double"
+  indent-style = "space"
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.148.8",
+  "mkdocs>=1.6.1",
+  "pip>=25.3",
+  "pydantic>=2.12.5",
+  "pytest>=8.4.2",
+  "pytest-cov>=7.0.0",
+  "pytest-xdist>=3.3.0",
+  "python-semantic-release>=9.0.0",
+  "ruff>=0.15.7",
+  "ty>=0.0.25",
+]
+
+mkdocs = [
+  "mkdocs>=1.5.0",
+  "mkdocs-material>=9.0.0",
+  "mkdocstrings[python]>=0.24.0",
+  "mkdocs-git-revision-date-localized-plugin>=1.2.0"
+]
+
+color = [
+    "rich>=14.2.0",
+]
+
+json = [
+    "python-json-logger>=4.0.0",
+]
+trace = [
+    "ddtrace>=4.1.0",
+]
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+tag_format = "v{version}"
+build_command = "uv build"
+commit_message = "chore: release {version} [skip ci]"
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "refactor", "docs", "test", "chore", "style", "build", "ci"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf"]
+
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]
+upload_to_vcs_release = true
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = ["typings"]
+
+#[[tool.mypy.overrides]]
+#module = [
+#  "rich._log_render",
+#  "rich.containers",
+#  "rich.style",
+#  "rich.text",
+#  "rich.highlighter",
+#  "rich.traceback",
+#]
+#ignore_missing_imports = true

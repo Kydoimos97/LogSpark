@@ -1,0 +1,171 @@
+# Advanced Usage
+
+---
+
+## Scoped log level overrides -- TempLogLevel
+
+`TempLogLevel` temporarily changes the logger's effective level for a block of code or a function, then restores it automatically. It does not touch the [frozen configuration](lifecycle.md#freeze). Handlers and filters are unchanged.
+
+Use this when you need debug output from a specific path without lowering the level globally.
+
+### As a context manager
+
+```python
+import logging
+from logspark import logger, TempLogLevel
+from logspark.Handlers import SparkTerminalHandler
+
+# Pass an explicit handler with the default level (NOTSET) so the logger
+# level alone controls the minimum.  When configure() creates a default
+# handler it sets the handler level equal to the logger level, which would
+# block the debug records TempLogLevel is intended to expose.
+logger.configure(level=logging.INFO, handler=SparkTerminalHandler())
+
+logger.info("before context: only INFO and above")
+
+with TempLogLevel(logging.DEBUG):
+    logger.debug("inside context: DEBUG is now visible")
+    logger.info("inside context: INFO still visible")
+
+logger.info("after context: back to INFO only")
+```
+
+### As a decorator
+
+```python
+import logging
+from logspark import logger, TempLogLevel
+from logspark.Handlers import SparkTerminalHandler
+
+logger.configure(level=logging.INFO, handler=SparkTerminalHandler())
+
+@TempLogLevel(logging.DEBUG)
+def process_payment(order_id: str):
+    logger.debug("Processing payment for order %s", order_id)
+    logger.info("Payment accepted for order %s", order_id)
+```
+
+Every call to `process_payment()` runs with `DEBUG` level. The original level is restored after each call, including if the function raises.
+
+### What it does not do
+
+- Does not affect handler-level filtering. `TempLogLevel` lowers the *logger* level only. If the handler has a level set (e.g. the default `configure()` handler is created with the same level as the logger), records still pass through the handler's own level check. Pass `handler=SparkTerminalHandler()` (no explicit level) to let the logger level alone control filtering.
+- Does not affect other loggers, only the LogSpark `logger` singleton.
+- Does not modify frozen configuration. It is an intentional escape hatch, not a workaround for the freeze.
+
+---
+
+## Managing third-party loggers -- SparkLogManager
+
+Third-party libraries bring their own loggers. Some are noisy. Some attach handlers that conflict with yours. `SparkLogManager` gives you explicit, batch control over those loggers without touching their source code.
+
+### What it is
+
+A snapshot-based utility for mutating existing `logging.Logger` instances. It does not own or proxy those loggers, does not intercept their log calls, and does not restore previous state when you release them. It snapshots at a point in time: loggers created after adoption are not affected.
+
+### Adopting loggers
+
+Adopt all currently registered loggers:
+
+```python
+from logspark import spark_log_manager
+
+spark_log_manager.adopt_all()
+```
+
+Adopt a specific logger:
+
+```python
+import logging
+from logspark import spark_log_manager
+
+spark_log_manager.adopt(logging.getLogger("httpx"))
+```
+
+`adopt_all()` excludes `LogSpark` itself by default. Pass `ignore=["name"]` to exclude additional loggers.
+
+**Important:** call `adopt_all()` after importing your dependencies, not before. Loggers that have not yet been created cannot be adopted.
+
+### Applying changes with unify()
+
+`unify()` applies configuration to all managed loggers at once:
+
+```python
+import logging
+from logspark import spark_log_manager
+
+spark_log_manager.adopt_all()
+spark_log_manager.unify(level=logging.WARNING, propagate=False)
+```
+
+Copy LogSpark's own handler and filters to all managed loggers, the canonical way to unify all output through your handler:
+
+```python
+from logspark import logger, spark_log_manager
+
+logger.configure()  # must be frozen first
+
+spark_log_manager.adopt_all()
+spark_log_manager.unify(copy_spark_logger_config=True, propagate=False)
+```
+
+`unify()` parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `level` | `int \| str \| None` | `None` | Level to apply to all managed loggers. `None` leaves existing levels unchanged. |
+| `handlers` | `list[logging.Handler] \| None` | `None` | Replaces existing handlers on all managed loggers. |
+| `filters` | `list[logging.Filter] \| None` | `None` | Replaces existing filters on all managed loggers. |
+| `propagate` | `bool \| None` | `None` | Sets propagation on all managed loggers. `None` leaves unchanged. |
+| `copy_spark_logger_config` | `bool` | `False` | Copies handlers and filters from the frozen `spark_logger`. Requires LogSpark to be configured and frozen. |
+
+`unify()` is destructive: existing handlers are cleared when `handlers` or `copy_spark_logger_config` is used. Previous state is not preserved.
+
+### Inspecting managed loggers
+
+```python
+print(spark_log_manager.managed_names)
+# ['httpx', 'sqlalchemy', 'urllib3', ...]
+
+httpx_logger = spark_log_manager.managed("httpx")
+```
+
+### Releasing loggers
+
+Release removes a logger from management. It does not undo mutations applied by `unify()`.
+
+```python
+spark_log_manager.release("httpx")
+spark_log_manager.release_all()
+```
+
+### Common patterns
+
+Silence a noisy library:
+
+```python
+import logging
+from logspark import spark_log_manager
+
+spark_log_manager.adopt(logging.getLogger("sqlalchemy.engine"))
+spark_log_manager.unify(level=logging.WARNING)
+```
+
+Unify all output through LogSpark's handler:
+
+```python
+import logging
+import httpx       # import dependencies first so their loggers are registered
+import sqlalchemy
+
+from logspark import logger, spark_log_manager
+
+logger.configure()
+
+spark_log_manager.adopt_all()
+spark_log_manager.unify(
+    copy_spark_logger_config=True,
+    level=logging.INFO,
+    propagate=False,
+)
+```
