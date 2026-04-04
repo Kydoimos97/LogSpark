@@ -11,6 +11,9 @@ from rich._null_file import NullFile
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import Highlighter
 from rich.logging import RichHandler as _RichHandler
+from rich.style import Style
+from rich.styled import Styled
+from rich.text import Text
 from rich.traceback import Traceback
 
 from ..._Internal.Func import (
@@ -143,10 +146,10 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
         message = self.format(record)
 
-        if getattr(record, "exc_text", None):
-            traceback = record.exc_text # Text is a console renderable
-        elif self.rich_tracebacks and record.exc_info and record.exc_info != (None, None, None):
+        if self._tb_policy == TracebackOptions.FULL and record.exc_info and record.exc_info != (None, None, None):
             traceback = self._apply_trace_formatting(record)
+        elif getattr(record, "exc_text", None):
+            traceback = record.exc_text
         else:
             traceback = None
 
@@ -189,7 +192,10 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         # Resolve Renderables
         renderables = [message_renderable]
         if traceback:
-            renderables.append(traceback)
+            if isinstance(traceback, Traceback):
+                renderables.append(Styled(traceback, Style(color="default", bold=False, dim=False)))
+            else:
+                renderables.append(Text(str(traceback), style=Style(color="default")))
         # Resolve Time
         time_format, log_time = self._resolve_time_format(record.created)
 

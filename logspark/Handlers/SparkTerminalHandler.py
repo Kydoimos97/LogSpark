@@ -43,43 +43,47 @@ class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
         multiline: bool = True,
         level_width: int = 9,
         log_time_format: "str | FormatTimeCallable | None" = "%H:%M:%S",
+        link_path: bool = False,
     ) -> None:
         """Initialize formatter selection and underlying StreamHandler."""
 
-        # Rich not available - fall back to stdlib StreamHandler
         std_lib_time_format = validate_stdlib_timeformat(log_time_format)
         spark_stream = resolve_stream(stream)
 
         fmt: logging.Formatter | None = None
-        fmt_string = generate_stdlib_format(
-            show_time=show_time,
-            show_level=show_level,
-            level_width=level_width,
-            show_path=show_path,
-            show_function=show_function,
-        )
         _compatible = is_color_compatible_terminal(spark_stream)
         if use_color:
-            # Don't pass the console as we aren't checking rich
             if _compatible:
                 from ..Formatters import SparkColorFormatter
 
                 fmt = SparkColorFormatter(
-                    fmt=fmt_string,
                     datefmt=std_lib_time_format,
+                    show_time=show_time,
+                    show_level=show_level,
+                    show_path=show_path,
+                    show_function=show_function,
+                    level_width=level_width,
+                    link_path=link_path,
                     tb_policy=traceback_policy,
-                    multiline=multiline
+                    multiline=multiline,
                 )
             else:
                 emit_color_incompatible_console_warning()
 
         if fmt is None:
             from ..Formatters.SparkBaseFormatter import SparkBaseFormatter
+            fmt_string = generate_stdlib_format(
+                show_time=show_time,
+                show_level=show_level,
+                level_width=level_width,
+                show_path=show_path,
+                show_function=show_function,
+            )
             fmt = SparkBaseFormatter(
                 fmt=fmt_string,
                 datefmt=std_lib_time_format,
                 tb_policy=traceback_policy,
-                multiline=multiline
+                multiline=multiline,
             )
 
         super().__init__(stream=spark_stream)

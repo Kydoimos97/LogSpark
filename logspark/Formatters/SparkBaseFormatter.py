@@ -33,7 +33,8 @@ class SparkBaseFormatMixin:
                         exc_text = cls._get_single_line_tb(record.spark, traceback_policy)
                     _r = cast(logging.LogRecord, record)
                     _r.exc_text = exc_text
-                    _r.exc_info = None
+                    if traceback_policy is None:
+                        _r.exc_info = None
         except Exception:
             pass
 
