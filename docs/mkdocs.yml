@@ -9,7 +9,8 @@ nav:
   - Lifecycle: lifecycle.md
   - Output Modes: output-modes.md
   - Environment Variables: environment.md
-  - Advanced Usage: advanced.md
+  - Scoped Logging: tmp_log.md
+  - Third Party Loggers: log_management.md
   - Component Reference: reference.md
 
 theme:

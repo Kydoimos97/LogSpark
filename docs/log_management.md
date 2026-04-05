@@ -1,69 +1,12 @@
-# Advanced Usage
-
----
-
-## Scoped log level overrides -- TempLogLevel
-
-`TempLogLevel` temporarily changes the logger's effective level for a block of code or a function, then restores it automatically. It does not touch the [frozen configuration](lifecycle.md#freeze). Handlers and filters are unchanged.
-
-Use this when you need debug output from a specific path without lowering the level globally.
-
-### As a context manager
-
-```python
-import logging
-from logspark import logger, TempLogLevel
-from logspark.Handlers import SparkTerminalHandler
-
-# Pass an explicit handler with the default level (NOTSET) so the logger
-# level alone controls the minimum.  When configure() creates a default
-# handler it sets the handler level equal to the logger level, which would
-# block the debug records TempLogLevel is intended to expose.
-logger.configure(level=logging.INFO, handler=SparkTerminalHandler())
-
-logger.info("before context: only INFO and above")
-
-with TempLogLevel(logging.DEBUG):
-    logger.debug("inside context: DEBUG is now visible")
-    logger.info("inside context: INFO still visible")
-
-logger.info("after context: back to INFO only")
-```
-
-### As a decorator
-
-```python
-import logging
-from logspark import logger, TempLogLevel
-from logspark.Handlers import SparkTerminalHandler
-
-logger.configure(level=logging.INFO, handler=SparkTerminalHandler())
-
-@TempLogLevel(logging.DEBUG)
-def process_payment(order_id: str):
-    logger.debug("Processing payment for order %s", order_id)
-    logger.info("Payment accepted for order %s", order_id)
-```
-
-Every call to `process_payment()` runs with `DEBUG` level. The original level is restored after each call, including if the function raises.
-
-### What it does not do
-
-- Does not affect handler-level filtering. `TempLogLevel` lowers the *logger* level only. If the handler has a level set (e.g. the default `configure()` handler is created with the same level as the logger), records still pass through the handler's own level check. Pass `handler=SparkTerminalHandler()` (no explicit level) to let the logger level alone control filtering.
-- Does not affect other loggers, only the LogSpark `logger` singleton.
-- Does not modify frozen configuration. It is an intentional escape hatch, not a workaround for the freeze.
-
----
-
-## Managing third-party loggers -- SparkLogManager
+# SparkLogManager
 
 Third-party libraries bring their own loggers. Some are noisy. Some attach handlers that conflict with yours. `SparkLogManager` gives you explicit, batch control over those loggers without touching their source code.
 
-### What it is
+## What it is
 
 A snapshot-based utility for mutating existing `logging.Logger` instances. It does not own or proxy those loggers, does not intercept their log calls, and does not restore previous state when you release them. It snapshots at a point in time: loggers created after adoption are not affected.
 
-### Adopting loggers
+## Adopting loggers
 
 Adopt all currently registered loggers:
 
@@ -86,7 +29,7 @@ spark_log_manager.adopt(logging.getLogger("httpx"))
 
 **Important:** call `adopt_all()` after importing your dependencies, not before. Loggers that have not yet been created cannot be adopted.
 
-### Applying changes with unify()
+## Applying changes with unify()
 
 `unify()` applies configuration to all managed loggers at once:
 
@@ -121,7 +64,7 @@ spark_log_manager.unify(copy_spark_logger_config=True, propagate=False)
 
 `unify()` is destructive: existing handlers are cleared when `handlers` or `copy_spark_logger_config` is used. Previous state is not preserved.
 
-### Inspecting managed loggers
+## Inspecting managed loggers
 
 ```python
 print(spark_log_manager.managed_names)
@@ -130,7 +73,7 @@ print(spark_log_manager.managed_names)
 httpx_logger = spark_log_manager.managed("httpx")
 ```
 
-### Releasing loggers
+## Releasing loggers
 
 Release removes a logger from management. It does not undo mutations applied by `unify()`.
 
@@ -139,7 +82,7 @@ spark_log_manager.release("httpx")
 spark_log_manager.release_all()
 ```
 
-### Common patterns
+## Common patterns
 
 Silence a noisy library:
 

@@ -109,4 +109,4 @@ Do not use `kill()` in application code. It bypasses all lifecycle guarantees.
 
 ## TempLogLevel -- scoped level overrides
 
-If you need debug output from a specific path without reconfiguring, use [`TempLogLevel`](advanced.md#scoped-log-level-overrides--temploglevel). It bypasses freeze only for the effective level. Handlers and filters are untouched.
+If you need debug output from a specific path without reconfiguring, use [`TempLogLevel`](tmp_log.md). It bypasses freeze only for the effective level. Handlers and filters are untouched.

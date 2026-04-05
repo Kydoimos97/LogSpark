@@ -192,7 +192,8 @@ If a log record is emitted before `configure()`, LogSpark uses a minimal fallbac
 - [Lifecycle](docs/lifecycle.md)
 - [Output Modes](docs/output-modes.md)
 - [Environment Variables](docs/environment.md)
-- [Advanced Usage](docs/advanced.md)
+- [Scoped Logging](docs/tmp_log.md)
+- [Third Party Loggers](docs/log_management.md)
 - [Component Reference](docs/reference.md)
 
 ---

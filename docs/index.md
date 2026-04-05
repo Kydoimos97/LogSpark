@@ -53,5 +53,6 @@ LogSpark fixes the operational layer, not the logging layer. The stdlib dispatch
 - [Lifecycle](lifecycle.md): The configure -> freeze -> use model in depth.
 - [Output Modes](output-modes.md): Terminal vs JSON, traceback policy, path resolution.
 - [Environment Variables](environment.md): Operational control without code changes.
-- [Advanced Usage](advanced.md): Scoped log levels, managing third-party loggers.
+- [TempLogLevel](tmp_log.md): Scoped log levels, 
+- [SparkLogManager](log_management.md): Managing third-party loggers.
 - [Component Reference](reference.md): Full API for all handlers, filters, and formatters.

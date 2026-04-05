@@ -92,7 +92,7 @@ with TempLogLevel(logging.DEBUG):
     logger.debug("visible here")
 ```
 
-See [Advanced Usage: TempLogLevel](advanced.md#scoped-log-level-overrides--temploglevel).
+See [Temporary Log Level](tmp_log.md).
 
 ---
 
@@ -100,7 +100,7 @@ See [Advanced Usage: TempLogLevel](advanced.md#scoped-log-level-overrides--templ
 
 A utility for batch-mutating existing `logging.Logger` instances, typically third-party library loggers. Snapshot-based: only loggers that exist at the time of `adopt_all()` are managed. Does not restore previous state when loggers are released.
 
-See [Advanced Usage: SparkLogManager](advanced.md#managing-third-party-loggers--sparklogmanager).
+See [SparkLogManager](log_management.md).
 
 ---
 
