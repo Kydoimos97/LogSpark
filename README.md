@@ -26,6 +26,7 @@ Drop-in logging foundation for Python projects.
 
 <p align="center">
   <a href="https://logspark.readthedocs.io/en/latest/"><b>Documentation</b></a>
+  <a href="https://logspark.readthedocs.io/en/latest/quickstart/"><b>QuickStart</b></a>
 </p>
 
 ---
@@ -187,14 +188,14 @@ If a log record is emitted before `configure()`, LogSpark uses a minimal fallbac
 
 ## Documentation
 
-- [Quickstart](docs/quickstart.md)
-- [Concepts](docs/concepts.md)
-- [Lifecycle](docs/lifecycle.md)
-- [Output Modes](docs/output-modes.md)
-- [Environment Variables](docs/environment.md)
-- [Scoped Logging](docs/tmp_log.md)
-- [Third Party Loggers](docs/log_management.md)
-- [Component Reference](docs/reference.md)
+
+- [Concepts](https://logspark.readthedocs.io/en/latest/concepts/)
+- [Lifecycle](https://logspark.readthedocs.io/en/latest/lifecycle/)
+- [Output Modes](https://logspark.readthedocs.io/en/latest/output-modes/)
+- [Environment Variables](https://logspark.readthedocs.io/en/latest/environment/)
+- [Scoped Logging](https://logspark.readthedocs.io/en/latest/tmp_log/)
+- [Third Party Loggers](https://logspark.readthedocs.io/en/latest/log_management/)
+- [Component Reference](https://logspark.readthedocs.io/en/latest/reference/)
 
 ---
 
