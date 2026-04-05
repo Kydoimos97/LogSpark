@@ -22,6 +22,10 @@ Output (color terminal):
 
 `SparkTerminalHandler` selects `SparkColorFormatter` on color-compatible terminals and falls back to `SparkBaseFormatter` on plain ones. For Rich-powered structured column layout, OSC 8 hyperlink file paths, and enhanced exception rendering, pass `SparkRichHandler` explicitly. See [Using Rich explicitly](#using-rich-explicitly).
 
+<div align="center">
+<img alt="LogSpark Demo" src="https://raw.githubusercontent.com/Kydoimos97/LogSpark/main/docs/assets/demo_log.png" width="750" height="453"/>
+</div>
+
 ### Traceback policy
 
 Controls how exceptions are rendered. Pass via `configure()` or directly to a handler.
@@ -40,6 +44,10 @@ logger.configure(traceback_policy=TracebackOptions.COMPACT)
 | `TracebackOptions.HIDE` | Exception type and message only, no location |
 
 See [`TracebackOptions`](glossary.md#tracebackoptions) in the glossary.
+
+<div align="center">
+<img alt="demo_tb.png" height="591" src="https://raw.githubusercontent.com/Kydoimos97/LogSpark/main/docs/assets/demo_tb.png" width="750"/>
+</div>
 
 ### Path resolution
 
