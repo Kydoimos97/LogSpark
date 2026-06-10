@@ -198,8 +198,6 @@ class SparkLogManager:
                     managed_logger.handlers.clear()
 
                     for h in handlers:
-                        if v_level is not None:
-                            h.setLevel(v_level)
                         managed_logger.addHandler(h)
                 if filters:
                     managed_logger.filters.clear()

@@ -168,6 +168,12 @@ class SparkLogger(logging.Logger):
         self.eject_handlers()
 
         self.setLevel(level)
+        # SparkLogger is not registered in loggerDict, so manager._clear_cache()
+        # (triggered inside setLevel) never reaches this instance. Stale
+        # isEnabledFor cache entries from a previous level would survive and
+        # suppress records at the new level. Clear explicitly — same pattern
+        # used in kill() and TempLogLevel.
+        getattr(self, "_cache", {}).clear()
         self.addHandler(handler)
 
         # Ensure ddtrace filter is present (idempotent)
@@ -363,7 +369,7 @@ class SparkLogger(logging.Logger):
         user_stacklevel = kwargs.get("stacklevel", 1)
 
         # Resolve appropriate stacklevel to point to actual calling code
-        resolved_stacklevel = resolve_stacklevel(user_stacklevel)
+        resolved_stacklevel = resolve_stacklevel(user_stacklevel, type(self))
         kwargs["stacklevel"] = resolved_stacklevel
         super()._log(level, msg, args, **kwargs)
 

@@ -173,6 +173,93 @@ class TestLifecycleWorkflow:
         logger2.kill()
 
 
+class TestIsEnabledForCacheCoherence:
+    """
+    Tests that isEnabledFor cache stays coherent across configure() calls.
+
+    SparkLogger is not registered in loggerDict, so manager._clear_cache()
+    (triggered inside setLevel) never reaches this instance. Without an
+    explicit self._cache.clear() in _apply_config, stale cache entries from
+    a pre-configure debug/info call would survive the configure() call and
+    silently suppress records at levels that the new configuration allows.
+    """
+
+    def test_debug_records_emit_after_configure_debug_level(self, fresh_logger):
+        """
+        Records at DEBUG level must emit after configure(level=DEBUG), even when
+        a pre-configure call has cached isEnabledFor(DEBUG) = False.
+        """
+        captured = []
+
+        class Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record)
+
+        # Trigger a pre-configure debug call. This sets the pre-config handler
+        # at INFO level and causes isEnabledFor(DEBUG) to be evaluated and
+        # cached as False while the effective level is INFO.
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fresh_logger.debug("pre-configure probe")
+
+        assert not fresh_logger.is_configured
+        # Cache now contains isEnabledFor(DEBUG) = False (level was INFO)
+        assert fresh_logger._cache.get(logging.DEBUG) is False  # type: ignore[attr-defined]
+
+        # Configure at DEBUG — _apply_config must clear the stale cache entry
+        fresh_logger.configure(level=logging.DEBUG, handler=Capture(), no_freeze=True)
+
+        assert fresh_logger.isEnabledFor(logging.DEBUG)
+
+        fresh_logger.debug("post-configure debug message")
+
+        assert len(captured) == 1
+        assert captured[0].getMessage() == "post-configure debug message"
+
+    def test_info_records_emit_after_configure_debug_level(self, fresh_logger):
+        """
+        Records at INFO level must emit after configure(level=DEBUG), even when
+        a pre-configure call has cached isEnabledFor(INFO) in an intermediate state.
+        """
+        captured = []
+
+        class Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record)
+
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fresh_logger.debug("pre-configure probe")
+
+        fresh_logger.configure(level=logging.DEBUG, handler=Capture(), no_freeze=True)
+
+        fresh_logger.info("post-configure info message")
+
+        assert any(r.getMessage() == "post-configure info message" for r in captured)
+
+    def test_level_downgrade_suppresses_records_immediately(self, fresh_logger):
+        """
+        After configuring at WARNING, DEBUG and INFO calls must not emit.
+        Cache coherence works in both directions.
+        """
+        captured = []
+
+        class Capture(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                captured.append(record)
+
+        fresh_logger.configure(level=logging.WARNING, handler=Capture())
+
+        fresh_logger.debug("should be suppressed")
+        fresh_logger.info("should be suppressed")
+        fresh_logger.warning("should emit")
+
+        assert len(captured) == 1
+        assert captured[0].getMessage() == "should emit"
+
+
 class TestLifecycleProperties:
     """Property-based tests for lifecycle behavior."""
 
