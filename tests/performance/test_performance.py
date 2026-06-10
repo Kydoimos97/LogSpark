@@ -103,9 +103,9 @@ class TestDeepCallStackPerformance:
                 _debug_print(request, capsys, f"Fast mode time: {fast_time:.4f}s")
                 _debug_print(request, capsys, f"Speedup: {slow_time / fast_time:.2f}x")
 
-                # Fast mode should not be more than 20% slower (allows for measurement variance)
-                assert fast_time <= slow_time * 1.2, (
-                    f"Fast mode should not be slower: {fast_time} vs {slow_time}"
+                # Fast mode must be at least as fast as default mode (5% tolerance for timer jitter)
+                assert fast_time <= slow_time * 1.05, (
+                    f"Fast mode should not be slower than default mode: {fast_time:.4f}s vs {slow_time:.4f}s"
                 )
         finally:
             if starting_val:

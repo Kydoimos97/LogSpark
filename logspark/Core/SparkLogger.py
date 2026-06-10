@@ -363,7 +363,7 @@ class SparkLogger(logging.Logger):
         user_stacklevel = kwargs.get("stacklevel", 1)
 
         # Resolve appropriate stacklevel to point to actual calling code
-        resolved_stacklevel = resolve_stacklevel(user_stacklevel)
+        resolved_stacklevel = resolve_stacklevel(user_stacklevel, type(self))
         kwargs["stacklevel"] = resolved_stacklevel
         super()._log(level, msg, args, **kwargs)
 
