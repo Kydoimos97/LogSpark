@@ -13,21 +13,23 @@ def is_fast_mode() -> bool:
     return os.getenv("LOGSPARK_MODE", "").lower() == "fast"
 
 
-def is_rich_available() -> bool:
-    """Return True when the Rich library is importable."""
-    try:
-        return find_spec("rich") is not None
-    except ValueError:
-        # Module present but broken / partially initialized
-        return False
+def is_dependency_available(dependency: str) -> bool:
+    """Return True when ``dependency`` is importable without actually importing it.
 
+    Uses ``importlib.util.find_spec`` so the package is never loaded as a side
+    effect of the check. The ``ValueError`` guard handles partially-initialised
+    modules (e.g. circular imports in progress) where ``find_spec`` would raise
+    instead of returning ``None``.
 
-def is_ddtrace_available() -> bool:
-    """Return True when the ddtrace library is importable."""
+    Args:
+        dependency: Top-level package name to check (e.g. ``"ddtrace"``).
+
+    Returns:
+        True if the package can be imported; False otherwise.
+    """
     try:
-        return find_spec("ddtrace") is not None
+        return find_spec(dependency) is not None
     except ValueError:
-        # Module present but broken / partially initialized
         return False
 
 

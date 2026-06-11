@@ -21,9 +21,9 @@ class InvalidConfigurationError(LogSparkError):
 
     pass
 
+
 class LogSparkWarning(Warning):
     """Base warning for LogSpark logging warnings"""
-
 
 
 class SparkLoggerUnconfiguredUsageWarning(LogSparkWarning):
@@ -31,16 +31,20 @@ class SparkLoggerUnconfiguredUsageWarning(LogSparkWarning):
 
     pass
 
+
 class SparkLoggerDuplicatedElementWarning(LogSparkWarning):
     """Base warning for duplicated handlers or filters attached to the logger."""
+
 
 class SparkLoggerDuplicatedHandlerWarning(SparkLoggerDuplicatedElementWarning):
     """Warning for duplicated handlers"""
 
     pass
 
+
 class SparkLoggerDuplicatedFilterWarning(SparkLoggerDuplicatedElementWarning):
     """Warning for duplicated filters"""
+
     pass
 
 
@@ -50,3 +54,9 @@ class MissingDependencyException(LogSparkError):
     def __init__(self, dependencies: list[str]) -> None:
         msg = f"Missing required dependencies:\n{', '.join(dependencies)}\n"
         super().__init__(msg)
+
+
+class MissingDependencyWarning(LogSparkWarning):
+    """Warning for missing optional dependencies."""
+
+    pass

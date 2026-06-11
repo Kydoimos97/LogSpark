@@ -1,4 +1,4 @@
-from .Env import is_fast_mode, is_rich_available, is_silenced_mode, resolve_project_root
+from .Env import is_dependency_available, is_fast_mode, is_silenced_mode, resolve_project_root
 from .LogManagerState import LogManagerState
 from .SingletonClass import IsSingletonClassInstance, SingletonClass
 
@@ -7,7 +7,7 @@ __all__ = [
     "LogManagerState",
     "is_silenced_mode",
     "is_fast_mode",
-    "is_rich_available",
+    "is_dependency_available",
     "resolve_project_root",
     "IsSingletonClassInstance",
 ]

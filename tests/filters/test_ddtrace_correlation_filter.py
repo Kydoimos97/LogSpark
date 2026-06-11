@@ -13,6 +13,14 @@ from logspark.Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 class TestDDTraceCorrelationFilter:
     """Test DDTraceInjectionFilter"""
 
+    def setup_method(self):
+        DDTraceInjectionFilter._tracer = None
+        DDTraceInjectionFilter._tracer_checked = False
+
+    def teardown_method(self):
+        DDTraceInjectionFilter._tracer = None
+        DDTraceInjectionFilter._tracer_checked = False
+
     def test_filter_without_ddtrace(self):
         """Test filter behavior when ddtrace is not available"""
         # Test the current behavior - if ddtrace is not available, _dd_tracer should be None
@@ -37,7 +45,7 @@ class TestDDTraceCorrelationFilter:
         mock_span.span_id = 67890
         mock_tracer.current_span.return_value = mock_span
         
-        with patch("logspark.Filters.DDTraceInjectionFilter._dd_tracer", mock_tracer):
+        with patch.object(DDTraceInjectionFilter, '_tracer_checked', True), patch.object(DDTraceInjectionFilter, '_tracer', mock_tracer):
             filter_instance = DDTraceInjectionFilter()
             
             # Create a log record
@@ -59,7 +67,7 @@ class TestDDTraceCorrelationFilter:
         mock_tracer = Mock()
         mock_tracer.current_span.return_value = None
         
-        with patch("logspark.Filters.DDTraceInjectionFilter._dd_tracer", mock_tracer):
+        with patch.object(DDTraceInjectionFilter, '_tracer_checked', True), patch.object(DDTraceInjectionFilter, '_tracer', mock_tracer):
             filter_instance = DDTraceInjectionFilter()
             
             # Create a log record

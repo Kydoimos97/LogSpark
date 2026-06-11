@@ -4,13 +4,16 @@ from ...Types.Options import PathResolutionSetting, PresetOptions, TracebackOpti
 
 
 def get_handler_by_preset(
-        preset: PresetOptions, traceback: TracebackOptions | None, path_resolution: PathResolutionSetting | None, ) -> logging.Handler:
+    preset: PresetOptions,
+    traceback: TracebackOptions | None,
+    path_resolution: PathResolutionSetting | None,
+) -> logging.Handler:
     # if handler is none but handler_preset isn't we apply the handler_preset
     _handler: logging.Handler | None = None
     if preset == PresetOptions.TERMINAL or preset is None:
-        from ..State import is_rich_available
+        from ..State import is_dependency_available
 
-        if is_rich_available():
+        if is_dependency_available("rich"):
             from ...Handlers.Rich.SparkRichHandler import SparkRichHandler
 
             _handler = SparkRichHandler()
