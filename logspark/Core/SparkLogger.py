@@ -4,7 +4,7 @@ from typing import Any
 
 from .._Internal.Func import emit_warning, resolve_stacklevel, validate_level
 from .._Internal.State import SingletonClass, is_fast_mode
-from .._Internal.State.Env import is_ddtrace_available
+from .._Internal.State.Env import is_dependency_available
 from ..Filters import PathNormalizationFilter
 from ..Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 from ..Filters.TracebackPolicyFilter import TracebackPolicyFilter
@@ -177,7 +177,7 @@ class SparkLogger(logging.Logger):
         self.addHandler(handler)
 
         # Ensure ddtrace filter is present (idempotent)
-        if is_ddtrace_available() and not any(
+        if is_dependency_available("ddtrace") and not any(
             isinstance(f, DDTraceInjectionFilter) for f in self.filters
         ):
             log_filter = DDTraceInjectionFilter()

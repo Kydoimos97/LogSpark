@@ -2,7 +2,7 @@ import logging
 import sys
 
 from .._Internal.Func import get_devnull
-from .._Internal.State import is_silenced_mode
+from .._Internal.State import is_dependency_available, is_silenced_mode
 from ..Formatters import SparkJsonFormatter
 from ..Types import MissingDependencyException
 from ..Types.Protocol import SupportsWrite
@@ -32,9 +32,13 @@ class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
 
         super().__init__(resolved)
 
-        # Import and configure python-json-logger backend
-        try:
-            self.setFormatter(SparkJsonFormatter(
+        if not is_dependency_available("pythonjsonlogger"):
+            # If requesting JSON logging but the dependency isn't available the difference is
+            # not gracefully degradable and therefore will be raised as an error.
+            raise MissingDependencyException(["python-json-logger"])
+
+        self.setFormatter(
+            SparkJsonFormatter(
                 fmt=(
                     "%(name)s "
                     "%(asctime)s "
@@ -44,7 +48,5 @@ class SparkJsonHandler(logging.StreamHandler[SupportsWrite]):
                     "%(funcName)s "
                 ),
                 datefmt="%Y-%m-%d %H:%M:%S",
-            ))
-
-        except ImportError as e:
-            raise MissingDependencyException(["python-json-logger"]) from e
+            )
+        )

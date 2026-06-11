@@ -9,7 +9,6 @@ Tests environment mode semantics including:
 
 import logging
 import os
-import os
 import warnings
 from unittest.mock import patch
 
@@ -18,8 +17,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from logspark import logger
-from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
 from logspark._Internal.Func.is_color_compatible_terminal import is_color_compatible_terminal
+from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
 from logspark._Internal.State import is_fast_mode, is_silenced_mode
 from logspark.Types.Exceptions import SparkLoggerUnconfiguredUsageWarning
 
@@ -41,7 +40,7 @@ class TestOutputSurfaceDetection:
                         assert is_color_compatible_terminal() is True
                 else:
                     assert is_color_compatible_terminal() is True
-            
+
             # Test with FORCE_COLOR set - should also be True
             with patch.dict("os.environ", {"FORCE_COLOR": "true"}):
                 assert is_color_compatible_terminal() is True
@@ -58,31 +57,40 @@ class TestOutputSurfaceDetection:
     def test_viable_output_surface_with_rich_console(self):
         """Test output surface detection with Rich console (defers to Rich logic)"""
         pytest.importorskip("rich")
-        from rich.console import Console
-        
+
         # Test that function properly defers to stream's isatty when provided
         # Use a mock to ensure predictable behavior
         from unittest.mock import Mock
-        
+
         # Mock stream that reports as terminal
         terminal_stream = Mock()
         terminal_stream.isatty.return_value = True
-        
+
         # Control all the environment conditions to reach the stream check
         with patch.dict("os.environ", {}, clear=True):
             # Clear all environment variables that would cause early returns
-            with patch("logspark._Internal.Func.is_color_compatible_terminal._is_idle", return_value=False):
-                with patch("logspark._Internal.Func.is_color_compatible_terminal._is_jupyter", return_value=False):
+            with patch(
+                "logspark._Internal.Func.is_color_compatible_terminal._is_idle", return_value=False
+            ):
+                with patch(
+                    "logspark._Internal.Func.is_color_compatible_terminal._is_jupyter",
+                    return_value=False,
+                ):
                     with patch("os.name", "posix"):  # Avoid Windows-specific logic
                         assert is_color_compatible_terminal(terminal_stream) is True
-        
+
         # Mock stream that reports as non-terminal
         non_terminal_stream = Mock()
         non_terminal_stream.isatty.return_value = False
-        
+
         with patch.dict("os.environ", {}, clear=True):
-            with patch("logspark._Internal.Func.is_color_compatible_terminal._is_idle", return_value=False):
-                with patch("logspark._Internal.Func.is_color_compatible_terminal._is_jupyter", return_value=False):
+            with patch(
+                "logspark._Internal.Func.is_color_compatible_terminal._is_idle", return_value=False
+            ):
+                with patch(
+                    "logspark._Internal.Func.is_color_compatible_terminal._is_jupyter",
+                    return_value=False,
+                ):
                     with patch("os.name", "posix"):
                         assert is_color_compatible_terminal(non_terminal_stream) is False
 
@@ -99,20 +107,21 @@ class TestEnvironmentModes:
     def test_rich_availability_with_broken_module(self):
         """Test is_rich_available when find_spec raises ValueError"""
         from unittest.mock import patch
-        
+
         with patch("logspark._Internal.State.Env.find_spec") as mock_find_spec:
             # Mock find_spec to raise ValueError (broken/partially initialized module)
             mock_find_spec.side_effect = ValueError("Module broken")
-            
-            from logspark._Internal.State.Env import is_rich_available
-            assert is_rich_available() is False
+
+            from logspark._Internal.State.Env import is_dependency_available
+
+            assert is_dependency_available("rich") is False
 
     def test_rich_availability_normal_cases(self):
         """Test is_rich_available normal behavior"""
-        from logspark._Internal.State.Env import is_rich_available
-        
+        from logspark._Internal.State.Env import is_dependency_available
+
         # Should return boolean (actual availability depends on environment)
-        result = is_rich_available()
+        result = is_dependency_available("rich")
         assert isinstance(result, bool)
 
     def test_silenced_mode_suppresses_warnings(self, fresh_logger):
@@ -447,7 +456,9 @@ class TestPreConfigurationValidation:
                     assert "Logger used before configuration" in warning_message
 
                 # Verify that pre-is_configured setup was done
-                assert fresh_logger._pre_config_setup_done, "Pre-is_configured setup should be completed"
+                assert fresh_logger._pre_config_setup_done, (
+                    "Pre-is_configured setup should be completed"
+                )
                 assert len(fresh_logger.handlers) > 0, "Should have at least one handler"
 
                 # Verify no implicit mode switching occurred
@@ -470,9 +481,7 @@ class TestPreConfigurationValidation:
                     log_method(f"Additional {message}")
 
                 # Verify handler setup remained stable (no implicit switching)
-                assert len(fresh_logger.handlers) == 1, (
-                    "Handlers count should remain stable"
-                )
+                assert len(fresh_logger.handlers) == 1, "Handlers count should remain stable"
                 assert type(fresh_logger.handlers[0]) is original_handler_type, (
                     "Handlers type should not change (no implicit mode switching)"
                 )

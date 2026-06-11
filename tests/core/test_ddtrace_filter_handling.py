@@ -11,7 +11,7 @@ class TestDDTraceFilterHandling:
 
     def test_ddtrace_filter_added_when_missing(self, fresh_logger):
         """Test that DDTrace filter is added when not present (lines 291-292)."""
-        with patch("logspark.Core.SparkLogger.is_ddtrace_available", return_value=True):
+        with patch("logspark.Core.SparkLogger.is_dependency_available", return_value=True):
             fresh_logger.configure()
 
             ddtrace_filters = [
@@ -22,7 +22,7 @@ class TestDDTraceFilterHandling:
 
     def test_ddtrace_filter_not_duplicated_when_present(self, fresh_logger):
         """Test that DDTrace filter is not duplicated when already present."""
-        with patch("logspark.Core.SparkLogger.is_ddtrace_available", return_value=True):
+        with patch("logspark.Core.SparkLogger.is_dependency_available", return_value=True):
             existing_filter = DDTraceInjectionFilter()
             fresh_logger.addFilter(existing_filter)
 
@@ -48,7 +48,7 @@ class TestDDTraceFilterHandling:
         _apply_config clears handlers but not filters. Using no_freeze=True allows
         reconfiguration while keeping existing filters intact.
         """
-        with patch("logspark.Core.SparkLogger.is_ddtrace_available", return_value=True):
+        with patch("logspark.Core.SparkLogger.is_dependency_available", return_value=True):
             fresh_logger.configure(no_freeze=True)
 
             original_ddtrace_filters = [
