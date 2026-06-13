@@ -30,7 +30,7 @@ def SingletonClass(cls: type[TAny]) -> type[T]:  # noqa: N802
         raise _SingletonViolationException(cls)
 
     # noinspection PyMethodParameters
-    class SingletonPattern(cls):  # type: ignore[valid-type,misc]
+    class SingletonPattern(cls):  # type: ignore[valid-type,misc] # ty: ignore[shadowed-type-variable, unsupported-base]
         _cls_instance = None
 
         def __new__(cls_, *args: Any, **kwargs: Any) -> Any:

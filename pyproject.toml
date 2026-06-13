@@ -130,6 +130,7 @@ target-version = "py311"
   quote-style = "double"
   indent-style = "space"
 
+
 [dependency-groups]
 dev = [
   "hypothesis>=6.148.8",

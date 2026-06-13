@@ -1,10 +1,13 @@
 from datetime import datetime
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from rich._log_render import FormatTimeCallable
+from typing import TYPE_CHECKING, Callable, TypeAlias
 
 from .emit_warning import emit_warning
+
+if TYPE_CHECKING:
+    from rich.text import Text
+
+    FormatTimeCallable: TypeAlias = Callable[[datetime], Text]
+
 
 _default_timeformat = "%H:%M:%S"
 

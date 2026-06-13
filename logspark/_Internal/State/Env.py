@@ -111,7 +111,7 @@ def _get_console_width_unix() -> int | None:
 
         for fd in (1, 2, 0):  # stdout, stderr, stdin
             try:
-                packed = fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\x00" * 8)
+                packed = fcntl.ioctl(fd, termios.TIOCGWINSZ, b"\x00" * 8)  # ty: ignore[unresolved-attribute]
                 _rows, cols = struct.unpack("HH", packed[:4])
                 if cols > 0:
                     return cols
