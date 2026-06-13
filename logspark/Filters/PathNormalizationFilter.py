@@ -36,10 +36,13 @@ class PathNormalizationFilter(logging.Filter):
     link_path: bool = True
     inject_base_record: bool = False
 
-    def __init__(self, name: str = "",
-                 resolution_mode: PathResolutionSetting = PathResolutionSetting.RELATIVE,
-                 link_path: bool = True,
-                 inject_base_record: bool = False):
+    def __init__(
+        self,
+        name: str = "",
+        resolution_mode: PathResolutionSetting = PathResolutionSetting.RELATIVE,
+        link_path: bool = True,
+        inject_base_record: bool = False,
+    ):
         """Initialize with resolution mode, link path generation flag, and optional base-record injection."""
         super().__init__(name)
         self.resolution_mode = resolution_mode

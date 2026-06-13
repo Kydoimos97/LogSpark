@@ -19,7 +19,6 @@ class TracebackPolicyFilter(logging.Filter):
         if not has_spark_extra_attributes(record):
             record.spark = SparkRecordAttrs.from_record(record)
 
-
-        record._spark_exc = True # Protocol Flag highest record level no assumptions
+        record._spark_exc = True  # Protocol Flag highest record level no assumptions
 
         return True
