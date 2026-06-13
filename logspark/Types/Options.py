@@ -5,6 +5,7 @@ from typing_extensions import TypeVar
 
 E = TypeVar("E", bound=Enum)
 
+
 class PresetOptions(str, Enum):
     """Named presets for quick handler selection in ``configure()``."""
 
@@ -47,6 +48,7 @@ class PathResolutionSetting(Enum):
     RELATIVE = "relative"
     FILE = "file"
 
+
 def safe_coerce_enum(value: str, enum: type[E], default: E) -> E:
     """Coerce a string to the given Enum, returning default when the value is not a valid member."""
     try:
@@ -54,4 +56,3 @@ def safe_coerce_enum(value: str, enum: type[E], default: E) -> E:
         return val
     except ValueError:
         return default
-
