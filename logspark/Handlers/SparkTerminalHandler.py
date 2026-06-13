@@ -1,5 +1,6 @@
 import logging
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Callable, TypeAlias
 
 from .._Internal.Func import (
     emit_color_incompatible_console_warning,
@@ -11,9 +12,11 @@ from .._Internal.Func import (
 from ..Types.Protocol import SupportsWrite
 
 if TYPE_CHECKING:
-    from rich._log_render import FormatTimeCallable
+    from rich.text import Text
 
     from ..Types.Options import TracebackOptions
+
+    FormatTimeCallable: TypeAlias = Callable[[datetime], Text]
 
 
 class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
@@ -42,7 +45,7 @@ class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
         traceback_policy: "TracebackOptions | None" = None,
         multiline: bool = True,
         level_width: int = 9,
-        log_time_format: "str | FormatTimeCallable | None" = "%H:%M:%S",
+        log_time_format: "str | FormatTimeCallable" = "%H:%M:%S",
         link_path: bool = False,
     ) -> None:
         """Initialize formatter selection and underlying StreamHandler."""
@@ -72,6 +75,7 @@ class SparkTerminalHandler(logging.StreamHandler[SupportsWrite]):
 
         if fmt is None:
             from ..Formatters.SparkBaseFormatter import SparkBaseFormatter
+
             fmt_string = generate_stdlib_format(
                 show_time=show_time,
                 show_level=show_level,

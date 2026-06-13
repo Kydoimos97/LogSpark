@@ -4,6 +4,4 @@ from .SparkJsonHandler import SparkJsonHandler
 from .SparkPreConfigHandler import SparkPreConfigHandler
 from .SparkTerminalHandler import SparkTerminalHandler
 
-__all__ = ["SparkTerminalHandler",
-           "SparkJsonHandler",
-           "SparkPreConfigHandler"]
+__all__ = ["SparkTerminalHandler", "SparkJsonHandler", "SparkPreConfigHandler"]
