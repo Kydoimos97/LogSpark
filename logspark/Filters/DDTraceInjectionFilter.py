@@ -30,6 +30,7 @@ class DDTraceInjectionFilter(logging.Filter):
                 DDTraceInjectionFilter._tracer_checked = True
                 if is_dependency_available("ddtrace"):
                     from ddtrace.trace import tracer as _t  # type: ignore[import-unresolved]
+
                     DDTraceInjectionFilter._tracer = _t
                 else:
                     emit_warning(

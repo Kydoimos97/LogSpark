@@ -4,9 +4,8 @@
 from datetime import datetime
 from logging import NOTSET, LogRecord
 from pathlib import Path
-from typing import IO, cast
+from typing import IO, Callable, TypeAlias, cast
 
-from rich._log_render import FormatTimeCallable
 from rich._null_file import NullFile
 from rich.console import Console, ConsoleRenderable
 from rich.highlighter import Highlighter
@@ -22,13 +21,14 @@ from ..._Internal.Func import (
     is_color_compatible_terminal,
     resolve_stream,
 )
-from ..._Internal.State.Env import get_console_width
 from ...Formatters.Rich.SparkRichFormatter import SparkRichFormatter
 from ...Formatters.SparkBaseFormatter import SparkBaseFormatMixin
 from ...Types import InvalidConfigurationError
 from ...Types.Options import SparkRichHandlerSettings, TracebackOptions
 from ...Types.Protocol import SupportsWrite
 from ...Types.SparkRecordAttrs import HasSparkAttributes
+
+FormatTimeCallable: TypeAlias = Callable[[datetime], Text]
 
 
 class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
@@ -146,7 +146,11 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         record = self.process_spark_log_record(record, self._multiline, self._tb_policy)
         message = self.format(record)
 
-        if self._tb_policy == TracebackOptions.FULL and record.exc_info and record.exc_info != (None, None, None):
+        if (
+            self._tb_policy == TracebackOptions.FULL
+            and record.exc_info
+            and record.exc_info != (None, None, None)
+        ):
             traceback = self._apply_trace_formatting(record)
         elif getattr(record, "exc_text", None):
             traceback = record.exc_text
@@ -225,6 +229,7 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
 
     def _emit_degradation_warning(self) -> None:
         """Emit a one-time ``ConsoleWidthWarning`` listing which layout columns were hidden."""
+
         class ConsoleWidthWarning(UserWarning):
             """Warning emitted when found console size affects availability of layout elements"""
 
@@ -237,7 +242,9 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
             "  | lower-priority metadata columns were hidden to preserve message readability: {cols}\n"
             "  | increase terminal width or reduce min_message_width to restore full layout."
         ).format(
-            width=self.console.width, message_width=self._spark_formatter.min_message_width, cols=cols
+            width=self.console.width,
+            message_width=self._spark_formatter.min_message_width,
+            cols=cols,
         )
         emit_warning(
             message=message,

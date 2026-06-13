@@ -20,6 +20,7 @@ class SparkRecordAttrs:
 
     ``from_record()`` is the primary constructor; direct instantiation is for tests only.
     """
+
     filename: str
     filepath: Path
     lineno: int | None
@@ -47,18 +48,23 @@ class SparkRecordAttrs:
         """Construct a ``SparkRecordAttrs`` from a ``LogRecord``, extracting the last traceback frame when available."""
         exc_info = getattr(record, "exc_info", None)
 
-        if exc_info is None or exc_info == (None, None, None):
+        # Valid Types: bool | tuple[type[BaseException], BaseException, TracebackType] | tuple[None, None, None] | None
+        # Guard against None, which is valid for non-exception records
+        # Guard against non-tuple, which is valid for exception records with info but informationally empty
+        if not exc_info or not hasattr(exc_info, "__iter__"):
             instance = cls(
                 filename=record.filename,
                 filepath=Path(record.pathname),
                 lineno=record.lineno,
                 function=record.funcName,
-                uri = None,
+                uri=None,
                 exc_type=None,
                 exc_value=None,
                 exc_traceback=None,
             )
             return instance
+
+        assert isinstance(exc_info, tuple)
 
         # Extract exception info (use local exc_info which is Any from getattr, not the
         # typed record.exc_info attribute which includes None in its union)
@@ -118,4 +124,3 @@ def has_spark_extra_attributes(record: object) -> TypeGuard[HasSparkAttributes]:
     """Return True when the record has a ``spark`` attribute that is a ``SparkRecordAttrs`` instance."""
     spark = getattr(record, "spark", None)
     return spark is not None and isinstance(spark, SparkRecordAttrs)
-

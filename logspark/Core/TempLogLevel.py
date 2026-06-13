@@ -56,7 +56,7 @@ class TempLogLevel:
         # SparkLogger is removed from loggerDict by kill(), so manager._clear_cache()
         # (called inside setLevel) never reaches it. Clear the isEnabledFor cache
         # explicitly so the new level is picked up immediately.
-        self.logger_instance._cache.clear()  # type: ignore[attr-defined]
+        self.logger_instance._cache.clear()  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
 
         return self
 
@@ -70,7 +70,7 @@ class TempLogLevel:
         if self.logger_instance is not None and self.original_level is not None:
             # Restore original level
             self.logger_instance.setLevel(self.original_level)
-            self.logger_instance._cache.clear()  # type: ignore[attr-defined]
+            self.logger_instance._cache.clear()  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]
 
         # Clear references
         self.logger_instance = None

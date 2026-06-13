@@ -23,7 +23,7 @@ def _is_jupyter() -> bool:
 
     """
     try:
-        ipython = get_ipython()  # type: ignore[name-defined]  # pragma: no cover
+        ipython = get_ipython()  # ty: ignore[unresolved-reference] # type: ignore[name-defined]  # pragma: no cover
         shell = ipython.__class__.__name__  # pragma: no cover
     except NameError:
         return False

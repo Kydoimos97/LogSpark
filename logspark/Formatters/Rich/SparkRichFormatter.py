@@ -2,9 +2,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Callable, Protocol, TypeAlias, runtime_checkable
 
-from rich._log_render import FormatTimeCallable
 from rich.console import Console, ConsoleRenderable, RenderableType
 from rich.containers import Renderables
 from rich.style import Style
@@ -13,6 +12,8 @@ from rich.text import Text, TextType
 
 from ..._Internal import _DegradationGates
 from ..._Internal.State.Env import get_console_width, is_disable_degradation_mode
+
+FormatTimeCallable: TypeAlias = Callable[[datetime], Text]
 
 
 @runtime_checkable
@@ -43,12 +44,13 @@ class PathInfo:
     uri: str | None
     lineno: int | None
 
+
 # (4-char, 3-char, 1-char) abbreviations per level name.
 _LEVEL_ABBREVS: dict[str, tuple[str, str, str]] = {
-    "DEBUG":    ("DBUG", "DBG", "D"),
-    "INFO":     ("INFO", "INF", "I"),
-    "WARNING":  ("WARN", "WRN", "W"),
-    "ERROR":    ("ERRO", "ERR", "E"),
+    "DEBUG": ("DBUG", "DBG", "D"),
+    "INFO": ("INFO", "INF", "I"),
+    "WARNING": ("WARN", "WRN", "W"),
+    "ERROR": ("ERRO", "ERR", "E"),
     "CRITICAL": ("CRIT", "CRT", "C"),
 }
 
@@ -164,6 +166,10 @@ class SparkRichFormatter:
         if path is not None:
             path_info = PathInfo(path, link_path, line_no)
 
+        if time_format is None:
+            time_format = self.time_format
+        assert time_format is not None
+
         table = Table.grid(padding=(0, self._padding), expand=False)
         message_style = self._get_level_style(level, message=True)
         row: list[RenderableType] = []
@@ -241,7 +247,7 @@ class SparkRichFormatter:
         self,
         console: Console,
         log_time: datetime | None,
-        time_format: str | FormatTimeCallable | None,
+        time_format: str | FormatTimeCallable,
         level: TextType,
         path_info: PathInfo | None,
         function_name: str | None,
@@ -297,11 +303,15 @@ class SparkRichFormatter:
         """Add time and level columns to the table; collapses time inline with level when time_width is zero."""
         if time_renderable is not None:
             if time_width > 0:
-                table.add_column(style=self._TIME_STYLE, width=time_width, overflow="ignore", justify="left")
+                table.add_column(
+                    style=self._TIME_STYLE, width=time_width, overflow="ignore", justify="left"
+                )
                 row.append(time_renderable)
 
         if level_renderable is not None:
-            table.add_column(width=self.level_width, overflow="ignore", style=level_style, justify="left")
+            table.add_column(
+                width=self.level_width, overflow="ignore", style=level_style, justify="left"
+            )
             if time_width == 0 and time_renderable is not None:
                 row.append(Renderables([level_renderable, time_renderable]))
             else:
@@ -544,16 +554,20 @@ class SparkRichFormatter:
         self,
         console: Console,
         log_time: datetime | None,
-        time_format: str | FormatTimeCallable | None,
+        time_format: str | FormatTimeCallable,
     ) -> Text | None:
         """Format the record timestamp; returns an empty Text when omit_repeated_times suppresses a duplicate."""
-        log_time = log_time or console.get_datetime()
-        fmt = time_format or self.time_format
+        timestamp: datetime = log_time or console.get_datetime() or datetime.now()
 
-        if callable(fmt):
-            time_text = fmt(log_time)  # type: ignore[call-arg]
+        if isinstance(time_format, str):
+
+            def fmt(timestamp: datetime) -> Text:
+                return Text(timestamp.strftime(str(time_format)) + " ")
+
         else:
-            time_text = Text(log_time.strftime(fmt) + " ")
+            fmt = time_format
+
+        time_text: Text = fmt(timestamp)
 
         display = time_text
         if not self._degradation_gate == _DegradationGates.TIME:

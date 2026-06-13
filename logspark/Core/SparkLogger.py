@@ -139,27 +139,39 @@ class SparkLogger(logging.Logger):
                 # Fast logging with no explicit handler - use NullHandler for maximum speed
                 hdl: logging.Handler = logging.NullHandler()
             elif handler is None:
-                hdl = SparkTerminalHandler(level=log_level, traceback_policy=traceback_policy, multiline=multiline)
+                hdl = SparkTerminalHandler(
+                    level=log_level, traceback_policy=traceback_policy, multiline=multiline
+                )
             else:
                 hdl = handler
 
             # ensure we have a name
             hdl.name = getattr(hdl, "name", self._logger_name)
 
-            self._apply_config(log_level, handler=hdl, traceback_policy=traceback_policy, path_resolution=path_resolution, multiline=multiline)
+            self._apply_config(
+                log_level,
+                handler=hdl,
+                traceback_policy=traceback_policy,
+                path_resolution=path_resolution,
+                multiline=multiline,
+            )
 
             # no freeze for power user
             if not no_freeze:
                 self._frozen = True
 
-
-    def _apply_config(self, level: str | int = logging.INFO, *, handler: logging.Handler,
-        traceback_policy: TracebackOptions | None = None, path_resolution: PathResolutionSetting | None = None, multiline: bool = True):
+    def _apply_config(
+        self,
+        level: str | int = logging.INFO,
+        *,
+        handler: logging.Handler,
+        traceback_policy: TracebackOptions | None = None,
+        path_resolution: PathResolutionSetting | None = None,
+        multiline: bool = True,
+    ):
         """Apply filters, handler, level, and ddtrace injection to the logger."""
         if traceback_policy is not None:
-            self.addFilter(
-                    TracebackPolicyFilter()
-            )
+            self.addFilter(TracebackPolicyFilter())
 
         if path_resolution is not None:
             self.addFilter(PathNormalizationFilter(resolution_mode=path_resolution))
@@ -195,7 +207,9 @@ class SparkLogger(logging.Logger):
         """Set the configured flag; raises ``InvalidConfigurationError`` if set True with no handlers."""
         if value is True:
             if not self.handlers:
-                raise InvalidConfigurationError("No handlers provided in current configuration set a handler with logger.addHandler()")
+                raise InvalidConfigurationError(
+                    "No handlers provided in current configuration set a handler with logger.addHandler()"
+                )
         self._configured = value
 
     def eject_handlers(self) -> None:
@@ -244,7 +258,9 @@ class SparkLogger(logging.Logger):
                         emit_warning(
                             message="\nWARNING: Duplicate active handler classes: {name}\n"
                             "  | This warning indicates that a addHandler call would create a duplicate logging.Handler;\n"
-                            "  | If this is not intended, consider using dedupe=True to avoid duplicates.".format(name=type(hdlr).__name__),
+                            "  | If this is not intended, consider using dedupe=True to avoid duplicates.".format(
+                                name=type(hdlr).__name__
+                            ),
                             category=SparkLoggerDuplicatedHandlerWarning,
                             stacklevel=4,
                         )
@@ -269,7 +285,9 @@ class SparkLogger(logging.Logger):
                         emit_warning(
                             message="\nWARNING: Duplicate active filter classes: {name}\n"
                             "  | This warning indicates that a addFilter call would create a duplicate logging.Filter;\n"
-                            "  | If this is not intended, consider using dedupe=True to avoid duplicates.".format(name=type(filter).__name__),
+                            "  | If this is not intended, consider using dedupe=True to avoid duplicates.".format(
+                                name=type(filter).__name__
+                            ),
                             category=SparkLoggerDuplicatedFilterWarning,
                             stacklevel=4,
                         )
@@ -308,7 +326,9 @@ class SparkLogger(logging.Logger):
         if value is True:
             self.freeze()
         else:
-            raise ValueError("Cannot unfreeze a logger once it has been frozen to create a new instance call kill()")
+            raise ValueError(
+                "Cannot unfreeze a logger once it has been frozen to create a new instance call kill()"
+            )
 
     def kill(self) -> None:
         """

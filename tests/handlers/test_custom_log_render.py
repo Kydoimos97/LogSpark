@@ -144,12 +144,12 @@ class TestCustomLogRenderTimeHandling:
 
         test_time = datetime(2023, 12, 25, 14, 30, 45)
 
-        time_text = renderer._format_time(console, test_time, None)
+        time_text = renderer._format_time(console, test_time, "%H:%M:%S")
 
         assert isinstance(time_text, Text)
         assert len(str(time_text)) > 0
         # Should contain date/time information
-        assert "12/25/23" in str(time_text) or "2023" in str(time_text)
+        assert "14:30:45" in str(time_text) or "2023" in str(time_text)
 
     def test_time_rendering_with_custom_format(self):
         """Test time rendering with custom format"""

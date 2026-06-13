@@ -25,18 +25,18 @@ class SparkColorFormatter(SparkBaseFormatter):
     _RESET = "\033[0m"
 
     _BADGE_COLORS = {
-        logging.DEBUG:    "\033[36m",    # cyan
-        logging.INFO:     "\033[32m",    # green
-        logging.WARNING:  "\033[33m",    # yellow
-        logging.ERROR:    "\033[31m",    # red
+        logging.DEBUG: "\033[36m",  # cyan
+        logging.INFO: "\033[32m",  # green
+        logging.WARNING: "\033[33m",  # yellow
+        logging.ERROR: "\033[31m",  # red
         logging.CRITICAL: "\033[1;35m",  # bold magenta
     }
 
     _MSG_COLORS = {
-        logging.DEBUG:    "\033[90m",    # gray
-        logging.WARNING:  "\033[33m",    # yellow
-        logging.ERROR:    "\033[31m",    # red
-        logging.CRITICAL: "\033[35m",    # magenta
+        logging.DEBUG: "\033[90m",  # gray
+        logging.WARNING: "\033[33m",  # yellow
+        logging.ERROR: "\033[31m",  # red
+        logging.CRITICAL: "\033[35m",  # magenta
         # INFO intentionally absent — rendered unstyled for contrast
     }
 

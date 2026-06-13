@@ -22,7 +22,12 @@ class SparkBaseFormatMixin:
     """
 
     @classmethod
-    def process_spark_log_record(cls, record: logging.LogRecord, multiline: bool = True, traceback_policy: TracebackOptions | None = None):
+    def process_spark_log_record(
+        cls,
+        record: logging.LogRecord,
+        multiline: bool = True,
+        traceback_policy: TracebackOptions | None = None,
+    ):
         """Apply the traceback policy to exc_text and optionally collapse the record to a single line."""
         try:
             if is_spark_exception_enabled(record) and has_spark_extra_attributes(record):
@@ -55,9 +60,7 @@ class SparkBaseFormatMixin:
             exc_text = f"{spark_attrs.exc_name}: {spark_attrs.exc_value}"
         elif traceback_policy == TracebackOptions.COMPACT:
             try:
-                compact_tb = (
-                    f'{spark_attrs.exc_name}: {spark_attrs.exc_value}\n      At "{spark_attrs.filename}:{spark_attrs.lineno}"'
-                )
+                compact_tb = f'{spark_attrs.exc_name}: {spark_attrs.exc_value}\n      At "{spark_attrs.filename}:{spark_attrs.lineno}"'
                 if spark_attrs.name:
                     compact_tb += f", in {spark_attrs.name}"
                 exc_text = compact_tb
@@ -66,7 +69,9 @@ class SparkBaseFormatMixin:
         elif traceback_policy == TracebackOptions.FULL and spark_attrs.exc_traceback is not None:
             try:
                 exc_text = "".join(
-                    format_exception(spark_attrs.exc_type, spark_attrs.exc_value, spark_attrs.exc_traceback)
+                    format_exception(
+                        spark_attrs.exc_type, spark_attrs.exc_value, spark_attrs.exc_traceback
+                    )
                 ).rstrip()
             except Exception:
                 exc_text = f"{spark_attrs.exc_name}: {spark_attrs.exc_value}"
@@ -75,7 +80,8 @@ class SparkBaseFormatMixin:
 
     @staticmethod
     def _get_single_line_tb(
-            spark_attrs: SparkRecordAttrs, traceback_policy: TracebackOptions | None,
+        spark_attrs: SparkRecordAttrs,
+        traceback_policy: TracebackOptions | None,
     ) -> str | None:
         """Render the traceback as a single-line string with newlines replaced by spaces."""
 
@@ -89,7 +95,11 @@ class SparkBaseFormatMixin:
             exc_text = f"{spark_attrs.exc_name}: {_sanitize(spark_attrs.exc_value)}"
         elif traceback_policy == TracebackOptions.FULL and spark_attrs.exc_traceback is not None:
             try:
-                exc_text = "\n".join(format_exception(spark_attrs.exc_type, spark_attrs.exc_value, spark_attrs.exc_traceback))
+                exc_text = "\n".join(
+                    format_exception(
+                        spark_attrs.exc_type, spark_attrs.exc_value, spark_attrs.exc_traceback
+                    )
+                )
             except Exception:
                 pass  # exc_text remains default_text
 
@@ -98,6 +108,7 @@ class SparkBaseFormatMixin:
     @staticmethod
     def _collapse_to_single_line(record: logging.LogRecord) -> logging.LogRecord:
         """Flatten all newlines in exc_text and message to spaces so the record emits as one line."""
+
         def _sanitize(value: object) -> str:
             return str(value).replace("\n", " ").replace("\r", " ").strip()
 
@@ -105,7 +116,7 @@ class SparkBaseFormatMixin:
         if exc_text is not None:
             lines = exc_text.splitlines()
             record.exc_text = " | ".join(_sanitize(line) for line in lines if line.strip())
-        if getattr(record, "message" , None) is not None:
+        if getattr(record, "message", None) is not None:
             record.message = _sanitize(record.message)
 
         return record
@@ -123,16 +134,18 @@ class SparkBaseFormatter(SparkBaseFormatMixin, logging.Formatter):
     _tb_policy: TracebackOptions | None = None
     _multiline: bool = True
 
-    def __init__(self,
-                     fmt: str | None = None,
-                     datefmt: str | None = None,
-                     style: Literal["%", "{", "$"] = "%",
-                     validate: bool = True,
-                     *,
-                     defaults: Mapping[str, Any] | None = None,
-                     tb_policy: TracebackOptions | None = None,
-                 multiline: bool = True,
-                 **kwargs):
+    def __init__(
+        self,
+        fmt: str | None = None,
+        datefmt: str | None = None,
+        style: Literal["%", "{", "$"] = "%",
+        validate: bool = True,
+        *,
+        defaults: Mapping[str, Any] | None = None,
+        tb_policy: TracebackOptions | None = None,
+        multiline: bool = True,
+        **kwargs,
+    ):
         """Initialize with format string, date format, traceback policy, and multiline flag."""
         super().__init__(fmt, datefmt, style, validate, defaults=defaults)
         self._tb_policy = tb_policy
