@@ -146,7 +146,8 @@ class SparkLogManager:
         /,
         level: int | str | None = None,
         handlers: list[logging.Handler] | None = None,
-        filters: list[logging.Filter | Callable[[logging.LogRecord], bool]] | None = None,
+        filters: list[logging.Filter | logging.Filterer | Callable[[logging.LogRecord], bool]]
+        | None = None,
         propagate: bool | None = None,
         copy_spark_logger_config: bool = False,
     ) -> None:
@@ -183,8 +184,7 @@ class SparkLogManager:
                 if not handlers:
                     handlers = list(spark_logger.handlers)
                 if not filters:
-                    filters = list(spark_logger.filters)  # type: ignore[assignment]
-
+                    filters = list(spark_logger.filters)  # type: ignore[assignment] # ty: ignore[invalid-assignment]
 
             if level is not None:
                 v_level = validate_level(level)
@@ -207,4 +207,3 @@ class SparkLogManager:
                     managed_logger.setLevel(v_level)
                 if propagate is not None:
                     managed_logger.propagate = propagate
-
