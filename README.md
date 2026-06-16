@@ -61,7 +61,7 @@ pip install logspark[all]     # All of the above
 ### Minimal setup
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure()
 logger.info("Application started")
@@ -73,7 +73,7 @@ logger.info("Application started")
 
 ```python
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure(level=logging.DEBUG)
 ```
@@ -104,7 +104,7 @@ logger.info("Request completed", extra={
 
 ```python
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers import SparkJsonHandler
 
 logger.configure(level=logging.INFO, handler=SparkJsonHandler())
@@ -115,8 +115,8 @@ logger.info("Structured record", extra={"env": "production"})
 
 ```python
 import logging
-from logspark import logger
-from logspark.Handlers.Rich import SparkRichHandler
+from logspark.Instance import spark_logger as logger
+from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 
 logger.configure(level=logging.DEBUG, handler=SparkRichHandler())
 logger.debug("Rich layout with columns, color, and path resolution")
@@ -127,13 +127,13 @@ logger.debug("Rich layout with columns, color, and path resolution")
 ```python
 import logging
 import httpx
-from logspark import logger, spark_log_manager
+from logspark.Instance import spark_logger as logger, spark_log_manager
 
 logger.configure()
 
 spark_log_manager.adopt_all()
 spark_log_manager.unify(
-    copy_spark_logger_config=True,
+    spark_logger_instance=logger,
     level=logging.WARNING,
     propagate=False,
 )
@@ -143,7 +143,8 @@ spark_log_manager.unify(
 
 ```python
 import logging
-from logspark import logger, TempLogLevel
+from logspark import TempLogLevel
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers import SparkTerminalHandler
 
 logger.configure(level=logging.INFO, handler=SparkTerminalHandler())
@@ -174,7 +175,7 @@ At process startup, before any other module uses the logger:
 ```python
 # main.py
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure(level=logging.INFO)
 
