@@ -11,7 +11,7 @@ A snapshot-based utility for mutating existing `logging.Logger` instances. It do
 Adopt all currently registered loggers:
 
 ```python
-from logspark import spark_log_manager
+from logspark.Instance import spark_log_manager
 
 spark_log_manager.adopt_all()
 ```
@@ -20,7 +20,7 @@ Adopt a specific logger:
 
 ```python
 import logging
-from logspark import spark_log_manager
+from logspark.Instance import spark_log_manager
 
 spark_log_manager.adopt(logging.getLogger("httpx"))
 ```
@@ -35,7 +35,7 @@ spark_log_manager.adopt(logging.getLogger("httpx"))
 
 ```python
 import logging
-from logspark import spark_log_manager
+from logspark.Instance import spark_log_manager
 
 spark_log_manager.adopt_all()
 spark_log_manager.unify(level=logging.WARNING, propagate=False)
@@ -44,12 +44,12 @@ spark_log_manager.unify(level=logging.WARNING, propagate=False)
 Copy LogSpark's own handler and filters to all managed loggers, the canonical way to unify all output through your handler:
 
 ```python
-from logspark import logger, spark_log_manager
+from logspark.Instance import spark_logger as logger, spark_log_manager
 
 logger.configure()  # must be frozen first
 
 spark_log_manager.adopt_all()
-spark_log_manager.unify(copy_spark_logger_config=True, propagate=False)
+spark_log_manager.unify(spark_logger_instance=logger, propagate=False)
 ```
 
 `unify()` parameters:
@@ -60,9 +60,9 @@ spark_log_manager.unify(copy_spark_logger_config=True, propagate=False)
 | `handlers` | `list[logging.Handler] \| None` | `None` | Replaces existing handlers on all managed loggers. |
 | `filters` | `list[logging.Filter] \| None` | `None` | Replaces existing filters on all managed loggers. |
 | `propagate` | `bool \| None` | `None` | Sets propagation on all managed loggers. `None` leaves unchanged. |
-| `copy_spark_logger_config` | `bool` | `False` | Copies handlers and filters from the frozen `spark_logger`. Requires LogSpark to be configured and frozen. |
+| `spark_logger_instance` | `SparkLogger \| None` | `None` | Copies handlers and filters from the supplied frozen `SparkLogger`. Pass `None` to skip. Requires the instance to be configured and frozen. |
 
-`unify()` is destructive: existing handlers are cleared when `handlers` or `copy_spark_logger_config` is used. Previous state is not preserved.
+`unify()` is destructive: existing handlers are cleared when `handlers` or `spark_logger_instance` is used. Previous state is not preserved.
 
 ## Inspecting managed loggers
 
@@ -88,7 +88,7 @@ Silence a noisy library:
 
 ```python
 import logging
-from logspark import spark_log_manager
+from logspark.Instance import spark_log_manager
 
 spark_log_manager.adopt(logging.getLogger("sqlalchemy.engine"))
 spark_log_manager.unify(level=logging.WARNING)
@@ -101,13 +101,13 @@ import logging
 import httpx       # import dependencies first so their loggers are registered
 import sqlalchemy
 
-from logspark import logger, spark_log_manager
+from logspark.Instance import spark_logger as logger, spark_log_manager
 
 logger.configure()
 
 spark_log_manager.adopt_all()
 spark_log_manager.unify(
-    copy_spark_logger_config=True,
+    spark_logger_instance=logger,
     level=logging.INFO,
     propagate=False,
 )
