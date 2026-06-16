@@ -1,23 +1,29 @@
 """
-Tests for SingletonClass decorator.
+Tests for SingletonMeta metaclass.
 
-Tests singleton enforcement behavior and violation detection.
+Tests singleton enforcement behavior via the SingletonMeta metaclass,
+instance tracking, and lifecycle management.
 """
 
-import pytest
+from typing import Any, cast
 
-from logspark._Internal.State import SingletonClass
-from logspark._Internal.State.SingletonClass import _SingletonViolationException
+from logspark._Internal.State import SingletonMeta
+from logspark.Types import is_singleton
 
 
-class TestSingletonClass:
-    """Test SingletonClass decorator behavior."""
+def kill_if_singleton(instance: object) -> None:
+    """Kill instance if it's a singleton, no-op otherwise."""
+    if is_singleton(instance):
+        cast(Any, type(instance)).kill_instance()
+
+
+class TestSingletonMetaEnforcement:
+    """Test SingletonMeta metaclass singleton enforcement."""
 
     def test_singleton_enforcement_same_instance(self):
-        """Test that decorated class returns same instance on multiple instantiations."""
+        """Test that metaclass returns same instance on multiple instantiations."""
 
-        @SingletonClass
-        class TestSingleton:
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
                 self.value = 42
 
@@ -32,8 +38,7 @@ class TestSingletonClass:
         """Test that __init__ is called only once even with multiple instantiations."""
         init_count = 0
 
-        @SingletonClass
-        class TestSingleton:
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
                 nonlocal init_count
                 init_count += 1
@@ -52,9 +57,8 @@ class TestSingletonClass:
     def test_singleton_with_constructor_args(self):
         """Test singleton behavior with constructor arguments."""
 
-        @SingletonClass
-        class TestSingleton:
-            def __init__(self, name, value=None):
+        class TestSingleton(metaclass=SingletonMeta):
+            def __init__(self, name: str = "", value: int | None = None):
                 self.name = name
                 self.value = value or 0
 
@@ -62,6 +66,7 @@ class TestSingletonClass:
         instance1 = TestSingleton("test", 42)
 
         # Subsequent instantiations ignore args due to singleton behavior
+        # SingletonMeta.__call__ always returns cached instance, ignoring new args
         instance2 = TestSingleton("ignored", 999)
         instance3 = TestSingleton()
 
@@ -71,23 +76,10 @@ class TestSingletonClass:
         assert instance2.name == "test"  # Args ignored on second call
         assert instance3.name == "test"  # Args ignored on third call
 
-    def test_singleton_preserves_class_metadata(self):
-        """Test that decorator preserves original class metadata."""
-
-        @SingletonClass
-        class TestSingleton:
-            """Test singleton class docstring."""
-
-            pass
-
-        assert TestSingleton.__name__ == "TestSingleton"
-        assert TestSingleton.__doc__ == "Test singleton class docstring."
-
     def test_singleton_with_methods(self):
-        """Test that singleton works correctly with class methods."""
+        """Test that singleton works correctly with instance methods."""
 
-        @SingletonClass
-        class TestSingleton:
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
                 self.counter = 0
 
@@ -115,16 +107,18 @@ class TestSingletonClass:
         # Verify state is still shared
         assert instance1.get_counter() == 2
 
+
+class TestMultipleSingletonClasses:
+    """Test that different singleton classes maintain separate instances."""
+
     def test_multiple_singleton_classes_independent(self):
         """Test that different singleton classes maintain separate instances."""
 
-        @SingletonClass
-        class SingletonA:
+        class SingletonA(metaclass=SingletonMeta):
             def __init__(self):
                 self.name = "A"
 
-        @SingletonClass
-        class SingletonB:
+        class SingletonB(metaclass=SingletonMeta):
             def __init__(self):
                 self.name = "B"
 
@@ -145,124 +139,214 @@ class TestSingletonClass:
         assert a1.name == "A"
         assert b1.name == "B"
 
+    def test_singleton_instance_tracking(self):
+        """Test that singleton instances are tracked correctly."""
 
-class TestSingletonViolationDetection:
-    """Test singleton violation detection."""
+        class SingletonX(metaclass=SingletonMeta):
+            pass
 
-    def test_violation_custom_new_method(self):
-        """Test that defining __new__ method raises violation exception."""
-        with pytest.raises(_SingletonViolationException, match="Singleton violation"):
+        class SingletonY(metaclass=SingletonMeta):
+            pass
 
-            @SingletonClass
-            class InvalidSingleton:
-                def __new__(cls):
-                    return super().__new__(cls)
+        x = SingletonX()
+        y = SingletonY()
 
-    def test_violation_cls_instance_attribute(self):
-        """Test that defining __cls_instance attribute raises violation exception."""
-        # Note: Due to Python name mangling, __cls_instance becomes _ClassName__cls_instance
-        # The actual check in SingletonClass looks for the literal "__cls_instance" string
-        # This test verifies the intended behavior even though name mangling occurs
+        # Both should be in the metaclass instance dict
+        assert SingletonX in SingletonMeta._s_instances
+        assert SingletonY in SingletonMeta._s_instances
+        assert SingletonMeta._s_instances[SingletonX] is x
+        assert SingletonMeta._s_instances[SingletonY] is y
 
-        # This should NOT raise an exception due to name mangling
-        @SingletonClass
-        class ValidClass:
-            __cls_instance = None  # This gets mangled to _ValidClass__cls_instance
 
-        # This would raise an exception if we could define it literally
-        # but Python's name mangling prevents this from being a real issue
-        instance = ValidClass()
-        assert instance is not None
+class TestSingletonLifecycle:
+    """Test singleton lifecycle and reset behavior."""
 
-    def test_violation_cls_instance_literal_attribute(self):
-        """Test that defining literal __cls_instance attribute raises violation exception."""
-        # Create a class dynamically with the literal __cls_instance attribute
-        class_dict = {"_cls_instance": None}
-        TestClass = type("TestClass", (), class_dict)
-        
-        with pytest.raises(_SingletonViolationException, match="Singleton violation"):
-            SingletonClass(TestClass)
+    def test_kill_instance_clears_cached_instance(self):
+        """Test that kill_instance() clears the cached instance."""
 
-    def test_violation_exception_message_contains_class_name(self):
-        """Test that violation exception message contains the class name."""
-        with pytest.raises(_SingletonViolationException) as exc_info:
-
-            @SingletonClass
-            class ProblematicClass:
-                def __new__(cls):
-                    return super().__new__(cls)
-
-        assert "ProblematicClass" in str(exc_info.value)
-        assert "Singleton violation" in str(exc_info.value)
-        assert "__new__" in str(exc_info.value)
-
-    def test_violation_exception_suggests_fix(self):
-        """Test that violation exception provides helpful fix suggestion."""
-        with pytest.raises(_SingletonViolationException) as exc_info:
-
-            @SingletonClass
-            class ProblematicClass:
-                def __new__(cls):
-                    return super().__new__(cls)
-
-        error_msg = str(exc_info.value)
-        assert "__new__" in error_msg
-
-    def test_valid_class_no_violation(self):
-        """Test that properly defined class does not raise violation."""
-
-        # This should not raise any exception
-        @SingletonClass
-        class ValidSingleton:
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
                 self.value = 42
 
-            def method(self):
-                return self.value
+        instance1 = TestSingleton()
+        assert instance1.value == 42
 
-        # Should be able to instantiate without issues
-        instance = ValidSingleton()
-        assert instance.value == 42
-        assert instance.method() == 42
+        # Kill the instance
+        TestSingleton.kill_instance()
 
+        # Next instantiation should create a new instance
+        instance2 = TestSingleton()
 
-class TestSingletonEdgeCases:
-    """Test edge cases and special scenarios."""
+        # They are different objects
+        assert instance1 is not instance2
 
-    def test_singleton_with_inheritance(self):
-        """Test singleton behavior with class inheritance."""
+        # But same class, so values could be the same if not modified
+        assert instance2.value == 42
 
-        @SingletonClass
-        class BaseSingleton:
+    def test_kill_instance_allows_reinit(self):
+        """Test that after kill_instance(), __init__ runs again on next call."""
+        init_count = 0
+
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
-                self.base_value = "base"
+                nonlocal init_count
+                init_count += 1
+                self.count = init_count
 
-        # Inheriting from a singleton class inherits the singleton behavior
-        # The derived class returns the same instance as the base class
-        class DerivedClass(BaseSingleton):
+        instance1 = TestSingleton()
+        assert init_count == 1
+        assert instance1.count == 1
+
+        # Kill and create again
+        TestSingleton.kill_instance()
+        instance2 = TestSingleton()
+
+        assert init_count == 2
+        assert instance2.count == 2
+        assert instance1 is not instance2
+
+    def test_kill_instance_idempotent(self):
+        """Test that calling kill_instance() multiple times is safe."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            pass
+
+        instance1 = TestSingleton()
+
+        # Kill multiple times — should not raise
+        TestSingleton.kill_instance()
+        TestSingleton.kill_instance()
+        TestSingleton.kill_instance()
+
+        # Should still be able to create new instance
+        instance2 = TestSingleton()
+        assert instance1 is not instance2
+
+
+class TestIsSingleton:
+    """Test is_singleton() helper function."""
+
+    def test_is_singleton_returns_true_for_singleton_instance(self):
+        """Test that is_singleton() returns True for metaclass instances."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            pass
+
+        instance = TestSingleton()
+
+        assert is_singleton(instance) is True
+
+    def test_is_singleton_returns_false_for_plain_class(self):
+        """Test that is_singleton() returns False for plain class instances."""
+
+        class PlainClass:
+            pass
+
+        instance = PlainClass()
+
+        assert is_singleton(instance) is False
+
+    def test_is_singleton_distinguishes_singleton_from_plain(self):
+        """Test that is_singleton() correctly distinguishes singleton from plain classes."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            pass
+
+        class PlainClass:
+            pass
+
+        singleton_instance = TestSingleton()
+        plain_instance = PlainClass()
+
+        assert is_singleton(singleton_instance) is True
+        assert is_singleton(plain_instance) is False
+
+
+class TestKillIfSingleton:
+    """Test kill_if_singleton() helper function."""
+
+    def test_kill_if_singleton_kills_singleton_instance(self):
+        """Test that kill_if_singleton() calls kill_instance() for singletons."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            pass
+
+        instance1 = TestSingleton()
+
+        # Kill using helper
+        kill_if_singleton(instance1)
+
+        # Next instantiation should be a new instance
+        instance2 = TestSingleton()
+
+        assert instance1 is not instance2
+
+    def test_kill_if_singleton_no_op_for_plain_class(self):
+        """Test that kill_if_singleton() is a no-op for plain class instances."""
+
+        class PlainClass:
+            pass
+
+        instance = PlainClass()
+
+        # Should not raise
+        kill_if_singleton(instance)
+
+        # Instance should be unchanged
+        assert instance is instance
+
+    def test_kill_if_singleton_with_init_count(self):
+        """Test kill_if_singleton() allows reinitialization of singletons."""
+        init_count = 0
+
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
-                super().__init__()
-                self.derived_value = "derived"
+                nonlocal init_count
+                init_count += 1
 
-        base1 = BaseSingleton()
-        base2 = BaseSingleton()
-        derived1 = DerivedClass()
-        derived2 = DerivedClass()
+        instance1 = TestSingleton()
+        assert init_count == 1
 
-        # All instances are the same due to singleton inheritance
-        assert base1 is base2
-        assert derived1 is derived2
-        assert base1 is derived1  # Same singleton instance
+        # Kill using helper
+        kill_if_singleton(instance1)
 
-        # The instance has the base class type
-        assert type(base1).__name__ == "BaseSingleton"
-        assert type(derived1).__name__ == "BaseSingleton"
+        # Next instantiation should trigger __init__ again
+        _ = TestSingleton()
+        assert init_count == 2
+
+
+class TestSingletonSubclasses:
+    """Test subclass behavior with SingletonMeta."""
+
+    def test_subclass_with_metaclass_assignment_gets_separate_singleton(self):
+        """Test that subclasses with explicit metaclass get their own singleton slot."""
+
+        class BaseSingleton(metaclass=SingletonMeta):
+            def __init__(self):
+                self.name = "base"
+
+        class DerivedSingleton(BaseSingleton, metaclass=SingletonMeta):
+            def __init__(self):
+                self.name = "derived"
+
+        base = BaseSingleton()
+        derived = DerivedSingleton()
+
+        # Should be different instances
+        assert base is not derived
+        assert base.name == "base"
+        assert derived.name == "derived"
+
+        # Each should have its own singleton slot
+        assert BaseSingleton in SingletonMeta._s_instances
+        assert DerivedSingleton in SingletonMeta._s_instances
+        assert SingletonMeta._s_instances[BaseSingleton] is base
+        assert SingletonMeta._s_instances[DerivedSingleton] is derived
 
     def test_singleton_with_class_variables(self):
         """Test singleton behavior with class variables."""
 
-        @SingletonClass
-        class TestSingleton:
+        class TestSingleton(metaclass=SingletonMeta):
             class_var = "shared"
 
             def __init__(self):
@@ -286,8 +370,7 @@ class TestSingletonEdgeCases:
     def test_singleton_with_properties(self):
         """Test singleton behavior with property decorators."""
 
-        @SingletonClass
-        class TestSingleton:
+        class TestSingleton(metaclass=SingletonMeta):
             def __init__(self):
                 self._value = 0
 
@@ -311,3 +394,33 @@ class TestSingletonEdgeCases:
         # Test property modification
         instance1.value = 42
         assert instance2.value == 42  # Same instance, so same value
+
+
+class TestSingletonMetadataPreservation:
+    """Test that SingletonMeta preserves class metadata."""
+
+    def test_singleton_preserves_class_name(self):
+        """Test that metaclass preserves original class name."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            pass
+
+        assert TestSingleton.__name__ == "TestSingleton"
+
+    def test_singleton_preserves_docstring(self):
+        """Test that metaclass preserves original class docstring."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            """Test singleton class docstring."""
+
+            pass
+
+        assert TestSingleton.__doc__ == "Test singleton class docstring."
+
+    def test_singleton_preserves_module(self):
+        """Test that metaclass preserves module attribute."""
+
+        class TestSingleton(metaclass=SingletonMeta):
+            pass
+
+        assert TestSingleton.__module__ is not None

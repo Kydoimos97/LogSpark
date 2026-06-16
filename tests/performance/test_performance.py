@@ -385,7 +385,7 @@ class TestManagerUnificationPerformance:
 
         # Measure unify_format() performance
         start_time = time.perf_counter()
-        fresh_log_manager.unify(level=fresh_logger.level, copy_spark_logger_config=True)
+        fresh_log_manager.unify(level=fresh_logger.level, spark_logger_instance=fresh_logger)
         end_time = time.perf_counter()
         elapsed = end_time - start_time
 
@@ -433,7 +433,7 @@ class TestManagerUnificationPerformance:
 
             # Measure unify_format time
             start_time = time.perf_counter()
-            fresh_log_manager.unify(copy_spark_logger_config=True)
+            fresh_log_manager.unify(spark_logger_instance=fresh_logger)
             unify_time = time.perf_counter() - start_time
             unify_times.append(unify_time)
 

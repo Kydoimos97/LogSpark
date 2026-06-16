@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from logspark import spark_log_manager
+from logspark.Instance import spark_log_manager
 
 
 class TestAdoption:

@@ -11,7 +11,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from logspark import spark_log_manager
+from logspark.Instance import spark_log_manager
 from logspark.Types import InvalidConfigurationError, UnfrozenGlobalOperationError
 
 
@@ -113,13 +113,13 @@ class TestUnify:
         fresh_log_manager.adopt(logger)
 
         # Ensure LogSpark is not is_configured
-        from logspark import logger as spark_logger
+        from logspark.Instance import spark_logger
 
-        spark_logger.kill()
+        spark_logger._reset()
 
         # Verify error is raised
         with pytest.raises(InvalidConfigurationError, match="LogSpark logger not is_configured"):
-            fresh_log_manager.unify(copy_spark_logger_config=True)
+            fresh_log_manager.unify(spark_logger_instance=spark_logger)
 
     def test_unify_use_spark_handler_not_frozen(self, fresh_log_manager, test_handler):
         """Test that unify() with use_spark_handler=True raises error when LogSpark not frozen."""
@@ -128,10 +128,10 @@ class TestUnify:
         fresh_log_manager.adopt(logger)
 
         # Configure LogSpark but don't freeze using no_freeze=True
-        from logspark import logger as spark_logger
+        from logspark.Instance import spark_logger
         from logspark.Types.Options import TracebackOptions
 
-        spark_logger.kill()
+        spark_logger._reset()
         spark_logger.configure(
             level=logging.INFO,
             traceback_policy=TracebackOptions.HIDE,
@@ -143,7 +143,7 @@ class TestUnify:
         with pytest.raises(
             UnfrozenGlobalOperationError, match="LogSpark logger needs to be frozen"
         ):
-            fresh_log_manager.unify(copy_spark_logger_config=True)
+            fresh_log_manager.unify(spark_logger_instance=spark_logger)
 
     def test_unify_use_spark_handler_success(self, fresh_log_manager, test_handler):
         """Test successful unify() with use_spark_handler=True."""
@@ -152,17 +152,17 @@ class TestUnify:
         fresh_log_manager.adopt(logger)
 
         # Configure and freeze LogSpark
-        from logspark import logger as spark_logger
+        from logspark.Instance import spark_logger
         from logspark.Types.Options import TracebackOptions
 
-        spark_logger.kill()
+        spark_logger._reset()
         spark_logger.configure(
             level=logging.INFO, traceback_policy=TracebackOptions.HIDE, handler=test_handler
         )
         # configure() auto-freezes
 
         # Unify using LogSpark handler
-        fresh_log_manager.unify(copy_spark_logger_config=True)
+        fresh_log_manager.unify(spark_logger_instance=spark_logger)
 
         # Verify handler was copied
         assert len(logger.handlers) == 1

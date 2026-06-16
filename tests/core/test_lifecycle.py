@@ -1,10 +1,10 @@
 """
-Test lifecycle behavior: configure → freeze → kill workflow.
+Test lifecycle behavior: configure → freeze → _reset workflow.
 
 Tests the core lifecycle semantics of LogSpark logger including:
 - configure() auto-freeze behavior
 - frozen configuration immutability
-- kill() reset behavior
+- _reset() reset behavior
 - unconfigured usage warnings
 """
 
@@ -16,14 +16,14 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Core import SparkLogger
 from logspark.Types import FrozenClassException, InvalidConfigurationError
 from logspark.Types.Exceptions import SparkLoggerUnconfiguredUsageWarning
 
 
 class TestLifecycleWorkflow:
-    """Test the configure → freeze → kill workflow."""
+    """Test the configure → freeze → _reset workflow."""
 
     def test_configure_auto_freeze_behavior(self, fresh_logger):
         """Test that configure() automatically freezes configuration."""
@@ -47,7 +47,7 @@ class TestLifecycleWorkflow:
             fresh_logger.configure()
 
     def test_configure_ddtrace_filter_duplicate_prevention(self, fresh_logger):
-        """Test that DDTrace filter is not duplicated on reconfigure after kill."""
+        """Test that DDTrace filter is not duplicated on reconfigure after _reset."""
         from logspark.Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
 
         fresh_logger.configure()
@@ -55,7 +55,7 @@ class TestLifecycleWorkflow:
         ddtrace_filters = [f for f in fresh_logger.filters if isinstance(f, DDTraceInjectionFilter)]
         initial_count = len(ddtrace_filters)
 
-        fresh_logger.kill()
+        fresh_logger._reset()
         fresh_logger.configure()
 
         ddtrace_filters = [f for f in fresh_logger.filters if isinstance(f, DDTraceInjectionFilter)]
@@ -70,13 +70,13 @@ class TestLifecycleWorkflow:
             assert isinstance(fresh_logger.handlers[0], logging.NullHandler)
 
     def test_kill_reset_behavior(self, fresh_logger):
-        """Test that kill() resets logger to unconfigured state."""
+        """Test that _reset() resets logger to unconfigured state."""
         # Configure and verify frozen state
         fresh_logger.configure()
         assert fresh_logger.frozen
 
         # Kill should reset everything
-        fresh_logger.kill()
+        fresh_logger._reset()
 
         # Should be back to unconfigured state
         assert not fresh_logger.frozen
@@ -153,24 +153,30 @@ class TestLifecycleWorkflow:
         assert fresh_logger.name == "LogSpark"
 
     def test_kill_clears_singleton_state(self):
-        """Test that kill() properly clears singleton state."""
-        # Get initial logger instance
-        logger1 = SparkLogger()
-        logger1.configure()
+        """Test that _reset() properly clears singleton state and maintains singleton identity."""
+        from logspark.Instance import spark_logger
 
-        # Kill should reset singleton
-        logger1.kill()
+        # Record initial singleton identity
+        logger_id = id(spark_logger)
 
-        # New instance should be fresh
-        logger2 = SparkLogger()
-        assert not logger2.frozen
+        # Configure the singleton
+        spark_logger.configure()
+        assert spark_logger.frozen
 
-        # Should be able to configure new instance
-        logger2.configure()
-        assert logger2.frozen
+        # _reset() should unfreeze and unconfigure
+        spark_logger._reset()
+        assert not spark_logger.frozen
+        assert not spark_logger.is_configured
+
+        # Singleton identity should be preserved (same object)
+        assert id(spark_logger) == logger_id
+
+        # Should be able to reconfigure
+        spark_logger.configure()
+        assert spark_logger.frozen
 
         # Clean up
-        logger2.kill()
+        spark_logger._reset()
 
 
 class TestIsEnabledForCacheCoherence:
@@ -290,7 +296,7 @@ class TestLifecycleProperties:
             no_freeze=st.booleans(),
         )
         def property_test(level, traceback_policy, no_freeze):
-            fresh_logger.kill()  # Reset for each iteration
+            fresh_logger._reset()  # Reset for each iteration
 
             # Configure with random parameters
             fresh_logger.configure(no_freeze=no_freeze)
@@ -317,7 +323,7 @@ class TestLifecycleProperties:
             second_level=st.sampled_from([logging.ERROR, logging.CRITICAL]),
         )
         def property_test(initial_level, second_level):
-            fresh_logger.kill()  # Reset for each iteration
+            fresh_logger._reset()  # Reset for each iteration
 
             # Configure and freeze
             fresh_logger.configure()
@@ -344,7 +350,7 @@ class TestLifecycleProperties:
             silenced=st.booleans(),
         )
         def property_test(log_method, message, silenced):
-            fresh_logger.kill()  # Reset for each iteration
+            fresh_logger._reset()  # Reset for each iteration
 
             env_patch = {"LOGSPARK_MODE": "silenced"} if silenced else {}
 
@@ -370,7 +376,7 @@ class TestLifecycleProperties:
     def test_property_kill_reset_behavior(self, fresh_logger):
         """
 
-        For any is_configured logger, kill() should reset to unconfigured state allowing reconfiguration.
+        For any is_configured logger, _reset() should reset to unconfigured state allowing reconfiguration.
 
         """
         from hypothesis import given
@@ -381,14 +387,14 @@ class TestLifecycleProperties:
             second_level=st.sampled_from([logging.ERROR, logging.CRITICAL]),
         )
         def property_test(initial_level, second_level):
-            fresh_logger.kill()  # Reset for each iteration
+            fresh_logger._reset()  # Reset for each iteration
 
             # Configure initially
             fresh_logger.configure()
             assert fresh_logger.frozen
 
             # Kill should reset
-            fresh_logger.kill()
+            fresh_logger._reset()
             assert not fresh_logger.frozen
 
             # Should be able to reconfigure
@@ -405,12 +411,12 @@ class TestSingletonProperties:
     @given(st.integers(min_value=1, max_value=10))
     def test_singleton_identity_consistency(self, num_imports):
         """Test that logger and logmanager imports return the same singleton instances"""
-        from logspark import logger as logger2
-        from logspark import spark_log_manager
+        from logspark.Instance import spark_logger as logger2
+        from logspark.Instance import spark_log_manager
 
         logger1 = logger
 
-        from logspark import spark_log_manager as manager2
+        from logspark.Instance import spark_log_manager as manager2
 
         manager1 = spark_log_manager
 
