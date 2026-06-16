@@ -1,5 +1,3 @@
-from .Core import TempLogLevel, spark_log_manager, spark_logger
+from .Core import SparkLogger, SparkLogManager, TempLogLevel
 
-logger = spark_logger
-
-__all__ = ["logger", "spark_logger", "spark_log_manager", "TempLogLevel"]
+__all__ = ["SparkLogger", "SparkLogManager", "TempLogLevel"]

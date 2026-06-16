@@ -12,7 +12,7 @@ A logger is what you call `.info()`, `.debug()`, `.exception()` etc. on, but its
 
 **LogSpark specifics:**
 
-- `SparkLogger` is a singleton: one instance per process
+- `SparkLogger` is a plain class. The pre-built singleton available from `logspark.Instance` provides one instance per process, enforced by `SingletonMeta`.
 - Once `configure()` is called the logger is [frozen](glossary.md#freeze) and cannot be mutated
 - Logging before `configure()` is allowed but emits a [`SparkLoggerUnconfiguredUsageWarning`](reference.md#exceptions)
 
@@ -24,7 +24,7 @@ See [Lifecycle](lifecycle.md).
 
 Routes a log record to a destination. Each handler owns exactly one formatter and delivers records to one output target: a terminal, a file, a network endpoint.
 
-Handlers are stdlib-compatible and can be attached to any `logging.Logger`, not just the LogSpark singleton.
+Handlers are stdlib-compatible and can be attached to any `logging.Logger`, not just the pre-built LogSpark singleton.
 
 | Handler | Output | When to use |
 |---|---|---|

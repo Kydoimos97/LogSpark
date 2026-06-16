@@ -10,7 +10,7 @@ from rich.style import Style
 from rich.table import Table
 from rich.text import Text, TextType
 
-from ..._Internal import _DegradationGates
+from ..._Internal.Types import _DegradationGates
 from ..._Internal.State.Env import get_console_width, is_disable_degradation_mode
 
 FormatTimeCallable: TypeAlias = Callable[[datetime], Text]

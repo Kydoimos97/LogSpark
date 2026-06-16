@@ -238,9 +238,9 @@ class SparkRichHandler(SparkBaseFormatMixin, _RichHandler):
         cols = ", ".join(self._spark_formatter.degraded_columns())
         message = (
             "\nLogSpark layout degraded: \n"
-            "  | terminal width ({width} cols) cannot satisfy the required message width ({message_width} cols)\n"
-            "  | lower-priority metadata columns were hidden to preserve message readability: {cols}\n"
-            "  | increase terminal width or reduce min_message_width to restore full layout."
+            "    terminal width ({width} cols) cannot satisfy the required message width ({message_width} cols)\n"
+            "    lower-priority metadata columns were hidden to preserve message readability: {cols}\n"
+            "    increase terminal width or reduce min_message_width to restore full layout."
         ).format(
             width=self.console.width,
             message_width=self._spark_formatter.min_message_width,

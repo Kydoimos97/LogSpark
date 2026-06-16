@@ -9,7 +9,7 @@ LogSpark supports two output modes: terminal for human-readable development outp
 The default. Produces human-readable output with optional ANSI color.
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure()
 logger.info("Server started", extra={"port": 8080})
@@ -31,7 +31,7 @@ Output (color terminal):
 Controls how exceptions are rendered. Pass via `configure()` or directly to a handler.
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Types.Options import TracebackOptions
 
 logger.configure(traceback_policy=TracebackOptions.COMPACT)
@@ -54,7 +54,7 @@ See [`TracebackOptions`](glossary.md#tracebackoptions) in the glossary.
 Controls how file paths appear in log lines.
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Types.Options import PathResolutionSetting
 
 logger.configure(path_resolution=PathResolutionSetting.RELATIVE)
@@ -75,7 +75,7 @@ See [`PathResolutionSetting`](glossary.md#pathresolutionsetting) in the glossary
 `SparkRichHandler` provides structured column layout, OSC 8 hyperlink file paths, and Rich-rendered exception panels. It requires `rich` and must be passed explicitly to `configure()`:
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 from logspark.Types.Options import SparkRichHandlerSettings
 
@@ -92,7 +92,7 @@ See [`SparkRichHandler`](reference.md#sparkrichhandler) for full options.
 Produces single-line JSON output suitable for log aggregation (Datadog, CloudWatch, Loki, etc.).
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers import SparkJsonHandler
 
 logger.configure(handler=SparkJsonHandler())
@@ -122,7 +122,7 @@ A common pattern is terminal output in development and JSON in production withou
 
 ```python
 import os
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers import SparkJsonHandler
 
 if os.environ.get("LOG_FORMAT") == "json":
@@ -141,7 +141,7 @@ Any stdlib-compatible `logging.Handler` can be passed to `configure()`:
 
 ```python
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 file_handler = logging.FileHandler("app.log")
 file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))

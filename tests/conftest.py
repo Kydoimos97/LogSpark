@@ -77,17 +77,17 @@ def default_mode():
 @pytest.fixture
 def fresh_logger():
     """Provide fresh logger instance with proper cleanup"""
-    from logspark import logger
+    from logspark.Instance import spark_logger as logger
 
-    logger.kill()  # Reset to clean state
+    logger._reset()  # Reset to clean state
     yield logger
-    logger.kill()  # Cleanup
+    logger._reset()  # Cleanup
 
 
 @pytest.fixture
 def fresh_log_manager():
     """Provide fresh log manager with proper cleanup"""
-    from logspark import spark_log_manager
+    from logspark.Instance import spark_log_manager
 
     spark_log_manager.release_all()
     yield spark_log_manager

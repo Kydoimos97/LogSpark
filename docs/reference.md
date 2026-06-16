@@ -16,7 +16,7 @@ Human-readable terminal output. Default handler when `configure()` is called wit
 
 ```python
 from logspark.Handlers import SparkTerminalHandler
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure(handler=SparkTerminalHandler(level="DEBUG", show_function=True))
 ```
@@ -43,7 +43,7 @@ Single-line JSON output for production and log aggregation pipelines.
 
 ```python
 from logspark.Handlers import SparkJsonHandler
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure(handler=SparkJsonHandler())
 ```
@@ -70,7 +70,7 @@ Rich-enhanced terminal output with structured column layout, OSC 8 hyperlink fil
 ```python
 from logspark.Handlers.Rich.SparkRichHandler import SparkRichHandler
 from logspark.Types.Options import SparkRichHandlerSettings
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 settings = SparkRichHandlerSettings(min_message_width=60, max_path_width=40)
 logger.configure(handler=SparkRichHandler(show_function=True, settings=settings))
@@ -241,7 +241,7 @@ See the `SparkRichHandler` parameter table above for field descriptions.
 |---|---|
 | `FrozenClassException` | Any mutation attempt on a frozen logger: `addHandler()`, `addFilter()`, `configure()`, `eject_handlers()`, etc. |
 | `InvalidConfigurationError` | Configuration parameters are invalid or the logger has no handlers when `is_configured` is set |
-| `UnfrozenGlobalOperationError` | An operation requires a frozen logger, e.g. `SparkLogManager.unify(copy_spark_logger_config=True)` before freeze |
+| `UnfrozenGlobalOperationError` | An operation requires a frozen logger, e.g. `SparkLogManager.unify(spark_logger_instance=logger)` before freeze |
 | `MissingDependencyException` | A handler or formatter requires a package that is not installed (`rich`, `python-json-logger`) |
 | `SparkLoggerUnconfiguredUsageWarning` | A log call was made before `configure()`. Emitted once per process. |
 | `SparkLoggerDuplicatedHandlerWarning` | `addHandler()` was called with a handler type already present and `dedupe=False` |

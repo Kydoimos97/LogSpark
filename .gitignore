@@ -18,3 +18,4 @@ __pycache__/
 *.log
 /verify_width_logic.py
 /demo_logspark.py
+/q_demo.py

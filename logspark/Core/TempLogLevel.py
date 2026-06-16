@@ -43,9 +43,9 @@ class TempLogLevel:
     def __enter__(self) -> "TempLogLevel":
         """Enter the override context - adjust logger's effective level"""
         # Get the global logger singleton
-        from .SparkLogger import SparkLogger
+        from ..Instance import spark_logger
 
-        self.logger_instance = SparkLogger()
+        self.logger_instance = spark_logger
 
         # Store original level for restoration
         self.original_level = self.logger_instance.level
@@ -53,7 +53,7 @@ class TempLogLevel:
         # Apply temporary level override
         # This only affects the stdlib logger's effective level, not the configuration
         self.logger_instance.setLevel(self.target_level)
-        # SparkLogger is removed from loggerDict by kill(), so manager._clear_cache()
+        # SparkLogger is removed from loggerDict by _reset(), so manager._clear_cache()
         # (called inside setLevel) never reaches it. Clear the isEnabledFor cache
         # explicitly so the new level is picked up immediately.
         self.logger_instance._cache.clear()  # type: ignore[attr-defined] # ty: ignore[unresolved-attribute]

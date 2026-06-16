@@ -17,7 +17,7 @@ pip install logspark[color]
 ## Minimal setup
 
 ```python
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure()
 
@@ -38,7 +38,7 @@ That is a complete, production-safe setup. `configure()` with no arguments gives
 
 ```python
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure(level=logging.DEBUG)
 ```
@@ -88,7 +88,7 @@ At process startup, before any other module uses the logger:
 ```python
 # main.py or entrypoint
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 
 logger.configure(level=logging.INFO)
 

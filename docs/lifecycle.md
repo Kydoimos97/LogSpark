@@ -24,7 +24,7 @@ LogSpark treats logging as infrastructure. Infrastructure is configured once at 
 
 ```python
 import logging
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark.Types.Options import TracebackOptions, PathResolutionSetting
 
 logger.configure(
@@ -94,16 +94,15 @@ Logging never disappears, but lifecycle violations are always surfaced.
 
 ---
 
-## kill() -- resetting the singleton
+## _reset() -- resetting the logger
 
-`kill()` forcefully resets the logger singleton. It exists for test isolation only.
+``_reset()`` forcefully resets the logger to its pre-configured state. It exists for test isolation only.
 
 ```python
-logger.kill()
-# logger is now uninitialized -- next call creates a fresh instance
+logger._reset()  # logger is now unconfigured -- call configure() to bring it back
 ```
 
-Do not use `kill()` in application code. It bypasses all lifecycle guarantees.
+``_reset()`` resets *state* only. The singleton instance in ``logspark.Instance`` is the same object after the call — it is not replaced. Do not use ``_reset()`` in application code. It bypasses all lifecycle guarantees.
 
 ---
 

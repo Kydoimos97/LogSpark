@@ -13,7 +13,7 @@ from unittest.mock import patch
 from hypothesis import given
 from hypothesis import strategies as st
 
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark._Internal.Func.resolve_stacklevel import _is_internal, resolve_stacklevel
 
 
@@ -225,7 +225,7 @@ class TestStacklevelProperties:
                     def emit(self, record):
                         captured_records.append(record)
 
-                fresh_logger.kill()  # Reset for each iteration
+                fresh_logger._reset()  # Reset for each iteration
                 handler = RecordCapturingHandler()
                 fresh_logger.configure(handler=handler)
 
@@ -274,7 +274,7 @@ class TestCallSiteResolutionProperties:
         import inspect
 
         # Configure logger with test parameters
-        logger.kill()
+        logger._reset()
 
         log_stream = StringIO()
         test_handler = logging.StreamHandler(log_stream)
@@ -355,7 +355,7 @@ class TestCallSiteResolutionProperties:
             return
 
         with patch.dict("os.environ", {"LOGSPARK_MODE": "fast"}):
-            logger.kill()
+            logger._reset()
 
             log_stream = StringIO()
             test_handler = logging.StreamHandler(log_stream)

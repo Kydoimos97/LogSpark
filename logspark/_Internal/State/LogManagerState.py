@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class LogManagerState:
-    """State management for LogManager singleton"""
+    """State management for a LogManager instance"""
 
     managed_loggers: dict[str, logging.Logger]
 

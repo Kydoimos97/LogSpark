@@ -32,9 +32,9 @@ class TestGetMroPrefixes:
     def test_get_mro_prefixes_sparklogger_contains_logspark(self):
         """Test that _get_mro_prefixes on SparkLogger includes 'logspark'."""
         # Kill the singleton to ensure fresh state
-        from logspark import logger
+        from logspark.Instance import spark_logger as logger
 
-        logger.kill()
+        logger._reset()
 
         # Get the type of the singleton
         logger_type = type(logger)
@@ -197,13 +197,13 @@ class TestSubclassStacklevelResolution:
         from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
 
         # Define a subclass
-        class TestSubclass(SparkLogger.__bases__[0]):
+        class TestSubclass(SparkLogger):
             pass
 
         TestSubclass.__module__ = "test_stacklevel_subclass"
 
         # Create instance and test resolution
-        instance = TestSubclass()
+        instance = TestSubclass("TestSubclass")
         instance.setLevel(logging.INFO)
 
         # Capture how resolve_stacklevel is called

@@ -8,7 +8,8 @@ Use this when you need debug output from a specific path without lowering the le
 
 ```python
 import logging
-from logspark import logger, TempLogLevel
+from logspark import TempLogLevel
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers import SparkTerminalHandler
 
 # Pass an explicit handler with the default level (NOTSET) so the logger
@@ -30,7 +31,8 @@ logger.info("after context: back to INFO only")
 
 ```python
 import logging
-from logspark import logger, TempLogLevel
+from logspark import TempLogLevel
+from logspark.Instance import spark_logger as logger
 from logspark.Handlers import SparkTerminalHandler
 
 logger.configure(level=logging.INFO, handler=SparkTerminalHandler())
@@ -46,7 +48,7 @@ Every call to `process_payment()` runs with `DEBUG` level. The original level is
 ## What it does not do
 
 - Does not affect handler-level filtering. `TempLogLevel` lowers the *logger* level only. If the handler has a level set (e.g. the default `configure()` handler is created with the same level as the logger), records still pass through the handler's own level check. Pass `handler=SparkTerminalHandler()` (no explicit level) to let the logger level alone control filtering.
-- Does not affect other loggers, only the LogSpark `logger` singleton.
+- Does not affect other loggers, only the instance it is used with.
 - Does not modify frozen configuration. It is an intentional escape hatch, not a workaround for the freeze.
 
 ---

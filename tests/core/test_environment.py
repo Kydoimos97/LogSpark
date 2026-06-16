@@ -16,7 +16,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from logspark import logger
+from logspark.Instance import spark_logger as logger
 from logspark._Internal.Func.is_color_compatible_terminal import is_color_compatible_terminal
 from logspark._Internal.Func.resolve_stacklevel import resolve_stacklevel
 from logspark._Internal.State import is_fast_mode, is_silenced_mode
@@ -296,7 +296,7 @@ class TestEnvironmentModeProperties:
         )
         def property_test(log_method, message, mode_case):
             with patch.dict("os.environ", {"LOGSPARK_MODE": mode_case}):
-                fresh_logger.kill()  # Reset for each iteration
+                fresh_logger._reset()  # Reset for each iteration
 
                 with warnings.catch_warnings(record=True) as w:
                     warnings.simplefilter("always")
@@ -355,7 +355,7 @@ class TestEnvironmentModeProperties:
                 if "LOGSPARK_MODE" in os.environ:
                     del os.environ["LOGSPARK_MODE"]
 
-                fresh_logger.kill()  # Reset for each iteration
+                fresh_logger._reset()  # Reset for each iteration
 
                 captured_records = []
 
@@ -408,11 +408,8 @@ class TestPreConfigurationValidation:
         beyond emitting unconfigured-usage warnings and should not include implicit mode switching
         """
         # Create fresh logger instance for this test
-        from logspark.Core.SparkLogger import SparkLogger
-
         fresh_logger = logger
-        fresh_logger.kill()
-        fresh_logger = SparkLogger()
+        fresh_logger._reset()
 
         try:
             # Set up warning handling
@@ -488,5 +485,4 @@ class TestPreConfigurationValidation:
 
         finally:
             # Cleanup: reset state
-            fresh_logger.kill()
-            fresh_logger = SparkLogger()
+            fresh_logger._reset()
