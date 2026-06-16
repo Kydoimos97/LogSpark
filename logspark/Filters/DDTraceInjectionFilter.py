@@ -36,7 +36,7 @@ class DDTraceInjectionFilter(logging.Filter):
                     emit_warning(
                         message=(
                             "\nWARNING: DDTrace injection requested but DDTrace is not installed.\n"
-                            "  | No trace association will be available.\n"
+                            "    No trace association will be available.\n"
                         ),
                         category=MissingDependencyWarning,
                         stacklevel=4,

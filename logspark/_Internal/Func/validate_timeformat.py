@@ -20,7 +20,7 @@ def emit_invalid_timeformat_warning() -> None:
 
     msg = (
         "\nWARNING: Requested timeformat is invalid\n"
-        "  | falling back to default timeformat: %H:%M:%S"
+        "    falling back to default timeformat: %H:%M:%S"
     )
 
     emit_warning(

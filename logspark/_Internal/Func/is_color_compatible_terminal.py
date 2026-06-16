@@ -131,10 +131,10 @@ def emit_color_incompatible_rich_console_warning() -> None:
     emit_warning(
         message=(
             "\nWARNING: Rich colored output requested, \n"
-            "  | however the current console does not appear to support ANSI colors.\n"
-            "  | Rich layout and rendering remain active, but output will not be colored.\n"
-            "  | To force Rich color usage, set FORCE_COLOR=true in the environment\n"
-            "  | or pass a Console(force_terminal=True)."
+            "    however the current console does not appear to support ANSI colors.\n"
+            "    Rich layout and rendering remain active, but output will not be colored.\n"
+            "    To force Rich color usage, set FORCE_COLOR=true in the environment\n"
+            "    or pass a Console(force_terminal=True)."
         ),
         category=RichColorDegradedWarning,
         stacklevel=4,
@@ -152,9 +152,9 @@ def emit_color_incompatible_console_warning() -> None:
     emit_warning(
         message=(
             "\nWARNING: Colored output requested,\n"
-            "  | however the current console does not appear to support ANSI escape sequences.\n"
-            "  | The Output will not be colored as a result.\n"
-            "  | To force color usage, set FORCE_COLOR=true in the enviornment."
+            "    however the current console does not appear to support ANSI escape sequences.\n"
+            "    The Output will not be colored as a result.\n"
+            "    To force color usage, set FORCE_COLOR=true in the enviornment."
         ),
         category=AnsiColorDegradedWarning,
         stacklevel=4,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from typing_extensions import TypeVar
+from typing import TypeVar
 
 E = TypeVar("E", bound=Enum)
 

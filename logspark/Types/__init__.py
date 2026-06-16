@@ -15,6 +15,8 @@ from .Options import (
     TracebackOptions,
 )
 
+from .Singleton import is_singleton
+
 __all__ = [
     "FrozenClassException",
     "InvalidConfigurationError",
@@ -28,4 +30,5 @@ __all__ = [
     "PathResolutionSetting",
     "PresetOptions",
     "SparkRichHandlerSettings",
+    "is_singleton",
 ]

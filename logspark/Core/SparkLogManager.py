@@ -3,17 +3,17 @@ import threading
 from typing import TYPE_CHECKING, Callable
 
 from .._Internal.Func import validate_level
-from .._Internal.State import LogManagerState, SingletonClass
+from .._Internal.State import LogManagerState
 from ..Types import InvalidConfigurationError, UnfrozenGlobalOperationError
+from ..Types.Protocol import SupportsFilter
 
 if TYPE_CHECKING:
-    pass
+    from . import SparkLogger
 
 
-@SingletonClass
 class SparkLogManager:
     """
-    Singleton utility for explicit, opt-in batch mutation of stdlib loggers.
+    Utility for explicit, opt-in batch mutation of stdlib loggers.
 
     Provides a controlled way to apply standard logging operations (handler
     replacement, level changes, propagation control) across a selected set of
@@ -35,7 +35,7 @@ class SparkLogManager:
     """
 
     def __init__(self) -> None:
-        """Initialise the singleton with an empty managed-logger set."""
+        """Initialize a new manager with an empty managed-logger set."""
         self._lock = threading.RLock()
         self._state = LogManagerState(managed_loggers={})
 
@@ -146,10 +146,10 @@ class SparkLogManager:
         /,
         level: int | str | None = None,
         handlers: list[logging.Handler] | None = None,
-        filters: list[logging.Filter | logging.Filterer | Callable[[logging.LogRecord], bool]]
+        filters: list[logging.Filter | Callable[[logging.LogRecord], bool] | SupportsFilter]
         | None = None,
         propagate: bool | None = None,
-        copy_spark_logger_config: bool = False,
+        spark_logger_instance: "SparkLogger | None" = None,
     ) -> None:
         """
         Apply logging mutations to all managed loggers in a single batch call.
@@ -161,30 +161,37 @@ class SparkLogManager:
           across all managed loggers. Existing handlers are cleared first.
         - ``filters`` — replace existing filters similarly.
         - ``propagate`` — override the ``propagate`` flag on each managed logger.
-        - ``copy_spark_logger_config=True`` — copy handlers and filters from the
-          frozen LogSpark logger instead of supplying them explicitly. Requires
-          LogSpark to be configured and frozen; raises ``InvalidConfigurationError``
-          or ``UnfrozenGlobalOperationError`` otherwise.
+        - ``spark_logger_instance`` — copy handlers and filters from the
+          supplied ``SparkLogger`` instance instead of specifying them explicitly.
+          Pass ``None`` (the default) to skip config copying. Requires the
+          supplied instance to be configured and frozen; raises
+          ``InvalidConfigurationError`` or ``UnfrozenGlobalOperationError``
+          otherwise.
 
         This operation is destructive and deliberately does not track previous
         state. ``release()`` / ``release_all()`` do not undo applied mutations.
         """
         with self._lock:
             # Get LogSpark logger configuration
-            if copy_spark_logger_config:
-                from . import spark_logger
+            if spark_logger_instance is not None:
+                from . import SparkLogger
 
-                if not spark_logger.frozen:
-                    if not spark_logger.is_configured:
+                if not isinstance(spark_logger_instance, SparkLogger):
+                    raise TypeError("spark_logger_instance must be an instance of SparkLogger")
+
+                if not spark_logger_instance.frozen:
+                    if not spark_logger_instance.is_configured:
                         raise InvalidConfigurationError("LogSpark logger not is_configured")
                     else:
                         raise UnfrozenGlobalOperationError(
                             "LogSpark logger needs to be frozen before copying its handlers"
                         )
                 if not handlers:
-                    handlers = list(spark_logger.handlers)
+                    # noinspection PyTypeChecker,PydanticTypeChecker
+                    handlers = list(spark_logger_instance.handlers)
                 if not filters:
-                    filters = list(spark_logger.filters)  # type: ignore[assignment] # ty: ignore[invalid-assignment]
+                    # noinspection PyTypeChecker,PydanticTypeChecker
+                    filters = list(spark_logger_instance.filters)
 
             if level is not None:
                 v_level = validate_level(level)

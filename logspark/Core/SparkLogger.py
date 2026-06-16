@@ -3,7 +3,7 @@ import threading
 from typing import Any
 
 from .._Internal.Func import emit_warning, resolve_stacklevel, validate_level
-from .._Internal.State import SingletonClass, is_fast_mode
+from .._Internal.State import is_fast_mode
 from .._Internal.State.Env import is_dependency_available
 from ..Filters import PathNormalizationFilter
 from ..Filters.DDTraceInjectionFilter import DDTraceInjectionFilter
@@ -19,14 +19,13 @@ from ..Types import (
 from ..Types.Options import PathResolutionSetting, TracebackOptions
 
 
-@SingletonClass
 class SparkLogger(logging.Logger):
     """
-    Singleton logger with explicit configuration and freeze semantics.
+    Logger with explicit configuration and freeze semantics.
 
-    Lifecycle: ``configure()`` → (optional) ``freeze()`` → use → (optional) ``kill()``.
+    Lifecycle: ``configure()`` → (optional) ``freeze()`` → use → (optional) ``_reset()``.
     Once frozen, all handler, filter, and level configuration is immutable for the
-    lifetime of the instance. ``kill()`` tears down the singleton and clears the
+    lifetime of the instance. ``_reset()`` tears down the logger and clears the
     stdlib logger registry entry, allowing a fresh ``configure()`` call.
 
     Pre-configuration usage is allowed: a one-time warning is emitted and
@@ -38,11 +37,11 @@ class SparkLogger(logging.Logger):
     this instance. ``extra=`` kwargs are forwarded unchanged for structured fields.
     """
 
-    def __init__(self) -> None:
-        super().__init__("LogSpark")
+    def __init__(self, name: str = "LogSpark") -> None:
+        super().__init__(name)
         self._lock = threading.RLock()
         self._stdlib_logger: logging.Logger | None = None
-        self._logger_name = "LogSpark"
+        self._logger_name = name
 
         self._configured = False
         self._frozen = False
@@ -184,7 +183,7 @@ class SparkLogger(logging.Logger):
         # (triggered inside setLevel) never reaches this instance. Stale
         # isEnabledFor cache entries from a previous level would survive and
         # suppress records at the new level. Clear explicitly — same pattern
-        # used in kill() and TempLogLevel.
+        # used in _reset() and TempLogLevel.
         getattr(self, "_cache", {}).clear()
         self.addHandler(handler)
 
@@ -257,8 +256,8 @@ class SparkLogger(logging.Logger):
                     else:
                         emit_warning(
                             message="\nWARNING: Duplicate active handler classes: {name}\n"
-                            "  | This warning indicates that a addHandler call would create a duplicate logging.Handler;\n"
-                            "  | If this is not intended, consider using dedupe=True to avoid duplicates.".format(
+                            "    This warning indicates that a addHandler call would create a duplicate logging.Handler;\n"
+                            "    If this is not intended, consider using dedupe=True to avoid duplicates.".format(
                                 name=type(hdlr).__name__
                             ),
                             category=SparkLoggerDuplicatedHandlerWarning,
@@ -284,8 +283,8 @@ class SparkLogger(logging.Logger):
                     else:
                         emit_warning(
                             message="\nWARNING: Duplicate active filter classes: {name}\n"
-                            "  | This warning indicates that a addFilter call would create a duplicate logging.Filter;\n"
-                            "  | If this is not intended, consider using dedupe=True to avoid duplicates.".format(
+                            "    This warning indicates that a addFilter call would create a duplicate logging.Filter;\n"
+                            "    If this is not intended, consider using dedupe=True to avoid duplicates.".format(
                                 name=type(filter).__name__
                             ),
                             category=SparkLoggerDuplicatedFilterWarning,
@@ -327,21 +326,20 @@ class SparkLogger(logging.Logger):
             self.freeze()
         else:
             raise ValueError(
-                "Cannot unfreeze a logger once it has been frozen to create a new instance call kill()"
+                "Cannot unfreeze a frozen logger. Call _reset() to return to unconfigured state."
             )
 
-    def kill(self) -> None:
+    def _reset(self) -> None:
         """
-        Forcefully tear down the logger and reset the singleton.
+        Forcefully tear down the logger.
 
         This method bypasses the normal LogSpark lifecycle guarantees
         (configure → freeze → use). It exists to support test isolation,
         controlled reinitialization, and advanced tooling.
 
         After calling this method:
-          - the current instance is fully deconfigured
-          - the singleton slot is cleared
-          - the next SparkLogger() call creates a new instance
+          - the current instance is fully deconfigured and returns to
+            pre-``configure()`` state, ready to be reconfigured
 
         WARNING:
             This is not part of the intended production lifecycle.
@@ -371,9 +369,8 @@ class SparkLogger(logging.Logger):
             self._pre_config_setup_done = False
             self._unconfigured_warning_emitted = False
 
-            # Intentionally do not reset Singleton slot
-            # this maintains the relationship between singleton and
-            # the global logging registry
+            # Singleton identity (SingletonMeta._s_instances) is managed by
+            # the Instance layer, not here. _reset() resets state only.
 
     def _log(self, level: int, msg: object, *args: object, **kwargs: Any) -> None:
         """Resolve stacklevel and delegate to stdlib ``Logger._log``."""
@@ -422,8 +419,8 @@ class SparkLogger(logging.Logger):
         if not self._unconfigured_warning_emitted:
             emit_warning(
                 message="\nWARNING: Logger used before configuration.\n"
-                "  | This warning indicates a lifecycle violation;\n"
-                "  | call logger.configure() before logging",
+                "    This warning indicates a lifecycle violation;\n"
+                "    call logger.configure() before logging",
                 category=SparkLoggerUnconfiguredUsageWarning,
                 stacklevel=4,
             )
@@ -434,16 +431,16 @@ class SparkLogger(logging.Logger):
         raise RuntimeError(
             (
                 "\nLogSpark invariant violation detected.\n"
-                "  | A logger named '{name}' already exists in the global logging registry.\n"
-                "  | LogSpark's Singleton Instance requires exclusive ownership of its managed logger,\n"
-                "  | to guarantee single-configuration, determinism, and auditability.\n"
-                "  |\n"
-                "  | This indicates a race condition, re-entrant initialization,\n"
-                "  | or external mutation of logging state prior to LogSpark configuration.\n"
-                "  |\n"
-                "  | LogSpark cannot safely continue in this state and uphold its invariants.\n"
-                "  | Ensure logging is is_configured exactly once, early in process startup,\n"
-                "  | before any threads, workers, or process pools are created.\n"
-                "  | No other code may create or configure this logger name.\n"
+                "    A logger named '{name}' already exists in the global logging registry.\n"
+                "    LogSpark requires exclusive ownership of its managed logger,\n"
+                "    to guarantee single-configuration, determinism, and auditability.\n"
+                "\n"
+                "    This indicates a race condition, re-entrant initialization,\n"
+                "    or external mutation of logging state prior to LogSpark configuration.\n"
+                "\n"
+                "    LogSpark cannot safely continue in this state and uphold its invariants.\n"
+                "    Ensure logging is configured exactly once, early in process startup,\n"
+                "    before any threads, workers, or process pools are created.\n"
+                "    No other code may create or configure this logger name.\n"
             ).format(name=self._logger_name)
         )
