@@ -83,7 +83,12 @@ class SparkLogManager:
         with self._lock:
             self._state.managed_loggers[logger.name] = logger
 
-    def adopt_all(self, ignore: list[str] | None = None, ignore_spark: bool = True) -> None:
+    def adopt_all(
+        self,
+        ignore: list[str] | None = None,
+        ignore_spark: bool = True,
+        include_root: bool = False,
+    ) -> None:
         """
         Snapshot the logging registry and adopt all concrete loggers found.
 
@@ -91,6 +96,13 @@ class SparkLogManager:
         not managed unless explicitly adopted via ``adopt()``. ``PlaceHolder``
         entries in the registry are ignored. By default the ``"LogSpark"``
         logger is excluded via ``ignore_spark=True``.
+
+        The root logger is not part of the logging registry, so it is adopted
+        only with ``include_root=True`` (under its name, ``"root"``). A logger
+        created after the snapshot is not managed, but its records propagate
+        to the root logger; a managed root that ``unify()`` gives a handler
+        then emits them through that handler, instead of through Python's
+        last-resort handler as plain text on stderr.
         """
         ignore = list(ignore) if ignore is not None else []
 
@@ -105,6 +117,11 @@ class SparkLogManager:
                 if isinstance(logger_obj, logging.Logger):
                     if name not in ignore:
                         self._state.managed_loggers[name] = logger_obj
+
+            if include_root:
+                root = logging.getLogger()
+                if root.name not in ignore:
+                    self._state.managed_loggers[root.name] = root
 
     # ----- Release -----
     def release(self, name: str) -> None:

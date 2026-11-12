@@ -27,6 +27,14 @@ spark_log_manager.adopt(logging.getLogger("httpx"))
 
 `adopt_all()` excludes `LogSpark` itself by default. Pass `ignore=["name"]` to exclude additional loggers.
 
+The root logger is not in the logging registry, so `adopt_all()` leaves it out. Pass `include_root=True` to adopt it as well, under the name `"root"`:
+
+```python
+spark_log_manager.adopt_all(include_root=True)
+```
+
+This matters for loggers that are created after the snapshot (some libraries create theirs on first use). They are not managed, but their records propagate to the root logger. Once `unify()` has given a managed root your handler, those records go through it; without a handler on the root, Python's last-resort handler writes them to stderr as plain text.
+
 **Important:** call `adopt_all()` after importing your dependencies, not before. Loggers that have not yet been created cannot be adopted.
 
 ## Applying changes with unify()
