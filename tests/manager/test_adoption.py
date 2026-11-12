@@ -418,3 +418,24 @@ class TestStdlibAPICompliance:
             for logger_name in list(logging.Logger.manager.loggerDict.keys()):
                 if logger_name.startswith("stdlib."):
                     del logging.Logger.manager.loggerDict[logger_name]
+
+
+class TestAdoptRoot:
+    """adopt_all() and the root logger, which the logging registry does not hold."""
+
+    def test_root_is_not_adopted_by_default(self, fresh_log_manager):
+        fresh_log_manager.adopt_all()
+        assert "root" not in fresh_log_manager.managed_names
+
+    def test_include_root_adopts_the_root_logger(self, fresh_log_manager):
+        fresh_log_manager.adopt_all(include_root=True)
+        assert fresh_log_manager.managed("root") is logging.getLogger()
+
+    def test_include_root_respects_ignore(self, fresh_log_manager):
+        fresh_log_manager.adopt_all(ignore=["root"], include_root=True)
+        assert "root" not in fresh_log_manager.managed_names
+
+    def test_include_root_still_adopts_the_registry(self, fresh_log_manager):
+        logging.getLogger("test.adopt_root.registry")
+        fresh_log_manager.adopt_all(include_root=True)
+        assert "test.adopt_root.registry" in fresh_log_manager.managed_names
