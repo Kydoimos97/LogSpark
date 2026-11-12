@@ -1,5 +1,7 @@
-from typing import Optional, Union, Dict, Sequence
+from typing import Optional, Union, Dict, List, Sequence
 import logging
+
+RESERVED_ATTRS: List[str]
 
 class BaseJsonFormatter(logging.Formatter):
     def __init__(
