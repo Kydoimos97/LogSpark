@@ -58,6 +58,8 @@ logger.configure(handler=SparkJsonHandler())
 - No ANSI escape codes
 - Exception tracebacks flattened to single-line strings before serialization
 - `extra` fields appear as top-level JSON keys
+- `filepath` carries the path LogSpark resolved for the record (for example the path relative to the project root), when a LogSpark filter ran on it; `filename` stays the base name
+- uvicorn's `color_message` extra is left out
 
 **Requires:** `python-json-logger`
 
@@ -141,6 +143,31 @@ Attached automatically when `configure()` is called with a `traceback_policy` se
 
 ---
 
+### ContextFilter
+
+Copies fields bound with `bound_context()` onto every record, so they appear as top-level keys in JSON output and can be named in a stdlib format string. Not attached by `configure()`; add it yourself, normally to the handler so it also covers records that other loggers propagate to it.
+
+```python
+from logspark.Filters import ContextFilter, bound_context
+from logspark.Handlers import SparkJsonHandler
+
+handler = SparkJsonHandler()
+handler.addFilter(ContextFilter())
+
+with bound_context(request_id="r-1"):
+    logger.info("handled")  # {"message": "handled", "request_id": "r-1", ...}
+```
+
+`bound_context()` is backed by `contextvars`: a binding is local to the current thread or asyncio task, blocks nest, and the previous bindings come back on exit. `get_bound_context()` returns the current bindings as a read-only mapping.
+
+A bound field never replaces what the record already has. A field passed with `extra=` on the log call wins, and a field named like a `LogRecord` attribute (`name`, `msg`, `message` and so on) is written under `clash_prefix` plus the name.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `clash_prefix` | `str` | `"ctx_"` | Prefix for a field whose name is a `LogRecord` attribute |
+
+---
+
 ### DDTraceInjectionFilter
 
 Injects Datadog trace correlation fields (`dd_trace_id`, `dd_span_id`) into log records when `ddtrace` is active and a span is running. Attached automatically when `ddtrace` is importable. No configuration required.
@@ -186,6 +213,12 @@ Extends `SparkBaseFormatter` with ANSI color coding by log level. Used automatic
 ### SparkJsonFormatter
 
 Wraps `python-json-logger` to enforce the single-line JSON output invariant. Used by [`SparkJsonHandler`](#sparkjsonhandler). Tracebacks are flattened to single-line strings before serialization.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `drop_fields` | `Iterable[str]` | `("color_message",)` | Record attributes left out of the output; pass `()` to keep everything |
+
+A record that carries LogSpark's attributes gets a `filepath` key with the resolved path in POSIX form. Other keyword arguments go to `python-json-logger`'s `JsonFormatter`.
 
 ---
 
